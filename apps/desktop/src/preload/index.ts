@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 
 const api = {
-  ping: () => ipcRenderer.invoke("app:ping")
+  ping: () => ipcRenderer.invoke("app:ping"),
+  restartCore: () => ipcRenderer.invoke("app:restart-core")
 };
 
 if (process.contextIsolated) {

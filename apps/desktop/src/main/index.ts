@@ -14,6 +14,23 @@ let coreRuntime: CoreRuntimeHandle = {
 };
 let isBootstrapped = false;
 
+async function bootstrapCoreRuntime() {
+  try {
+    coreRuntime = await startCoreProcess();
+  } catch (error) {
+    coreRuntime = {
+      state: {
+        managed: false,
+        running: false,
+        apiBase: process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456",
+        port: Number(process.env.ELECTRON_API_PORT || 3456),
+        lastError: error instanceof Error ? error.message : "failed to start core"
+      },
+      stop() {}
+    };
+  }
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -60,22 +77,16 @@ app.whenReady().then(() => {
     core: coreRuntime.state
   }));
 
-  void startCoreProcess()
-    .then((runtime) => {
-      coreRuntime = runtime;
-    })
-    .catch((error) => {
-      coreRuntime = {
-        state: {
-          managed: false,
-          running: false,
-          apiBase: process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456",
-          port: 3456,
-          lastError: error instanceof Error ? error.message : "failed to start core"
-        },
-        stop() {}
-      };
-    })
+  ipcMain.handle("app:restart-core", async () => {
+    coreRuntime.stop();
+    await bootstrapCoreRuntime();
+    return {
+      ok: true,
+      core: coreRuntime.state
+    };
+  });
+
+  void bootstrapCoreRuntime()
     .finally(() => {
       isBootstrapped = true;
       createWindow();

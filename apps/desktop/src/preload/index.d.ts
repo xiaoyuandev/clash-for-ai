@@ -18,6 +18,17 @@ declare global {
           command?: string;
         };
       }>;
+      restartCore: () => Promise<{
+        ok: boolean;
+        core: {
+          managed: boolean;
+          running: boolean;
+          apiBase: string;
+          port: number;
+          lastError?: string;
+          command?: string;
+        };
+      }>;
     };
   }
 }

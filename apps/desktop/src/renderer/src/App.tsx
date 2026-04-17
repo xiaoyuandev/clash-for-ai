@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogsPage } from "./pages/logs-page";
 import { ProvidersPage } from "./pages/providers-page";
+import { SettingsPage } from "./pages/settings-page";
 
 interface DesktopState {
   ok: boolean;
@@ -19,7 +20,7 @@ interface DesktopState {
 
 export default function App() {
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
-  const [view, setView] = useState<"providers" | "logs">("providers");
+  const [view, setView] = useState<"providers" | "logs" | "settings">("providers");
   const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,6 +92,15 @@ export default function App() {
         >
           Logs
         </button>
+        <button
+          type="button"
+          className={view === "settings" ? "nav-button active-nav" : "nav-button"}
+          onClick={() => {
+            setView("settings");
+          }}
+        >
+          Settings
+        </button>
         <span className="runtime-chip">
           core {desktopState?.core.running ? "running" : "not running"} on{" "}
           {desktopState?.core.port ?? "-"}
@@ -98,8 +108,28 @@ export default function App() {
       </nav>
       {view === "providers" ? (
         <ProvidersPage desktopState={desktopState} apiBase={desktopState?.apiBase} />
-      ) : (
+      ) : view === "logs" ? (
         <LogsPage apiBase={desktopState?.apiBase} />
+      ) : (
+        <SettingsPage
+          desktopState={desktopState}
+          onCoreRestart={async () => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            const response = await window.desktopBridge.restartCore();
+            setDesktopState((current) =>
+              current
+                ? {
+                    ...current,
+                    apiBase: response.core.apiBase,
+                    core: response.core
+                  }
+                : null
+            );
+          }}
+        />
       )}
     </>
   );
