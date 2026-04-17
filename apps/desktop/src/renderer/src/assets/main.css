@@ -23,6 +23,29 @@ body {
   min-height: 100vh;
 }
 
+.top-nav {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px 0;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.nav-button {
+  border: 1px solid rgba(255, 248, 240, 0.12);
+  background: rgba(255, 248, 240, 0.06);
+  color: #f6f1e8;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.active-nav {
+  background: rgba(106, 181, 126, 0.18);
+  border-color: rgba(106, 181, 126, 0.4);
+}
+
 .page-shell {
   max-width: 1120px;
   margin: 0 auto;
@@ -87,6 +110,12 @@ h1 {
   margin-bottom: 16px;
   color: #ffbead;
   border-color: rgba(255, 160, 122, 0.4);
+}
+
+.info-panel {
+  margin-bottom: 16px;
+  color: #dff4de;
+  border-color: rgba(106, 181, 126, 0.35);
 }
 
 .health-pill,
@@ -155,6 +184,16 @@ h1 {
   cursor: pointer;
 }
 
+.secondary-button {
+  background: rgba(255, 248, 240, 0.04);
+}
+
+.danger-button,
+.warning-chip {
+  background: rgba(194, 80, 67, 0.22);
+  border-color: rgba(194, 80, 67, 0.4);
+}
+
 .provider-card {
   padding: 18px;
   border-radius: 16px;
@@ -188,6 +227,55 @@ h1 {
   margin-top: 16px;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.log-list {
+  display: grid;
+  gap: 16px;
+}
+
+.log-card {
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(255, 248, 240, 0.05);
+  border: 1px solid rgba(255, 248, 240, 0.12);
+}
+
+.log-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.log-title {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.log-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.log-metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.log-error {
+  margin-top: 14px;
+  color: #ffbead;
+}
+
 .empty-state {
   color: #d8cdc0;
 }
@@ -195,6 +283,7 @@ h1 {
 @media (max-width: 720px) {
   .hero,
   .hero-pills,
+  .log-card-head,
   .section-head,
   .provider-card-head {
     flex-direction: column;

@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import {
   activateProvider,
   createProvider,
+  deleteProvider,
   getHealth,
-  getProviders
+  getProviders,
+  runProviderHealthcheck,
+  updateProvider
 } from "../services/api";
 import type { Provider } from "../types/provider";
 
@@ -25,6 +28,8 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
   const [authMode, setAuthMode] = useState<"bearer" | "x-api-key" | "both">(
     "bearer"
   );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [healthFeedback, setHealthFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,19 +72,25 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
   async function handleCreateProvider(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setHealthFeedback(null);
 
     try {
-      await createProvider({
+      const payload = {
         name,
         base_url: baseUrl,
         api_key: apiKey,
         auth_mode: authMode,
         extra_headers: {}
-      });
+      };
 
-      setName("");
-      setBaseUrl("");
-      setApiKey("");
+      if (editingId) {
+        await updateProvider(editingId, payload);
+      } else {
+        await createProvider(payload);
+      }
+
+      resetForm();
+      setEditingId(null);
       await refreshProviders();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unknown error");
@@ -88,6 +99,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
 
   async function handleActivateProvider(id: string) {
     setError(null);
+    setHealthFeedback(null);
 
     try {
       await activateProvider(id);
@@ -97,6 +109,53 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
         activateError instanceof Error ? activateError.message : "Unknown error"
       );
     }
+  }
+
+  async function handleDeleteProvider(id: string) {
+    setError(null);
+    setHealthFeedback(null);
+
+    try {
+      await deleteProvider(id);
+      if (editingId === id) {
+        resetForm();
+      }
+      await refreshProviders();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unknown error");
+    }
+  }
+
+  async function handleHealthcheck(id: string) {
+    setError(null);
+
+    try {
+      const result = await runProviderHealthcheck(id);
+      setHealthFeedback(
+        `${result.status.toUpperCase()} ${result.status_code} in ${result.latency_ms}ms`
+      );
+      await refreshProviders();
+    } catch (healthError) {
+      setError(healthError instanceof Error ? healthError.message : "Unknown error");
+    }
+  }
+
+  function startEditing(provider: Provider) {
+    setEditingId(provider.id);
+    setName(provider.name);
+    setBaseUrl(provider.base_url);
+    setApiKey("");
+    setAuthMode(provider.auth_mode);
+    setHealthFeedback(null);
+    setError(null);
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setBaseUrl("");
+    setApiKey("");
+    setAuthMode("bearer");
   }
 
   return (
@@ -123,11 +182,12 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
       </section>
 
       {error ? <p className="panel error-panel">{error}</p> : null}
+      {healthFeedback ? <p className="panel info-panel">{healthFeedback}</p> : null}
 
       <section className="panel form-panel">
         <div className="section-head">
-          <h2>Add Provider</h2>
-          <span>desktop baseline</span>
+          <h2>{editingId ? "Edit Provider" : "Add Provider"}</h2>
+          <span>{editingId ? "update existing" : "desktop baseline"}</span>
         </div>
 
         <form className="provider-form" onSubmit={handleCreateProvider}>
@@ -164,7 +224,18 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
               <option value="both">both</option>
             </select>
           </label>
-          <button type="submit">Create Provider</button>
+          <button type="submit">
+            {editingId ? "Save Provider" : "Create Provider"}
+          </button>
+          {editingId ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={resetForm}
+            >
+              Cancel
+            </button>
+          ) : null}
         </form>
       </section>
 
@@ -201,16 +272,45 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
                 </p>
                 <div className="provider-actions">
                   <span className="meta mono">{provider.api_key_masked}</span>
-                  {!provider.status.is_active ? (
+                  <div className="action-row">
+                    {!provider.status.is_active ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleActivateProvider(provider.id);
+                        }}
+                      >
+                        Activate
+                      </button>
+                    ) : null}
                     <button
                       type="button"
+                      className="secondary-button"
                       onClick={() => {
-                        void handleActivateProvider(provider.id);
+                        startEditing(provider);
                       }}
                     >
-                      Activate
+                      Edit
                     </button>
-                  ) : null}
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        void handleHealthcheck(provider.id);
+                      }}
+                    >
+                      Check
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => {
+                        void handleDeleteProvider(provider.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

@@ -1,4 +1,5 @@
 import type { Provider } from "../types/provider";
+import type { RequestLog } from "../types/request-log";
 
 const API_BASE = "http://127.0.0.1:3456";
 
@@ -57,4 +58,65 @@ export async function activateProvider(id: string): Promise<Provider> {
   }
 
   return response.json() as Promise<Provider>;
+}
+
+export async function updateProvider(
+  id: string,
+  input: CreateProviderInput
+): Promise<Provider> {
+  const response = await fetch(`${API_BASE}/api/providers/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Update provider failed with ${response.status}`);
+  }
+
+  return response.json() as Promise<Provider>;
+}
+
+export async function deleteProvider(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/providers/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Delete provider failed with ${response.status}`);
+  }
+}
+
+export interface ProviderHealthcheck {
+  status: string;
+  status_code: number;
+  latency_ms: number;
+  summary: string;
+  checked_at: string;
+  provider_id: string;
+  provider_url: string;
+}
+
+export async function runProviderHealthcheck(
+  id: string
+): Promise<ProviderHealthcheck> {
+  const response = await fetch(`${API_BASE}/api/providers/${id}/healthcheck`, {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Healthcheck failed with ${response.status}`);
+  }
+
+  return response.json() as Promise<ProviderHealthcheck>;
+}
+
+export async function getLogs(limit = 100): Promise<RequestLog[]> {
+  const response = await fetch(`${API_BASE}/api/logs?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error(`Log request failed with ${response.status}`);
+  }
+  return response.json() as Promise<RequestLog[]>;
 }
