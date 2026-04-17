@@ -45,6 +45,10 @@ func (s *Service) GetActive(ctx context.Context) (*Provider, error) {
 	return s.repository.GetActive(ctx)
 }
 
+func (s *Service) GetByID(ctx context.Context, id string) (*Provider, error) {
+	return s.repository.GetByID(ctx, id)
+}
+
 func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	id := fmt.Sprintf("provider-%d", time.Now().UnixNano())
@@ -125,6 +129,17 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 
 	return s.repository.Delete(ctx, id)
+}
+
+func (s *Service) UpdateStatus(ctx context.Context, id string, status Status) (Provider, error) {
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return Provider{}, err
+	}
+
+	item.Status = status
+
+	return s.repository.Update(ctx, *item)
 }
 
 func maskAPIKey(value string) string {

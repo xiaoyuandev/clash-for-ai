@@ -7,17 +7,20 @@ import (
 	"strings"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
 type Router struct {
 	providers *provider.Service
+	health    *health.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, healthService *health.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
+		health:    healthService,
 		gateway:   gatewayHandler,
 	}
 
@@ -92,6 +95,19 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 		}
 
 		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "healthcheck" && req.Method == http.MethodPost:
+		result, err := r.health.CheckProvider(req.Context(), parts[0])
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to run provider healthcheck", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, result)
 	case len(parts) == 1 && req.Method == http.MethodDelete:
 		if err := r.providers.Delete(req.Context(), parts[0]); err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {
