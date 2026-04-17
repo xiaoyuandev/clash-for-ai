@@ -7,7 +7,15 @@ import {
 } from "../services/api";
 import type { Provider } from "../types/provider";
 
-export function ProvidersPage() {
+interface ProvidersPageProps {
+  desktopState: {
+    ok: boolean;
+    runtime: string;
+    platform: string;
+  } | null;
+}
+
+export function ProvidersPage({ desktopState }: ProvidersPageProps) {
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +110,16 @@ export function ProvidersPage() {
             and implementation scaffolding.
           </p>
         </div>
-        <div className={`health-pill health-${health}`}>core: {health}</div>
+        <div className="hero-pills">
+          <div className={`health-pill health-${health}`}>core: {health}</div>
+          <div
+            className={`health-pill ${
+              desktopState?.ok ? "health-ok" : "health-offline"
+            }`}
+          >
+            desktop: {desktopState?.runtime ?? "browser"}
+          </div>
+        </div>
       </section>
 
       {error ? <p className="panel error-panel">{error}</p> : null}

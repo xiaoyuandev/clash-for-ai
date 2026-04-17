@@ -3,8 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k \"pnpm dev:renderer\" \"pnpm dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron electron/main.mjs",
+    "start": "electron electron/main.mjs",
     "build": "tsc -b && vite build"
   },
   "dependencies": {
@@ -16,7 +20,10 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^41.2.1",
     "typescript": "^5.9.2",
-    "vite": "^7.1.3"
+    "vite": "^7.1.3",
+    "wait-on": "^9.0.5"
   }
 }

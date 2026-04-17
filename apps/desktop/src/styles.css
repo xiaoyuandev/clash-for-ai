@@ -37,6 +37,13 @@ body {
   margin-bottom: 32px;
 }
 
+.hero-pills {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   letter-spacing: 0.18em;
