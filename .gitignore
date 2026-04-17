@@ -3,4 +3,9 @@ dist
 .DS_Store
 apps/desktop/dist
 apps/desktop/*.tsbuildinfo
+apps/gateway/.local
+.gocache
+.gomodcache
+core/.gocache
+core/.gomodcache
 core/data

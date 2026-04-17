@@ -11,7 +11,10 @@ var ErrProviderNotFound = errors.New("provider not found")
 type Repository interface {
 	List(ctx context.Context) ([]Provider, error)
 	GetActive(ctx context.Context) (*Provider, error)
+	GetByID(ctx context.Context, id string) (*Provider, error)
 	Create(ctx context.Context, item Provider) (Provider, error)
+	Update(ctx context.Context, item Provider) (Provider, error)
+	Delete(ctx context.Context, id string) error
 	Activate(ctx context.Context, id string) (*Provider, error)
 }
 
@@ -57,6 +60,48 @@ func (r *InMemoryRepository) Create(_ context.Context, item Provider) (Provider,
 	r.items = append(r.items, item)
 
 	return item, nil
+}
+
+func (r *InMemoryRepository) GetByID(_ context.Context, id string) (*Provider, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, item := range r.items {
+		if item.ID == id {
+			provider := item
+			return &provider, nil
+		}
+	}
+
+	return nil, ErrProviderNotFound
+}
+
+func (r *InMemoryRepository) Update(_ context.Context, item Provider) (Provider, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.items {
+		if r.items[i].ID == item.ID {
+			r.items[i] = item
+			return item, nil
+		}
+	}
+
+	return Provider{}, ErrProviderNotFound
+}
+
+func (r *InMemoryRepository) Delete(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+
+	return ErrProviderNotFound
 }
 
 func (r *InMemoryRepository) Activate(_ context.Context, id string) (*Provider, error) {

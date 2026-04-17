@@ -8,6 +8,7 @@ import (
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/api"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/config"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
@@ -16,8 +17,9 @@ func Run() error {
 	cfg := config.Load()
 
 	providerRepository := provider.NewInMemoryRepository()
-	providerService := provider.NewService(providerRepository)
-	gatewayHandler := gateway.NewHandler(providerService)
+	credentialStore := credential.NewInMemoryStore()
+	providerService := provider.NewService(providerRepository, credentialStore)
+	gatewayHandler := gateway.NewHandler(providerService, credentialStore)
 
 	handler := api.NewRouter(providerService, gatewayHandler)
 

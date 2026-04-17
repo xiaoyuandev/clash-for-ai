@@ -76,30 +76,56 @@ func (r *Router) handleProviders(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	path := strings.TrimPrefix(req.URL.Path, "/api/providers/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || parts[1] != "activate" {
-		http.NotFound(w, req)
-		return
-	}
+	switch {
+	case len(parts) == 2 && parts[1] == "activate" && req.Method == http.MethodPost:
+		item, err := r.providers.Activate(req.Context(), parts[0])
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
 
-	item, err := r.providers.Activate(req.Context(), parts[0])
-	if err != nil {
-		if errors.Is(err, provider.ErrProviderNotFound) {
-			http.Error(w, "provider not found", http.StatusNotFound)
+			http.Error(w, "failed to activate provider", http.StatusInternalServerError)
 			return
 		}
 
-		http.Error(w, "failed to activate provider", http.StatusInternalServerError)
-		return
-	}
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 1 && req.Method == http.MethodDelete:
+		if err := r.providers.Delete(req.Context(), parts[0]); err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
 
-	writeJSON(w, http.StatusOK, item)
+			http.Error(w, "failed to delete provider", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	case len(parts) == 1 && req.Method == http.MethodPut:
+		var input provider.UpdateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.providers.Update(req.Context(), parts[0], input)
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to update provider", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, item)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, payload any) {

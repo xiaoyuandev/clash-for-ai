@@ -9,11 +9,11 @@ const (
 )
 
 type Capabilities struct {
-	SupportsOpenAICompatible    bool              `json:"supports_openai_compatible"`
-	SupportsAnthropicCompatible bool              `json:"supports_anthropic_compatible"`
-	SupportsModelsAPI           bool              `json:"supports_models_api"`
-	SupportsBalanceAPI          bool              `json:"supports_balance_api"`
-	SupportsStream              bool              `json:"supports_stream"`
+	SupportsOpenAICompatible    bool `json:"supports_openai_compatible"`
+	SupportsAnthropicCompatible bool `json:"supports_anthropic_compatible"`
+	SupportsModelsAPI           bool `json:"supports_models_api"`
+	SupportsBalanceAPI          bool `json:"supports_balance_api"`
+	SupportsStream              bool `json:"supports_stream"`
 }
 
 type Status struct {
