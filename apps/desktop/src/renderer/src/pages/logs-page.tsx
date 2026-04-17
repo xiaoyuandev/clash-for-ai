@@ -14,6 +14,19 @@ export function LogsPage({ apiBase }: LogsPageProps) {
   const [errorFilter, setErrorFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  async function loadLogs() {
+    setLoading(true);
+    try {
+      const items = await getLogs(50, apiBase);
+      setLogs(items);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -24,6 +37,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
           return;
         }
         setLogs(items);
+        setError(null);
       } catch (loadError) {
         if (cancelled) {
           return;
@@ -88,7 +102,18 @@ export function LogsPage({ apiBase }: LogsPageProps) {
       <section className="panel">
         <div className="section-head">
           <h2>Recent Requests</h2>
-          <span>{loading ? "loading" : `${filteredLogs.length} rows`}</span>
+          <div className="section-actions">
+            <span>{loading ? "loading" : `${filteredLogs.length} rows`}</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void loadLogs();
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="log-filters">
@@ -181,6 +206,12 @@ export function LogsPage({ apiBase }: LogsPageProps) {
                   </p>
                   <p className="meta">
                     at: <span className="mono">{log.timestamp}</span>
+                  </p>
+                  <p className="meta">
+                    local time:{" "}
+                    <span className="mono">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </span>
                   </p>
                 </div>
 
