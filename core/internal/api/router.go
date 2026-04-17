@@ -4,28 +4,33 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
 type Router struct {
 	providers *provider.Service
 	health    *health.Service
+	logs      *logging.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, healthService *health.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
 		health:    healthService,
+		logs:      loggingService,
 		gateway:   gatewayHandler,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", router.handleHealth)
+	mux.HandleFunc("/api/logs", router.handleLogs)
 	mux.HandleFunc("/api/providers", router.handleProviders)
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.Handle("/v1/", router.gateway)
@@ -76,6 +81,28 @@ func (r *Router) handleProviders(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	limit := 100
+	if rawLimit := req.URL.Query().Get("limit"); rawLimit != "" {
+		if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	items, err := r.logs.List(req.Context(), limit)
+	if err != nil {
+		http.Error(w, "failed to list request logs", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {

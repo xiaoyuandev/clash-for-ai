@@ -65,5 +65,29 @@ CREATE TABLE IF NOT EXISTS providers (
 		return fmt.Errorf("migrate providers table: %w", err)
 	}
 
+	const requestLogsTable = `
+CREATE TABLE IF NOT EXISTS request_logs (
+	id TEXT PRIMARY KEY,
+	timestamp TEXT NOT NULL,
+	provider_id TEXT NOT NULL,
+	provider_name TEXT NOT NULL,
+	method TEXT NOT NULL,
+	path TEXT NOT NULL,
+	model TEXT,
+	status_code INTEGER,
+	is_stream INTEGER NOT NULL DEFAULT 0,
+	upstream_host TEXT NOT NULL DEFAULT '',
+	latency_ms INTEGER NOT NULL DEFAULT 0,
+	first_byte_ms INTEGER,
+	first_token_ms INTEGER,
+	error_type TEXT,
+	error_message TEXT,
+	error_snippet TEXT
+);`
+
+	if _, err := s.DB.Exec(requestLogsTable); err != nil {
+		return fmt.Errorf("migrate request_logs table: %w", err)
+	}
+
 	return nil
 }
