@@ -160,6 +160,12 @@ h1 {
   margin-bottom: 20px;
 }
 
+.section-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .provider-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -194,7 +200,8 @@ h1 {
 }
 
 .provider-form button,
-.provider-actions button {
+.provider-actions button,
+.section-actions button {
   cursor: pointer;
 }
 

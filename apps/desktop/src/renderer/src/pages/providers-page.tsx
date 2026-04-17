@@ -32,6 +32,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [healthFeedback, setHealthFeedback] = useState<string | null>(null);
+  const [detailsFeedback, setDetailsFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +76,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     event.preventDefault();
     setError(null);
     setHealthFeedback(null);
+    setDetailsFeedback(null);
 
     try {
       const payload = {
@@ -102,6 +104,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   async function handleActivateProvider(id: string) {
     setError(null);
     setHealthFeedback(null);
+    setDetailsFeedback(null);
 
     try {
       await activateProvider(id, apiBase);
@@ -116,6 +119,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   async function handleDeleteProvider(id: string) {
     setError(null);
     setHealthFeedback(null);
+    setDetailsFeedback(null);
 
     try {
       await deleteProvider(id, apiBase);
@@ -130,6 +134,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
 
   async function handleHealthcheck(id: string) {
     setError(null);
+    setDetailsFeedback(null);
 
     try {
       const result = await runProviderHealthcheck(id, apiBase);
@@ -149,6 +154,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setApiKey("");
     setAuthMode(provider.auth_mode);
     setHealthFeedback(null);
+    setDetailsFeedback(null);
     setError(null);
   }
 
@@ -158,6 +164,43 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setBaseUrl("");
     setApiKey("");
     setAuthMode("bearer");
+    setDetailsFeedback(null);
+  }
+
+  function showCapabilities(provider: Provider) {
+    const supported = [
+      provider.capabilities.supports_models_api ? "models" : null,
+      provider.capabilities.supports_balance_api ? "balance" : null,
+      provider.capabilities.supports_stream ? "stream" : null
+    ].filter(Boolean);
+
+    setDetailsFeedback(
+      supported.length > 0
+        ? `${provider.name}: ${supported.join(", ")} supported`
+        : `${provider.name}: no extra capabilities declared`
+    );
+  }
+
+  function showModelsPlaceholder(provider: Provider) {
+    if (!provider.capabilities.supports_models_api) {
+      setDetailsFeedback(`${provider.name}: /v1/models is not marked as supported`);
+      return;
+    }
+
+    setDetailsFeedback(
+      `${provider.name}: model list UI is not wired yet. Backend capability is declared and can be added next.`
+    );
+  }
+
+  function showBalancePlaceholder(provider: Provider) {
+    if (!provider.capabilities.supports_balance_api) {
+      setDetailsFeedback(`${provider.name}: balance API not supported for this provider`);
+      return;
+    }
+
+    setDetailsFeedback(
+      `${provider.name}: balance adapter is not connected to the desktop UI yet.`
+    );
   }
 
   return (
@@ -185,6 +228,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
 
       {error ? <p className="panel error-panel">{error}</p> : null}
       {healthFeedback ? <p className="panel info-panel">{healthFeedback}</p> : null}
+      {detailsFeedback ? <p className="panel info-panel">{detailsFeedback}</p> : null}
 
       <section className="panel form-panel">
         <div className="section-head">
@@ -278,6 +322,19 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
                     {provider.status.last_healthcheck_at ?? "-"}
                   </span>
                 </p>
+                <p className="meta">
+                  capabilities:{" "}
+                  <span className="mono">
+                    {provider.capabilities.supports_models_api ? "models " : ""}
+                    {provider.capabilities.supports_balance_api ? "balance " : ""}
+                    {provider.capabilities.supports_stream ? "stream" : ""}
+                    {!provider.capabilities.supports_models_api &&
+                    !provider.capabilities.supports_balance_api &&
+                    !provider.capabilities.supports_stream
+                      ? "-"
+                      : ""}
+                  </span>
+                </p>
                 <div className="provider-actions">
                   <span className="meta mono">{provider.api_key_masked}</span>
                   <div className="action-row">
@@ -308,6 +365,33 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
                       }}
                     >
                       Check
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        showCapabilities(provider);
+                      }}
+                    >
+                      Capabilities
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        showModelsPlaceholder(provider);
+                      }}
+                    >
+                      Models
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        showBalancePlaceholder(provider);
+                      }}
+                    >
+                      Balance
                     </button>
                     <button
                       type="button"
