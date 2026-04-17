@@ -1,0 +1,21 @@
+appId: com.xiaoyuandev.clash-for-ai
+productName: Clash for AI
+directories:
+  buildResources: build
+files:
+  - "!**/.vscode/*"
+  - "!src/*"
+  - "!electron.vite.config.{js,ts,mjs,cjs}"
+  - "!{.env,.env.*,README.md}"
+  - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+asarUnpack:
+  - resources/**
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+  extendInfo:
+    - NSDocumentsFolderUsageDescription: Clash for AI may access files in Documents for local tooling workflows.
+    - NSDownloadsFolderUsageDescription: Clash for AI may access files in Downloads for local tooling workflows.
+dmg:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false

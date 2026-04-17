@@ -106,8 +106,8 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
           <p className="eyebrow">Clash for AI</p>
           <h1>Provider Control Plane</h1>
           <p className="subcopy">
-            First-pass desktop shell for provider management, gateway health,
-            and implementation scaffolding.
+            Electron-vite desktop shell aligned to the packaging baseline before
+            further feature development.
           </p>
         </div>
         <div className="hero-pills">
@@ -127,7 +127,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
       <section className="panel form-panel">
         <div className="section-head">
           <h2>Add Provider</h2>
-          <span>in-memory scaffold</span>
+          <span>desktop baseline</span>
         </div>
 
         <form className="provider-form" onSubmit={handleCreateProvider}>
@@ -177,7 +177,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
         {providers.length === 0 ? (
           <div className="empty-state">
             <p>No providers configured yet.</p>
-            <p>Next step is wiring CRUD APIs and secure credential storage.</p>
+            <p>Next step is wiring the rest of the desktop management surface.</p>
           </div>
         ) : (
           <div className="provider-grid">

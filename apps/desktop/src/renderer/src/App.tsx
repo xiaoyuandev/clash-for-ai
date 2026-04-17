@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ProvidersPage } from "../pages/providers-page";
+import { ProvidersPage } from "./pages/providers-page";
 
 interface DesktopState {
   ok: boolean;
@@ -7,16 +7,15 @@ interface DesktopState {
   platform: string;
 }
 
-export function App() {
+export default function App() {
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
 
   useEffect(() => {
-    const bridge = window.desktopBridge;
-    if (!bridge) {
+    if (!window.desktopBridge) {
       return;
     }
 
-    void bridge.ping().then((state) => {
+    void window.desktopBridge.ping().then((state) => {
       setDesktopState(state);
     });
   }, []);

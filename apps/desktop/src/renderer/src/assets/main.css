@@ -194,6 +194,7 @@ h1 {
 
 @media (max-width: 720px) {
   .hero,
+  .hero-pills,
   .section-head,
   .provider-card-head {
     flex-direction: column;

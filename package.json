@@ -6,5 +6,11 @@
   "scripts": {
     "dev": "pnpm --filter desktop dev",
     "build": "pnpm --filter desktop build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
   }
 }
