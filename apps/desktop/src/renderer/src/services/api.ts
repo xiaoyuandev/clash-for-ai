@@ -1,5 +1,6 @@
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
+import type { ProviderModel } from "../types/provider-model";
 
 function getApiBase(apiBase?: string) {
   return apiBase ?? "http://127.0.0.1:3456";
@@ -126,4 +127,15 @@ export async function getLogs(limit = 100, apiBase?: string): Promise<RequestLog
     throw new Error(`Log request failed with ${response.status}`);
   }
   return response.json() as Promise<RequestLog[]>;
+}
+
+export async function getProviderModels(
+  id: string,
+  apiBase?: string
+): Promise<ProviderModel[]> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/models`);
+  if (!response.ok) {
+    throw new Error(`Models request failed with ${response.status}`);
+  }
+  return response.json() as Promise<ProviderModel[]>;
 }

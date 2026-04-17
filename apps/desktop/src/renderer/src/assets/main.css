@@ -172,6 +172,23 @@ h1 {
   gap: 16px;
 }
 
+.models-panel {
+  margin-bottom: 16px;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.model-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 248, 240, 0.05);
+  border: 1px solid rgba(255, 248, 240, 0.12);
+}
+
 .provider-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

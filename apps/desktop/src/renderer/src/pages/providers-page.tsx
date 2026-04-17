@@ -4,10 +4,12 @@ import {
   createProvider,
   deleteProvider,
   getHealth,
+  getProviderModels,
   getProviders,
   runProviderHealthcheck,
   updateProvider
 } from "../services/api";
+import type { ProviderModel } from "../types/provider-model";
 import type { Provider } from "../types/provider";
 
 interface ProvidersPageProps {
@@ -33,6 +35,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [healthFeedback, setHealthFeedback] = useState<string | null>(null);
   const [detailsFeedback, setDetailsFeedback] = useState<string | null>(null);
+  const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
+  const [models, setModels] = useState<ProviderModel[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +81,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setError(null);
     setHealthFeedback(null);
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
 
     try {
       const payload = {
@@ -105,6 +111,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setError(null);
     setHealthFeedback(null);
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
 
     try {
       await activateProvider(id, apiBase);
@@ -120,6 +128,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setError(null);
     setHealthFeedback(null);
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
 
     try {
       await deleteProvider(id, apiBase);
@@ -135,6 +145,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   async function handleHealthcheck(id: string) {
     setError(null);
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
 
     try {
       const result = await runProviderHealthcheck(id, apiBase);
@@ -155,6 +167,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setAuthMode(provider.auth_mode);
     setHealthFeedback(null);
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
     setError(null);
   }
 
@@ -165,6 +179,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setApiKey("");
     setAuthMode("bearer");
     setDetailsFeedback(null);
+    setModels(null);
+    setSelectedProviderName(null);
   }
 
   function showCapabilities(provider: Provider) {
@@ -186,10 +202,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
       setDetailsFeedback(`${provider.name}: /v1/models is not marked as supported`);
       return;
     }
-
-    setDetailsFeedback(
-      `${provider.name}: model list UI is not wired yet. Backend capability is declared and can be added next.`
-    );
   }
 
   function showBalancePlaceholder(provider: Provider) {
@@ -201,6 +213,25 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setDetailsFeedback(
       `${provider.name}: balance adapter is not connected to the desktop UI yet.`
     );
+  }
+
+  async function handleLoadModels(provider: Provider) {
+    setError(null);
+    setHealthFeedback(null);
+    setDetailsFeedback(null);
+
+    try {
+      const items = await getProviderModels(provider.id, apiBase);
+      setSelectedProviderName(provider.name);
+      setModels(items);
+      if (items.length === 0) {
+        setDetailsFeedback(`${provider.name}: no models returned`);
+      }
+    } catch (modelsError) {
+      setError(modelsError instanceof Error ? modelsError.message : "Unknown error");
+      setSelectedProviderName(provider.name);
+      setModels([]);
+    }
   }
 
   return (
@@ -229,6 +260,33 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
       {error ? <p className="panel error-panel">{error}</p> : null}
       {healthFeedback ? <p className="panel info-panel">{healthFeedback}</p> : null}
       {detailsFeedback ? <p className="panel info-panel">{detailsFeedback}</p> : null}
+      {models ? (
+        <section className="panel models-panel">
+          <div className="section-head">
+            <h2>{selectedProviderName ?? "Provider"} Models</h2>
+            <span>{models.length} items</span>
+          </div>
+          {models.length === 0 ? (
+            <div className="empty-state">
+              <p>No models returned.</p>
+            </div>
+          ) : (
+            <div className="model-grid">
+              {models.map((model) => (
+                <article key={model.id} className="model-card">
+                  <p className="mono">{model.id}</p>
+                  <p className="meta">
+                    object: <span className="mono">{model.object ?? "-"}</span>
+                  </p>
+                  <p className="meta">
+                    owner: <span className="mono">{model.owned_by ?? "-"}</span>
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section className="panel form-panel">
         <div className="section-head">
@@ -380,6 +438,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
                       className="secondary-button"
                       onClick={() => {
                         showModelsPlaceholder(provider);
+                        void handleLoadModels(provider);
                       }}
                     >
                       Models

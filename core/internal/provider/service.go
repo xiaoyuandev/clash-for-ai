@@ -2,7 +2,11 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -25,15 +29,25 @@ type UpdateInput struct {
 	APIKey       string            `json:"api_key"`
 }
 
+type ModelInfo struct {
+	ID      string `json:"id"`
+	Object  string `json:"object,omitempty"`
+	OwnedBy string `json:"owned_by,omitempty"`
+}
+
 type Service struct {
 	repository  Repository
 	credentials credential.Store
+	client      *http.Client
 }
 
 func NewService(repository Repository, credentials credential.Store) *Service {
 	return &Service{
 		repository:  repository,
 		credentials: credentials,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -140,6 +154,108 @@ func (s *Service) UpdateStatus(ctx context.Context, id string, status Status) (P
 	item.Status = status
 
 	return s.repository.Update(ctx, *item)
+}
+
+func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, error) {
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL, err := url.Parse(item.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid provider base_url: %w", err)
+	}
+
+	apiKey, err := s.credentials.Get(ctx, item.APIKeyRef)
+	if err != nil {
+		return nil, fmt.Errorf("load provider credential: %w", err)
+	}
+
+	target := *baseURL
+	target.Path = joinURLPath(baseURL.Path, "/models")
+	target.RawPath = target.Path
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("build models request: %w", err)
+	}
+
+	switch item.AuthMode {
+	case AuthModeBearer:
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	case AuthModeAPIKey:
+		req.Header.Set("x-api-key", apiKey)
+	case AuthModeBoth:
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("x-api-key", apiKey)
+	}
+
+	for key, value := range item.ExtraHeaders {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
+	if err != nil {
+		return nil, fmt.Errorf("read models response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("models request failed: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var openAIResponse struct {
+		Data []ModelInfo `json:"data"`
+	}
+	if err := json.Unmarshal(body, &openAIResponse); err == nil && len(openAIResponse.Data) > 0 {
+		return openAIResponse.Data, nil
+	}
+
+	var stringList []string
+	if err := json.Unmarshal(body, &stringList); err == nil && len(stringList) > 0 {
+		items := make([]ModelInfo, 0, len(stringList))
+		for _, id := range stringList {
+			items = append(items, ModelInfo{ID: id})
+		}
+		return items, nil
+	}
+
+	var wrappedStrings struct {
+		Data []string `json:"data"`
+	}
+	if err := json.Unmarshal(body, &wrappedStrings); err == nil && len(wrappedStrings.Data) > 0 {
+		items := make([]ModelInfo, 0, len(wrappedStrings.Data))
+		for _, id := range wrappedStrings.Data {
+			items = append(items, ModelInfo{ID: id})
+		}
+		return items, nil
+	}
+
+	return nil, fmt.Errorf("models response format not recognized")
+}
+
+func joinURLPath(basePath string, requestPath string) string {
+	switch {
+	case basePath == "":
+		if requestPath == "" {
+			return "/"
+		}
+		return requestPath
+	case requestPath == "":
+		return basePath
+	case strings.HasSuffix(basePath, "/") && strings.HasPrefix(requestPath, "/"):
+		return basePath + strings.TrimPrefix(requestPath, "/")
+	case !strings.HasSuffix(basePath, "/") && !strings.HasPrefix(requestPath, "/"):
+		return basePath + "/" + requestPath
+	default:
+		return basePath + requestPath
+	}
 }
 
 func maskAPIKey(value string) string {
