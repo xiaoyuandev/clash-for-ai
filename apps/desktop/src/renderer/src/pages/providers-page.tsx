@@ -37,6 +37,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   const [detailsFeedback, setDetailsFeedback] = useState<string | null>(null);
   const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
   const [models, setModels] = useState<ProviderModel[] | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +70,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiBase]);
 
   async function refreshProviders() {
     const providersData = await getProviders(apiBase);
@@ -200,7 +201,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   function showModelsPlaceholder(provider: Provider) {
     if (!provider.capabilities.supports_models_api) {
       setDetailsFeedback(`${provider.name}: /v1/models is not marked as supported`);
-      return;
     }
   }
 
@@ -219,6 +219,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setError(null);
     setHealthFeedback(null);
     setDetailsFeedback(null);
+    setModelsLoading(true);
 
     try {
       const items = await getProviderModels(provider.id, apiBase);
@@ -231,6 +232,8 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
       setError(modelsError instanceof Error ? modelsError.message : "Unknown error");
       setSelectedProviderName(provider.name);
       setModels([]);
+    } finally {
+      setModelsLoading(false);
     }
   }
 
@@ -264,7 +267,7 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
         <section className="panel models-panel">
           <div className="section-head">
             <h2>{selectedProviderName ?? "Provider"} Models</h2>
-            <span>{models.length} items</span>
+            <span>{modelsLoading ? "loading" : `${models.length} items`}</span>
           </div>
           {models.length === 0 ? (
             <div className="empty-state">
@@ -437,7 +440,10 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
                       type="button"
                       className="secondary-button"
                       onClick={() => {
-                        showModelsPlaceholder(provider);
+                        if (!provider.capabilities.supports_models_api) {
+                          showModelsPlaceholder(provider);
+                          return;
+                        }
                         void handleLoadModels(provider);
                       }}
                     >
