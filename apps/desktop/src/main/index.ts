@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 
+const defaultApiBase = process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456";
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -43,7 +45,8 @@ app.whenReady().then(() => {
   ipcMain.handle("app:ping", async () => ({
     ok: true,
     runtime: "electron",
-    platform: process.platform
+    platform: process.platform,
+    apiBase: defaultApiBase
   }));
 
   createWindow();

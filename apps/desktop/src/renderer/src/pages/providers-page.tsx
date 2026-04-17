@@ -15,10 +15,12 @@ interface ProvidersPageProps {
     ok: boolean;
     runtime: string;
     platform: string;
+    apiBase: string;
   } | null;
+  apiBase?: string;
 }
 
-export function ProvidersPage({ desktopState }: ProvidersPageProps) {
+export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +39,8 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
     async function load() {
       try {
         const [healthData, providersData] = await Promise.all([
-          getHealth(),
-          getProviders()
+          getHealth(apiBase),
+          getProviders(apiBase)
         ]);
 
         if (cancelled) {
@@ -65,7 +67,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
   }, []);
 
   async function refreshProviders() {
-    const providersData = await getProviders();
+    const providersData = await getProviders(apiBase);
     setProviders(providersData);
   }
 
@@ -84,9 +86,9 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
       };
 
       if (editingId) {
-        await updateProvider(editingId, payload);
+        await updateProvider(editingId, payload, apiBase);
       } else {
-        await createProvider(payload);
+        await createProvider(payload, apiBase);
       }
 
       resetForm();
@@ -102,7 +104,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
     setHealthFeedback(null);
 
     try {
-      await activateProvider(id);
+      await activateProvider(id, apiBase);
       await refreshProviders();
     } catch (activateError) {
       setError(
@@ -116,7 +118,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
     setHealthFeedback(null);
 
     try {
-      await deleteProvider(id);
+      await deleteProvider(id, apiBase);
       if (editingId === id) {
         resetForm();
       }
@@ -130,7 +132,7 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
     setError(null);
 
     try {
-      const result = await runProviderHealthcheck(id);
+      const result = await runProviderHealthcheck(id, apiBase);
       setHealthFeedback(
         `${result.status.toUpperCase()} ${result.status_code} in ${result.latency_ms}ms`
       );
@@ -269,6 +271,12 @@ export function ProvidersPage({ desktopState }: ProvidersPageProps) {
                 <p className="meta">
                   health:{" "}
                   <span className="mono">{provider.status.last_health_status}</span>
+                </p>
+                <p className="meta">
+                  checked:{" "}
+                  <span className="mono">
+                    {provider.status.last_healthcheck_at ?? "-"}
+                  </span>
                 </p>
                 <div className="provider-actions">
                   <span className="meta mono">{provider.api_key_masked}</span>

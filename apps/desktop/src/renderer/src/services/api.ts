@@ -1,23 +1,25 @@
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 
-const API_BASE = "http://127.0.0.1:3456";
+function getApiBase(apiBase?: string) {
+  return apiBase ?? "http://127.0.0.1:3456";
+}
 
 export interface HealthResponse {
   status: string;
   version: string;
 }
 
-export async function getHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${API_BASE}/health`);
+export async function getHealth(apiBase?: string): Promise<HealthResponse> {
+  const response = await fetch(`${getApiBase(apiBase)}/health`);
   if (!response.ok) {
     throw new Error(`Health request failed with ${response.status}`);
   }
   return response.json() as Promise<HealthResponse>;
 }
 
-export async function getProviders(): Promise<Provider[]> {
-  const response = await fetch(`${API_BASE}/api/providers`);
+export async function getProviders(apiBase?: string): Promise<Provider[]> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers`);
   if (!response.ok) {
     throw new Error(`Provider request failed with ${response.status}`);
   }
@@ -32,8 +34,11 @@ export interface CreateProviderInput {
   extra_headers: Record<string, string>;
 }
 
-export async function createProvider(input: CreateProviderInput): Promise<Provider> {
-  const response = await fetch(`${API_BASE}/api/providers`, {
+export async function createProvider(
+  input: CreateProviderInput,
+  apiBase?: string
+): Promise<Provider> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -48,8 +53,8 @@ export async function createProvider(input: CreateProviderInput): Promise<Provid
   return response.json() as Promise<Provider>;
 }
 
-export async function activateProvider(id: string): Promise<Provider> {
-  const response = await fetch(`${API_BASE}/api/providers/${id}/activate`, {
+export async function activateProvider(id: string, apiBase?: string): Promise<Provider> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/activate`, {
     method: "POST"
   });
 
@@ -62,9 +67,10 @@ export async function activateProvider(id: string): Promise<Provider> {
 
 export async function updateProvider(
   id: string,
-  input: CreateProviderInput
+  input: CreateProviderInput,
+  apiBase?: string
 ): Promise<Provider> {
-  const response = await fetch(`${API_BASE}/api/providers/${id}`, {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
@@ -79,8 +85,8 @@ export async function updateProvider(
   return response.json() as Promise<Provider>;
 }
 
-export async function deleteProvider(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/providers/${id}`, {
+export async function deleteProvider(id: string, apiBase?: string): Promise<void> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}`, {
     method: "DELETE"
   });
 
@@ -100,9 +106,10 @@ export interface ProviderHealthcheck {
 }
 
 export async function runProviderHealthcheck(
-  id: string
+  id: string,
+  apiBase?: string
 ): Promise<ProviderHealthcheck> {
-  const response = await fetch(`${API_BASE}/api/providers/${id}/healthcheck`, {
+  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/healthcheck`, {
     method: "POST"
   });
 
@@ -113,8 +120,8 @@ export async function runProviderHealthcheck(
   return response.json() as Promise<ProviderHealthcheck>;
 }
 
-export async function getLogs(limit = 100): Promise<RequestLog[]> {
-  const response = await fetch(`${API_BASE}/api/logs?limit=${limit}`);
+export async function getLogs(limit = 100, apiBase?: string): Promise<RequestLog[]> {
+  const response = await fetch(`${getApiBase(apiBase)}/api/logs?limit=${limit}`);
   if (!response.ok) {
     throw new Error(`Log request failed with ${response.status}`);
   }
