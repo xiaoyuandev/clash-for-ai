@@ -6,6 +6,7 @@ interface DesktopState {
   ok: boolean;
   runtime: string;
   platform: string;
+  apiBase: string;
 }
 
 export default function App() {
@@ -44,9 +45,9 @@ export default function App() {
         </button>
       </nav>
       {view === "providers" ? (
-        <ProvidersPage desktopState={desktopState} />
+        <ProvidersPage desktopState={desktopState} apiBase={desktopState?.apiBase} />
       ) : (
-        <LogsPage />
+        <LogsPage apiBase={desktopState?.apiBase} />
       )}
     </>
   );

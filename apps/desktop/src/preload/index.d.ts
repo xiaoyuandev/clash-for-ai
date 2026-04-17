@@ -8,6 +8,7 @@ declare global {
         ok: boolean;
         runtime: string;
         platform: string;
+        apiBase: string;
       }>;
     };
   }

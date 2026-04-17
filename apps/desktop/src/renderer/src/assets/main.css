@@ -168,7 +168,9 @@ h1 {
 }
 
 .provider-form input,
+.log-filters input,
 .provider-form select,
+.log-filters select,
 .provider-form button,
 .provider-actions button {
   border: 1px solid rgba(255, 248, 240, 0.14);
@@ -237,6 +239,24 @@ h1 {
 .log-list {
   display: grid;
   gap: 16px;
+}
+
+.log-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.log-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #e7dbcd;
+}
+
+.search-filter {
+  grid-column: span 2;
 }
 
 .log-card {
