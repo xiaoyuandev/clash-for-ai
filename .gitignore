@@ -9,4 +9,5 @@ apps/gateway/.local
 .gomodcache
 core/.gocache
 core/.gomodcache
+core/bin
 core/data

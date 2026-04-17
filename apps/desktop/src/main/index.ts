@@ -1,8 +1,18 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
+import { startCoreProcess, type CoreRuntimeHandle } from "./core-process";
 
-const defaultApiBase = process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456";
+let coreRuntime: CoreRuntimeHandle = {
+  state: {
+    managed: false,
+    running: false,
+    apiBase: process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456",
+    port: Number(process.env.ELECTRON_API_PORT || 3456)
+  },
+  stop() {}
+};
+let isBootstrapped = false;
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -46,13 +56,33 @@ app.whenReady().then(() => {
     ok: true,
     runtime: "electron",
     platform: process.platform,
-    apiBase: defaultApiBase
+    apiBase: coreRuntime.state.apiBase,
+    core: coreRuntime.state
   }));
 
-  createWindow();
+  void startCoreProcess()
+    .then((runtime) => {
+      coreRuntime = runtime;
+    })
+    .catch((error) => {
+      coreRuntime = {
+        state: {
+          managed: false,
+          running: false,
+          apiBase: process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456",
+          port: 3456,
+          lastError: error instanceof Error ? error.message : "failed to start core"
+        },
+        stop() {}
+      };
+    })
+    .finally(() => {
+      isBootstrapped = true;
+      createWindow();
+    });
 
   app.on("activate", function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (isBootstrapped && BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
@@ -60,4 +90,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  coreRuntime?.stop();
 });

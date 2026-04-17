@@ -9,6 +9,14 @@ declare global {
         runtime: string;
         platform: string;
         apiBase: string;
+        core: {
+          managed: boolean;
+          running: boolean;
+          apiBase: string;
+          port: number;
+          lastError?: string;
+          command?: string;
+        };
       }>;
     };
   }

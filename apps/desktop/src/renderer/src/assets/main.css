@@ -46,6 +46,18 @@ body {
   border-color: rgba(106, 181, 126, 0.4);
 }
 
+.runtime-chip {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 248, 240, 0.12);
+  background: rgba(255, 248, 240, 0.05);
+  color: #d8cdc0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
 .page-shell {
   max-width: 1120px;
   margin: 0 auto;
@@ -304,6 +316,7 @@ h1 {
   .hero,
   .hero-pills,
   .log-card-head,
+  .top-nav,
   .section-head,
   .provider-card-head {
     flex-direction: column;
