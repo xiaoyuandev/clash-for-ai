@@ -6,25 +6,78 @@ function getApiBase(apiBase?: string) {
   return apiBase ?? "http://127.0.0.1:3456";
 }
 
+async function readErrorMessage(response: Response, fallback: string) {
+  const text = (await response.text()).trim();
+  if (!text) {
+    return fallback;
+  }
+
+  try {
+    const payload = JSON.parse(text) as { error?: string; message?: string };
+    const details = [payload.error, payload.message].filter(Boolean).join(": ");
+    return details || `${fallback}: ${text}`;
+  } catch {
+    return `${fallback}: ${text}`;
+  }
+}
+
+async function fetchJson<T>(input: string, init: RequestInit, fallback: string): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    throw new Error(
+      `${fallback} to ${new URL(input).origin}: ${
+        error instanceof Error ? error.message : "network error"
+      }`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `${fallback} with ${response.status}`));
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function fetchVoid(input: string, init: RequestInit, fallback: string): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    throw new Error(
+      `${fallback} to ${new URL(input).origin}: ${
+        error instanceof Error ? error.message : "network error"
+      }`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `${fallback} with ${response.status}`));
+  }
+}
+
 export interface HealthResponse {
   status: string;
   version: string;
 }
 
 export async function getHealth(apiBase?: string): Promise<HealthResponse> {
-  const response = await fetch(`${getApiBase(apiBase)}/health`);
-  if (!response.ok) {
-    throw new Error(`Health request failed with ${response.status}`);
-  }
-  return response.json() as Promise<HealthResponse>;
+  return fetchJson<HealthResponse>(
+    `${getApiBase(apiBase)}/health`,
+    {},
+    "Health request failed"
+  );
 }
 
 export async function getProviders(apiBase?: string): Promise<Provider[]> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers`);
-  if (!response.ok) {
-    throw new Error(`Provider request failed with ${response.status}`);
-  }
-  return response.json() as Promise<Provider[]>;
+  return fetchJson<Provider[]>(
+    `${getApiBase(apiBase)}/api/providers`,
+    {},
+    "Provider request failed"
+  );
 }
 
 export interface CreateProviderInput {
@@ -39,31 +92,27 @@ export async function createProvider(
   input: CreateProviderInput,
   apiBase?: string
 ): Promise<Provider> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
+  return fetchJson<Provider>(
+    `${getApiBase(apiBase)}/api/providers`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
     },
-    body: JSON.stringify(input)
-  });
-
-  if (!response.ok) {
-    throw new Error(`Create provider failed with ${response.status}`);
-  }
-
-  return response.json() as Promise<Provider>;
+    "Create provider failed"
+  );
 }
 
 export async function activateProvider(id: string, apiBase?: string): Promise<Provider> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/activate`, {
-    method: "POST"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Activate provider failed with ${response.status}`);
-  }
-
-  return response.json() as Promise<Provider>;
+  return fetchJson<Provider>(
+    `${getApiBase(apiBase)}/api/providers/${id}/activate`,
+    {
+      method: "POST"
+    },
+    "Activate provider failed"
+  );
 }
 
 export async function updateProvider(
@@ -71,29 +120,27 @@ export async function updateProvider(
   input: CreateProviderInput,
   apiBase?: string
 ): Promise<Provider> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
+  return fetchJson<Provider>(
+    `${getApiBase(apiBase)}/api/providers/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
     },
-    body: JSON.stringify(input)
-  });
-
-  if (!response.ok) {
-    throw new Error(`Update provider failed with ${response.status}`);
-  }
-
-  return response.json() as Promise<Provider>;
+    "Update provider failed"
+  );
 }
 
 export async function deleteProvider(id: string, apiBase?: string): Promise<void> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}`, {
-    method: "DELETE"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Delete provider failed with ${response.status}`);
-  }
+  return fetchVoid(
+    `${getApiBase(apiBase)}/api/providers/${id}`,
+    {
+      method: "DELETE"
+    },
+    "Delete provider failed"
+  );
 }
 
 export interface ProviderHealthcheck {
@@ -110,32 +157,30 @@ export async function runProviderHealthcheck(
   id: string,
   apiBase?: string
 ): Promise<ProviderHealthcheck> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/healthcheck`, {
-    method: "POST"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Healthcheck failed with ${response.status}`);
-  }
-
-  return response.json() as Promise<ProviderHealthcheck>;
+  return fetchJson<ProviderHealthcheck>(
+    `${getApiBase(apiBase)}/api/providers/${id}/healthcheck`,
+    {
+      method: "POST"
+    },
+    "Healthcheck failed"
+  );
 }
 
 export async function getLogs(limit = 100, apiBase?: string): Promise<RequestLog[]> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/logs?limit=${limit}`);
-  if (!response.ok) {
-    throw new Error(`Log request failed with ${response.status}`);
-  }
-  return response.json() as Promise<RequestLog[]>;
+  return fetchJson<RequestLog[]>(
+    `${getApiBase(apiBase)}/api/logs?limit=${limit}`,
+    {},
+    "Log request failed"
+  );
 }
 
 export async function getProviderModels(
   id: string,
   apiBase?: string
 ): Promise<ProviderModel[]> {
-  const response = await fetch(`${getApiBase(apiBase)}/api/providers/${id}/models`);
-  if (!response.ok) {
-    throw new Error(`Models request failed with ${response.status}`);
-  }
-  return response.json() as Promise<ProviderModel[]>;
+  return fetchJson<ProviderModel[]>(
+    `${getApiBase(apiBase)}/api/providers/${id}/models`,
+    {},
+    "Models request failed"
+  );
 }
