@@ -135,6 +135,38 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 		}
 
 		writeJSON(w, http.StatusOK, items)
+	case len(parts) == 2 && parts[1] == "selected-models" && req.Method == http.MethodGet:
+		items, err := r.providers.ListSelectedModels(req.Context(), parts[0])
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to list selected models", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, items)
+	case len(parts) == 2 && parts[1] == "selected-models" && req.Method == http.MethodPut:
+		var input []provider.SelectedModel
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := r.providers.ReplaceSelectedModels(req.Context(), parts[0], input)
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to update selected models", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, items)
 	case len(parts) == 2 && parts[1] == "healthcheck" && req.Method == http.MethodPost:
 		result, err := r.health.CheckProvider(req.Context(), parts[0])
 		if err != nil {

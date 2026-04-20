@@ -210,6 +210,45 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	return s.repository.Update(ctx, *item)
 }
 
+func (s *Service) ListSelectedModels(ctx context.Context, id string) ([]SelectedModel, error) {
+	if _, err := s.repository.GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	return s.repository.ListSelectedModels(ctx, id)
+}
+
+func (s *Service) ReplaceSelectedModels(ctx context.Context, id string, items []SelectedModel) ([]SelectedModel, error) {
+	if _, err := s.repository.GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	normalized := make([]SelectedModel, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+
+	for _, item := range items {
+		modelID := strings.TrimSpace(item.ModelID)
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+
+		seen[modelID] = struct{}{}
+		normalized = append(normalized, SelectedModel{
+			ModelID:  modelID,
+			Position: len(normalized),
+		})
+	}
+
+	if err := s.repository.ReplaceSelectedModels(ctx, id, normalized); err != nil {
+		return nil, err
+	}
+
+	return normalized, nil
+}
+
 func (s *Service) Delete(ctx context.Context, id string) error {
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
@@ -329,5 +368,9 @@ func maskAPIKey(value string) string {
 		return "****"
 	}
 
-	return fmt.Sprintf("****%s", value[len(value)-4:])
+	if len(value) <= 12 {
+		return fmt.Sprintf("%s****", value[:len(value)-4])
+	}
+
+	return fmt.Sprintf("%s****%s", value[:8], value[len(value)-4:])
 }

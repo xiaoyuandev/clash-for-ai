@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,12 +19,14 @@ import (
 
 type ActiveProviderResolver interface {
 	GetActive(ctx context.Context) (*provider.Provider, error)
+	ListSelectedModels(ctx context.Context, id string) ([]provider.SelectedModel, error)
 }
 
 type Handler struct {
 	providers   ActiveProviderResolver
 	credentials credential.Store
 	logs        *logging.Service
+	client      *http.Client
 }
 
 func NewHandler(providers ActiveProviderResolver, credentials credential.Store, logs *logging.Service) *Handler {
@@ -32,6 +34,9 @@ func NewHandler(providers ActiveProviderResolver, credentials credential.Store, 
 		providers:   providers,
 		credentials: credentials,
 		logs:        logs,
+		client: &http.Client{
+			Timeout: 120 * time.Second,
+		},
 	}
 }
 
@@ -94,50 +99,68 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	model := extractModel(r)
-	recorder := newStatusRecorder(w)
-
-	proxy := httputil.NewSingleHostReverseProxy(baseURL)
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-
-		req.URL.Path = joinURLPath(baseURL.Path, strings.TrimPrefix(r.URL.Path, "/v1"))
-		req.URL.RawPath = req.URL.Path
-		req.Host = baseURL.Host
-
-		provider.ApplyCredentialHeaders(req, *activeProvider, apiKey, r.Header)
+	body, bodyErr := readRequestBody(r)
+	if bodyErr != nil {
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		return
 	}
 
-	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, proxyErr error) {
+	selectedModels, err := h.providers.ListSelectedModels(r.Context(), activeProvider.ID)
+	if err != nil {
+		http.Error(w, "failed to load selected models", http.StatusInternalServerError)
+		return
+	}
+
+	attempts, model := buildModelAttempts(r, body, selectedModels)
+	result := h.forwardWithFallback(r.Context(), forwardInput{
+		baseURL:        baseURL,
+		activeProvider: *activeProvider,
+		apiKey:         apiKey,
+		originalHeader: r.Header,
+		method:         r.Method,
+		path:           r.URL.Path,
+		rawQuery:       r.URL.RawQuery,
+		attempts:       attempts,
+	})
+
+	if result.networkError != nil {
 		statusCode := http.StatusBadGateway
-		message := proxyErr.Error()
-		snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, proxyErr.Error())
-		recorder.errorMessage = &message
-		recorder.errorSnippet = &snippet
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(statusCode)
-		_ = json.NewEncoder(rw).Encode(map[string]string{
-			"error":   "upstream_request_failed",
-			"message": proxyErr.Error(),
+		message := result.networkError.Error()
+		snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, message)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		_, _ = w.Write([]byte(snippet))
+		h.recordLog(r.Context(), logging.Entry{
+			ProviderID:   activeProvider.ID,
+			ProviderName: activeProvider.Name,
+			Method:       r.Method,
+			Path:         r.URL.Path,
+			Model:        result.finalModel,
+			StatusCode:   &statusCode,
+			IsStream:     isStreamRequest(r),
+			UpstreamHost: baseURL.Host,
+			LatencyMs:    time.Since(startedAt).Milliseconds(),
+			ErrorMessage: &message,
+			ErrorSnippet: &snippet,
 		})
+		return
 	}
 
-	proxy.ServeHTTP(recorder, r)
+	writeResponse(w, result)
 
 	h.recordLog(r.Context(), logging.Entry{
 		ProviderID:   activeProvider.ID,
 		ProviderName: activeProvider.Name,
 		Method:       r.Method,
 		Path:         r.URL.Path,
-		Model:        model,
-		StatusCode:   recorder.statusCodePtr(),
+		Model:        chooseLogModel(result.finalModel, model),
+		StatusCode:   intPtr(result.statusCode),
 		IsStream:     isStreamRequest(r),
 		UpstreamHost: baseURL.Host,
 		LatencyMs:    time.Since(startedAt).Milliseconds(),
-		FirstByteMs:  recorder.firstByteMsPtr(startedAt),
-		ErrorMessage: recorder.errorMessage,
-		ErrorSnippet: recorder.errorSnippetOrBody(),
+		FirstByteMs:  result.firstByteMsPtr(startedAt),
+		ErrorMessage: result.errorMessage,
+		ErrorSnippet: result.errorSnippet,
 	})
 }
 
@@ -159,30 +182,6 @@ func joinURLPath(basePath string, requestPath string) string {
 	}
 }
 
-func extractModel(r *http.Request) *string {
-	if r.Body == nil {
-		return nil
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil
-	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
-
-	var payload map[string]any
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil
-	}
-
-	modelValue, ok := payload["model"].(string)
-	if !ok || strings.TrimSpace(modelValue) == "" {
-		return nil
-	}
-
-	return &modelValue
-}
-
 func isStreamRequest(r *http.Request) bool {
 	if r.Body == nil {
 		return false
@@ -197,78 +196,238 @@ func (h *Handler) recordLog(ctx context.Context, entry logging.Entry) {
 	_ = h.logs.Record(ctx, entry)
 }
 
-type statusRecorder struct {
-	http.ResponseWriter
-	statusCode    int
-	wroteHeader   bool
-	firstByteAt   time.Time
-	snippetBuffer bytes.Buffer
-	errorMessage  *string
-	errorSnippet  *string
+type attemptSpec struct {
+	model *string
+	body  []byte
 }
 
-func newStatusRecorder(w http.ResponseWriter) *statusRecorder {
-	return &statusRecorder{ResponseWriter: w}
+type forwardInput struct {
+	baseURL        *url.URL
+	activeProvider provider.Provider
+	apiKey         string
+	originalHeader http.Header
+	method         string
+	path           string
+	rawQuery       string
+	attempts       []attemptSpec
 }
 
-func (r *statusRecorder) WriteHeader(statusCode int) {
-	if !r.wroteHeader {
-		r.statusCode = statusCode
-		r.wroteHeader = true
-	}
-	r.ResponseWriter.WriteHeader(statusCode)
+type forwardResult struct {
+	statusCode   int
+	header       http.Header
+	body         []byte
+	firstByteAt  time.Time
+	errorMessage *string
+	errorSnippet *string
+	finalModel   *string
+	networkError error
 }
 
-func (r *statusRecorder) Write(data []byte) (int, error) {
-	if !r.wroteHeader {
-		r.WriteHeader(http.StatusOK)
+func readRequestBody(r *http.Request) ([]byte, error) {
+	if r.Body == nil {
+		return nil, nil
 	}
-	if r.firstByteAt.IsZero() {
-		r.firstByteAt = time.Now()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
 	}
-	if r.snippetBuffer.Len() < 200 {
-		remaining := 200 - r.snippetBuffer.Len()
-		if len(data) < remaining {
-			remaining = len(data)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, nil
+}
+
+func buildModelAttempts(r *http.Request, body []byte, selected []provider.SelectedModel) ([]attemptSpec, *string) {
+	currentModel, payload := extractModelFromBody(body)
+	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
+		return []attemptSpec{{model: currentModel, body: body}}, currentModel
+	}
+
+	orderedModels := make([]string, 0, len(selected))
+	for _, item := range selected {
+		orderedModels = append(orderedModels, item.ModelID)
+	}
+
+	startIndex := 0
+	if currentModel != nil {
+		found := -1
+		for index, modelID := range orderedModels {
+			if modelID == *currentModel {
+				found = index
+				break
+			}
 		}
-		r.snippetBuffer.Write(data[:remaining])
+		if found < 0 {
+			return []attemptSpec{{model: currentModel, body: body}}, currentModel
+		}
+		startIndex = found
 	}
-	return r.ResponseWriter.Write(data)
+
+	attempts := make([]attemptSpec, 0, len(orderedModels)-startIndex)
+	for _, modelID := range orderedModels[startIndex:] {
+		attemptModel := modelID
+		updatedBody := bodyWithModel(payload, modelID, body)
+		attempts = append(attempts, attemptSpec{
+			model: &attemptModel,
+			body:  updatedBody,
+		})
+	}
+
+	return attempts, currentModel
 }
 
-func (r *statusRecorder) statusCodePtr() *int {
-	if r.statusCode == 0 {
+func extractModelFromBody(body []byte) (*string, map[string]any) {
+	if len(body) == 0 {
+		return nil, nil
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, nil
+	}
+
+	modelValue, ok := payload["model"].(string)
+	if !ok || strings.TrimSpace(modelValue) == "" {
+		return nil, payload
+	}
+
+	return &modelValue, payload
+}
+
+func bodyWithModel(payload map[string]any, modelID string, fallback []byte) []byte {
+	clone := make(map[string]any, len(payload))
+	for key, value := range payload {
+		clone[key] = value
+	}
+	clone["model"] = modelID
+
+	encoded, err := json.Marshal(clone)
+	if err != nil {
+		return fallback
+	}
+	return encoded
+}
+
+func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) forwardResult {
+	var lastResult forwardResult
+
+	for index, attempt := range input.attempts {
+		reqURL := *input.baseURL
+		reqURL.Path = joinURLPath(input.baseURL.Path, strings.TrimPrefix(input.path, "/v1"))
+		reqURL.RawPath = reqURL.Path
+		reqURL.RawQuery = input.rawQuery
+
+		req, err := http.NewRequestWithContext(ctx, input.method, reqURL.String(), bytes.NewReader(attempt.body))
+		if err != nil {
+			lastResult.networkError = err
+			lastResult.finalModel = attempt.model
+			return lastResult
+		}
+
+		req.Header = cloneHeader(input.originalHeader)
+		req.Host = input.baseURL.Host
+		req.ContentLength = int64(len(attempt.body))
+		if len(attempt.body) > 0 {
+			req.Header.Set("Content-Length", strconv.Itoa(len(attempt.body)))
+		}
+		provider.ApplyCredentialHeaders(req, input.activeProvider, input.apiKey, input.originalHeader)
+
+		startedAt := time.Now()
+		resp, err := h.client.Do(req)
+		if err != nil {
+			lastResult.finalModel = attempt.model
+			if index < len(input.attempts)-1 {
+				continue
+			}
+			lastResult.networkError = err
+			return lastResult
+		}
+
+		responseBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			lastResult.finalModel = attempt.model
+			lastResult.networkError = readErr
+			return lastResult
+		}
+
+		lastResult = forwardResult{
+			statusCode:  resp.StatusCode,
+			header:      resp.Header.Clone(),
+			body:        responseBody,
+			firstByteAt: startedAt,
+			finalModel:  attempt.model,
+		}
+
+		if resp.StatusCode < 400 {
+			return lastResult
+		}
+
+		message := strings.TrimSpace(string(responseBody))
+		if message != "" {
+			lastResult.errorMessage = &message
+			lastResult.errorSnippet = &message
+		}
+
+		if !isRetryableStatus(resp.StatusCode) || index == len(input.attempts)-1 {
+			return lastResult
+		}
+	}
+
+	return lastResult
+}
+
+func writeResponse(w http.ResponseWriter, result forwardResult) {
+	copyHeaders(w.Header(), result.header)
+	w.WriteHeader(result.statusCode)
+	if len(result.body) > 0 {
+		_, _ = w.Write(result.body)
+	}
+}
+
+func isRetryableStatus(statusCode int) bool {
+	return statusCode == http.StatusTooManyRequests || statusCode >= 500
+}
+
+func cloneHeader(source http.Header) http.Header {
+	cloned := make(http.Header, len(source))
+	for key, values := range source {
+		nextValues := make([]string, len(values))
+		copy(nextValues, values)
+		cloned[key] = nextValues
+	}
+	return cloned
+}
+
+func copyHeaders(target http.Header, source http.Header) {
+	for key := range target {
+		target.Del(key)
+	}
+	for key, values := range source {
+		for _, value := range values {
+			target.Add(key, value)
+		}
+	}
+}
+
+func chooseLogModel(finalModel *string, originalModel *string) *string {
+	if finalModel != nil {
+		return finalModel
+	}
+	return originalModel
+}
+
+func intPtr(value int) *int {
+	if value == 0 {
 		return nil
 	}
-	value := r.statusCode
-	return &value
+	next := value
+	return &next
 }
 
-func (r *statusRecorder) firstByteMsPtr(startedAt time.Time) *int64 {
+func (r *forwardResult) firstByteMsPtr(startedAt time.Time) *int64 {
 	if r.firstByteAt.IsZero() {
 		return nil
 	}
 	value := r.firstByteAt.Sub(startedAt).Milliseconds()
 	return &value
-}
-
-func (r *statusRecorder) snippetPtr() *string {
-	if r.snippetBuffer.Len() == 0 {
-		return nil
-	}
-	value := r.snippetBuffer.String()
-	return &value
-}
-
-func (r *statusRecorder) errorSnippetOrBody() *string {
-	if r.errorSnippet != nil {
-		return r.errorSnippet
-	}
-	return r.snippetPtr()
-}
-
-func (r *statusRecorder) Flush() {
-	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
 }
