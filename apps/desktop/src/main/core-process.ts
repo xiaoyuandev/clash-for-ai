@@ -2,12 +2,18 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createServer } from "node:net";
+import {
+  clearCoreProcessRecord,
+  loadCoreProcessRecord,
+  saveCoreProcessRecord
+} from "./app-config";
 
 export interface CoreRuntimeState {
   managed: boolean;
   running: boolean;
   apiBase: string;
   port: number;
+  pid?: number;
   logRetentionDays: number;
   logMaxRecords: number;
   lastError?: string;
@@ -19,7 +25,13 @@ export interface CoreRuntimeHandle {
   stop: () => void;
 }
 
-export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
+interface StartCoreProcessOptions {
+  desiredPort: number;
+}
+
+export async function startCoreProcess(
+  options: StartCoreProcessOptions
+): Promise<CoreRuntimeHandle> {
   const explicitApiBase = process.env.ELECTRON_API_BASE;
   if (explicitApiBase) {
     console.info(`[core] using external api base ${explicitApiBase}`);
@@ -42,10 +54,50 @@ export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
   const binaryName =
     process.platform === "win32" ? "clash-for-ai-core.exe" : "clash-for-ai-core";
   const binaryPath = join(coreDir, "bin", binaryName);
-  const desiredPort = Number(process.env.ELECTRON_API_PORT || 3456);
-  const port = await pickPort(buildPortCandidates(desiredPort, 10));
+  const port = options.desiredPort;
   const apiBase = `http://127.0.0.1:${port}`;
-  console.info(`[core] selected port ${port}, api base ${apiBase}`);
+  console.info(`[core] using fixed port ${port}, api base ${apiBase}`);
+
+  if (!(await isPortAvailable(port))) {
+    const existingRecord = loadCoreProcessRecord();
+
+    if (await isHealthyCore(apiBase)) {
+      console.info(`[core] reusing existing core at ${apiBase}`);
+      return {
+        state: {
+          managed: false,
+          running: true,
+          apiBase,
+          port,
+          pid: existingRecord?.port === port ? existingRecord.pid : undefined,
+          logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+          logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
+          command:
+            existingRecord?.port === port
+              ? `existing core instance (pid ${existingRecord.pid})`
+              : "existing core instance"
+        },
+        stop() {
+          if (existingRecord?.port === port) {
+            terminatePid(existingRecord.pid);
+          }
+        }
+      };
+    }
+
+    return {
+      state: {
+        managed: false,
+        running: false,
+        apiBase,
+        port,
+        logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+        logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
+        lastError: `Port ${port} is already occupied. Free the port or change the fixed port in Settings.`
+      },
+      stop() {}
+    };
+  }
 
   const explicitCoreExecutable = process.env.CORE_EXECUTABLE;
   if (explicitCoreExecutable) {
@@ -101,15 +153,38 @@ function spawnCoreBinary(
     running: true,
     apiBase,
     port,
+    pid: child.pid ?? undefined,
     logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
     logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
     command: executable
   };
 
+  if (child.pid) {
+    saveCoreProcessRecord({
+      pid: child.pid,
+      port,
+      apiBase,
+      command: executable,
+      managedByApp: true,
+      recordedAt: new Date().toISOString()
+    });
+  }
+
   child.on("exit", (code, signal) => {
     state.running = false;
     state.lastError = `core exited (code=${code ?? "null"}, signal=${signal ?? "null"})`;
     console.error(`[core] process exited: ${state.lastError}`);
+    if (child.pid) {
+      const record = loadCoreProcessRecord();
+      if (record?.pid === child.pid) {
+        clearCoreProcessRecord();
+      }
+    }
+  });
+
+  void waitForHealth(`${apiBase}/health`, 20, 250).catch((error) => {
+    state.lastError = error instanceof Error ? error.message : "core healthcheck failed";
+    console.error(`[core] ${state.lastError}`);
   });
 
   return {
@@ -151,15 +226,33 @@ async function spawnGoCore(
     running: true,
     apiBase,
     port,
+    pid: child.pid ?? undefined,
     logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
     logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
     command
   };
 
+  if (child.pid) {
+    saveCoreProcessRecord({
+      pid: child.pid,
+      port,
+      apiBase,
+      command,
+      managedByApp: true,
+      recordedAt: new Date().toISOString()
+    });
+  }
+
   child.on("exit", (code, signal) => {
     state.running = false;
     state.lastError = `core exited (code=${code ?? "null"}, signal=${signal ?? "null"})`;
     console.error(`[core] process exited: ${state.lastError}`);
+    if (child.pid) {
+      const record = loadCoreProcessRecord();
+      if (record?.pid === child.pid) {
+        clearCoreProcessRecord();
+      }
+    }
   });
 
   try {
@@ -248,26 +341,6 @@ function resolveWorkspaceRoot(startDir: string): string {
   return startDir;
 }
 
-async function pickPort(candidates: number[]): Promise<number> {
-  for (const candidate of candidates) {
-    if (await isPortAvailable(candidate)) {
-      return candidate;
-    }
-  }
-
-  return createEphemeralPort();
-}
-
-function buildPortCandidates(startPort: number, count: number): number[] {
-  const ports: number[] = [];
-
-  for (let offset = 0; offset < count; offset += 1) {
-    ports.push(startPort + offset);
-  }
-
-  return ports;
-}
-
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
@@ -281,23 +354,6 @@ function isPortAvailable(port: number): Promise<boolean> {
     });
 
     server.listen(port, "127.0.0.1");
-  });
-}
-
-function createEphemeralPort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (typeof address === "object" && address?.port) {
-        const port = address.port;
-        server.close(() => resolve(port));
-        return;
-      }
-      server.close(() => reject(new Error("failed to allocate ephemeral port")));
-    });
   });
 }
 
@@ -318,12 +374,40 @@ async function waitForHealth(url: string, attempts: number, intervalMs: number) 
   throw new Error(`core healthcheck did not become ready at ${url}`);
 }
 
+async function isHealthyCore(apiBase: string) {
+  try {
+    await waitForHealth(`${apiBase}/health`, 2, 150);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function terminateChild(child: ChildProcess) {
   if (child.killed) {
     return;
   }
 
+  if (child.pid) {
+    const record = loadCoreProcessRecord();
+    if (record?.pid === child.pid) {
+      clearCoreProcessRecord();
+    }
+  }
+
   child.kill("SIGTERM");
+}
+
+function terminatePid(pid: number) {
+  try {
+    process.kill(pid, "SIGTERM");
+    const record = loadCoreProcessRecord();
+    if (record?.pid === pid) {
+      clearCoreProcessRecord();
+    }
+  } catch (error) {
+    console.error("[core] failed to terminate existing pid:", error);
+  }
 }
 
 function parsePort(apiBase: string): number {

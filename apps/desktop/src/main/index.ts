@@ -1,8 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, shell } from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { autoUpdater } from "electron-updater";
 import { startCoreProcess, type CoreRuntimeHandle } from "./core-process";
+import {
+  loadDesktopConfig,
+  normalizePort,
+  resolveConfiguredPort,
+  saveDesktopConfig,
+  type DesktopConfig,
+  type PortSource
+} from "./app-config";
 
 interface UpdateState {
   currentVersion: string;
@@ -32,7 +40,10 @@ let coreRuntime: CoreRuntimeHandle = {
   },
   stop() {}
 };
+let desktopConfig: DesktopConfig = { apiPort: 3456 };
+let configuredPortSource: PortSource = "default";
 let isBootstrapped = false;
+let mainWindow: BrowserWindow | null = null;
 let updateState: UpdateState = {
   currentVersion: app.getVersion(),
   status: app.isPackaged ? "idle" : "unsupported",
@@ -42,15 +53,18 @@ let updateState: UpdateState = {
 };
 
 async function bootstrapCoreRuntime() {
+  const portInfo = resolveConfiguredPort(desktopConfig);
+  configuredPortSource = portInfo.source;
+
   try {
-    coreRuntime = await startCoreProcess();
+    coreRuntime = await startCoreProcess({ desiredPort: portInfo.port });
   } catch (error) {
     coreRuntime = {
       state: {
         managed: false,
         running: false,
-        apiBase: process.env.ELECTRON_API_BASE ?? "http://127.0.0.1:3456",
-        port: Number(process.env.ELECTRON_API_PORT || 3456),
+        apiBase: process.env.ELECTRON_API_BASE ?? `http://127.0.0.1:${portInfo.port}`,
+        port: portInfo.port,
         logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
         logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
         lastError: error instanceof Error ? error.message : "failed to start core"
@@ -61,7 +75,7 @@ async function bootstrapCoreRuntime() {
 }
 
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     minWidth: 960,
@@ -76,12 +90,12 @@ function createWindow(): void {
   });
 
   mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
+    mainWindow?.show();
   });
 
   if (is.dev) {
     mainWindow.webContents.once("did-frame-finish-load", () => {
-      mainWindow.webContents.openDevTools({ mode: "detach", activate: true });
+      mainWindow?.webContents.openDevTools({ mode: "detach", activate: true });
     });
   }
 
@@ -95,6 +109,24 @@ function createWindow(): void {
   } else {
     void mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
+}
+
+const singleInstanceLock = app.requestSingleInstanceLock();
+
+if (!singleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow) {
+      return;
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+
+    mainWindow.focus();
+  });
 }
 
 function configureAutoUpdater() {
@@ -160,6 +192,7 @@ function configureAutoUpdater() {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("com.xiaoyuandev.clash-for-ai");
   configureAutoUpdater();
+  desktopConfig = loadDesktopConfig();
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
@@ -170,6 +203,10 @@ app.whenReady().then(() => {
     runtime: "electron",
     platform: process.platform,
     apiBase: coreRuntime.state.apiBase,
+    config: {
+      apiPort: desktopConfig.apiPort,
+      apiPortSource: configuredPortSource
+    },
     updates: updateState,
     core: coreRuntime.state
   }));
@@ -179,9 +216,42 @@ app.whenReady().then(() => {
     await bootstrapCoreRuntime();
     return {
       ok: true,
+      config: {
+        apiPort: desktopConfig.apiPort,
+        apiPortSource: configuredPortSource
+      },
       updates: updateState,
       core: coreRuntime.state
     };
+  });
+
+  ipcMain.handle("app:update-core-port", async (_, nextPort: number) => {
+    if (process.env.ELECTRON_API_PORT) {
+      throw new Error("Core port is controlled by ELECTRON_API_PORT and cannot be changed in-app.");
+    }
+
+    desktopConfig = saveDesktopConfig({
+      ...desktopConfig,
+      apiPort: normalizePort(Number(nextPort))
+    });
+
+    coreRuntime.stop();
+    await bootstrapCoreRuntime();
+
+    return {
+      ok: true,
+      config: {
+        apiPort: desktopConfig.apiPort,
+        apiPortSource: configuredPortSource
+      },
+      updates: updateState,
+      core: coreRuntime.state
+    };
+  });
+
+  ipcMain.handle("app:copy-text", async (_, text: string) => {
+    clipboard.writeText(text);
+    return { ok: true };
   });
 
   ipcMain.handle("app:check-updates", async () => {

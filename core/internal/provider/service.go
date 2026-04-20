@@ -54,40 +54,48 @@ func InferAuthMode(name string, baseURL string) AuthMode {
 }
 
 func ApplyCredentialHeaders(req *http.Request, item Provider, apiKey string, source http.Header) {
-	applied := false
-
-	if source != nil {
-		if raw := source.Get("Authorization"); strings.TrimSpace(raw) != "" {
-			req.Header.Set("Authorization", rewriteAuthorizationValue(raw, apiKey))
-			applied = true
-		}
-
-		if strings.TrimSpace(source.Get("x-api-key")) != "" || strings.TrimSpace(source.Get("X-API-Key")) != "" {
-			req.Header.Set("x-api-key", apiKey)
-			applied = true
-		}
-
-		if strings.TrimSpace(source.Get("api-key")) != "" || strings.TrimSpace(source.Get("Api-Key")) != "" {
-			req.Header.Set("api-key", apiKey)
-			applied = true
-		}
+	mode := item.AuthMode
+	if mode == "" {
+		mode = InferAuthMode(item.Name, item.BaseURL)
 	}
 
-	if !applied {
-		switch InferAuthMode(item.Name, item.BaseURL) {
-		case AuthModeAPIKey:
-			req.Header.Set("x-api-key", apiKey)
-			if req.Header.Get("anthropic-version") == "" {
-				req.Header.Set("anthropic-version", "2023-06-01")
+	switch mode {
+	case AuthModeAPIKey:
+		req.Header.Del("Authorization")
+		req.Header.Set("x-api-key", apiKey)
+		if source != nil {
+			if strings.TrimSpace(source.Get("api-key")) != "" || strings.TrimSpace(source.Get("Api-Key")) != "" {
+				req.Header.Set("api-key", apiKey)
 			}
-		default:
-			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
+		if req.Header.Get("anthropic-version") == "" {
+			req.Header.Set("anthropic-version", "2023-06-01")
+		}
+	case AuthModeBoth:
+		req.Header.Set("Authorization", rewriteAuthorizationValue(readAuthorizationValue(source), apiKey))
+		req.Header.Set("x-api-key", apiKey)
+		if source != nil {
+			if strings.TrimSpace(source.Get("api-key")) != "" || strings.TrimSpace(source.Get("Api-Key")) != "" {
+				req.Header.Set("api-key", apiKey)
+			}
+		}
+	default:
+		req.Header.Del("x-api-key")
+		req.Header.Del("api-key")
+		req.Header.Set("Authorization", rewriteAuthorizationValue(readAuthorizationValue(source), apiKey))
 	}
 
 	for key, value := range item.ExtraHeaders {
 		req.Header.Set(key, value)
 	}
+}
+
+func readAuthorizationValue(source http.Header) string {
+	if source == nil {
+		return ""
+	}
+
+	return source.Get("Authorization")
 }
 
 func rewriteAuthorizationValue(original string, apiKey string) string {

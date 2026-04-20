@@ -8,6 +8,10 @@ interface DesktopState {
   runtime: string;
   platform: string;
   apiBase: string;
+  config: {
+    apiPort: number;
+    apiPortSource: "default" | "config" | "env";
+  };
   updates: {
     currentVersion: string;
     status:
@@ -29,6 +33,7 @@ interface DesktopState {
     running: boolean;
     apiBase: string;
     port: number;
+    pid?: number;
     logRetentionDays: number;
     logMaxRecords: number;
     lastError?: string;
@@ -131,6 +136,31 @@ export default function App() {
       ) : (
         <SettingsPage
           desktopState={desktopState}
+          onCopyText={async (text) => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            await window.desktopBridge.copyText(text);
+          }}
+          onUpdateCorePort={async (port) => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            const response = await window.desktopBridge.updateCorePort(port);
+            setDesktopState((current) =>
+              current
+                ? {
+                    ...current,
+                    config: response.config,
+                    updates: response.updates,
+                    apiBase: response.core.apiBase,
+                    core: response.core
+                  }
+                : null
+            );
+          }}
           onCheckUpdates={async () => {
             if (!window.desktopBridge) {
               return;
@@ -165,6 +195,7 @@ export default function App() {
               current
                 ? {
                     ...current,
+                    config: response.config,
                     updates: response.updates,
                     apiBase: response.core.apiBase,
                     core: response.core
