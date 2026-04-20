@@ -202,6 +202,11 @@ h1 {
   color: #e7dbcd;
 }
 
+.field-hint {
+  color: #cdbda9;
+  font-size: 13px;
+}
+
 .provider-form input,
 .log-filters input,
 .provider-form select,

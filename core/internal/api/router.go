@@ -68,7 +68,7 @@ func (r *Router) handleProviders(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if input.AuthMode == "" {
-			input.AuthMode = provider.AuthModeBearer
+			input.AuthMode = provider.InferAuthMode(input.Name, input.BaseURL)
 		}
 
 		item, err := r.providers.Create(req.Context(), input)
@@ -165,6 +165,10 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
+		}
+
+		if input.AuthMode == "" {
+			input.AuthMode = provider.InferAuthMode(input.Name, input.BaseURL)
 		}
 
 		item, err := r.providers.Update(req.Context(), parts[0], input)

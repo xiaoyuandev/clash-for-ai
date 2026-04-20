@@ -50,6 +50,12 @@ function createWindow(): void {
     mainWindow.show();
   });
 
+  if (is.dev) {
+    mainWindow.webContents.once("did-frame-finish-load", () => {
+      mainWindow.webContents.openDevTools({ mode: "detach", activate: true });
+    });
+  }
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     void shell.openExternal(details.url);
     return { action: "deny" };

@@ -31,7 +31,7 @@ export interface CreateProviderInput {
   name: string;
   base_url: string;
   api_key: string;
-  auth_mode: "bearer" | "x-api-key" | "both";
+  auth_mode?: "bearer" | "x-api-key" | "both";
   extra_headers: Record<string, string>;
 }
 

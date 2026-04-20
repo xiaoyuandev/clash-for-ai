@@ -22,16 +22,16 @@ interface ProvidersPageProps {
   apiBase?: string;
 }
 
-export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
+export function ProvidersPage({
+  desktopState,
+  apiBase
+}: ProvidersPageProps) {
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [authMode, setAuthMode] = useState<"bearer" | "x-api-key" | "both">(
-    "bearer"
-  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [healthFeedback, setHealthFeedback] = useState<string | null>(null);
   const [detailsFeedback, setDetailsFeedback] = useState<string | null>(null);
@@ -90,7 +90,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
         name,
         base_url: baseUrl,
         api_key: apiKey,
-        auth_mode: authMode,
         extra_headers: {}
       };
 
@@ -165,7 +164,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setName(provider.name);
     setBaseUrl(provider.base_url);
     setApiKey("");
-    setAuthMode(provider.auth_mode);
     setHealthFeedback(null);
     setDetailsFeedback(null);
     setModels(null);
@@ -178,7 +176,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
     setName("");
     setBaseUrl("");
     setApiKey("");
-    setAuthMode("bearer");
     setDetailsFeedback(null);
     setModels(null);
     setSelectedProviderName(null);
@@ -317,19 +314,10 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="sk-example"
             />
-          </label>
-          <label>
-            <span>Auth Mode</span>
-            <select
-              value={authMode}
-              onChange={(event) =>
-                setAuthMode(event.target.value as "bearer" | "x-api-key" | "both")
-              }
-            >
-              <option value="bearer">bearer</option>
-              <option value="x-api-key">x-api-key</option>
-              <option value="both">both</option>
-            </select>
+            <span className="field-hint">
+              Authentication header is detected automatically from the provider name
+              and base URL.
+            </span>
           </label>
           <button type="submit">
             {editingId ? "Save Provider" : "Create Provider"}
@@ -370,9 +358,6 @@ export function ProvidersPage({ desktopState, apiBase }: ProvidersPageProps) {
                   )}
                 </div>
                 <p className="mono">{provider.base_url}</p>
-                <p className="meta">
-                  auth: <span className="mono">{provider.auth_mode}</span>
-                </p>
                 <p className="meta">
                   health:{" "}
                   <span className="mono">{provider.status.last_health_status}</span>

@@ -105,23 +105,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.URL.Path = joinURLPath(baseURL.Path, strings.TrimPrefix(r.URL.Path, "/v1"))
 		req.URL.RawPath = req.URL.Path
 		req.Host = baseURL.Host
-		req.Header.Del("Authorization")
-		req.Header.Del("X-API-Key")
-		req.Header.Del("x-api-key")
 
-		switch activeProvider.AuthMode {
-		case provider.AuthModeBearer:
-			req.Header.Set("Authorization", "Bearer "+apiKey)
-		case provider.AuthModeAPIKey:
-			req.Header.Set("x-api-key", apiKey)
-		case provider.AuthModeBoth:
-			req.Header.Set("Authorization", "Bearer "+apiKey)
-			req.Header.Set("x-api-key", apiKey)
-		}
-
-		for key, value := range activeProvider.ExtraHeaders {
-			req.Header.Set(key, value)
-		}
+		provider.ApplyCredentialHeaders(req, *activeProvider, apiKey, r.Header)
 	}
 
 	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, proxyErr error) {

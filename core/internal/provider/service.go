@@ -41,6 +41,69 @@ type Service struct {
 	client      *http.Client
 }
 
+func InferAuthMode(name string, baseURL string) AuthMode {
+	source := strings.ToLower(strings.TrimSpace(name) + " " + strings.TrimSpace(baseURL))
+
+	if strings.Contains(source, "anthropic") ||
+		strings.Contains(source, "claude") ||
+		strings.Contains(source, "x-api-key") {
+		return AuthModeAPIKey
+	}
+
+	return AuthModeBearer
+}
+
+func ApplyCredentialHeaders(req *http.Request, item Provider, apiKey string, source http.Header) {
+	applied := false
+
+	if source != nil {
+		if raw := source.Get("Authorization"); strings.TrimSpace(raw) != "" {
+			req.Header.Set("Authorization", rewriteAuthorizationValue(raw, apiKey))
+			applied = true
+		}
+
+		if strings.TrimSpace(source.Get("x-api-key")) != "" || strings.TrimSpace(source.Get("X-API-Key")) != "" {
+			req.Header.Set("x-api-key", apiKey)
+			applied = true
+		}
+
+		if strings.TrimSpace(source.Get("api-key")) != "" || strings.TrimSpace(source.Get("Api-Key")) != "" {
+			req.Header.Set("api-key", apiKey)
+			applied = true
+		}
+	}
+
+	if !applied {
+		switch InferAuthMode(item.Name, item.BaseURL) {
+		case AuthModeAPIKey:
+			req.Header.Set("x-api-key", apiKey)
+			if req.Header.Get("anthropic-version") == "" {
+				req.Header.Set("anthropic-version", "2023-06-01")
+			}
+		default:
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+	}
+
+	for key, value := range item.ExtraHeaders {
+		req.Header.Set(key, value)
+	}
+}
+
+func rewriteAuthorizationValue(original string, apiKey string) string {
+	trimmed := strings.TrimSpace(original)
+	if trimmed == "" {
+		return "Bearer " + apiKey
+	}
+
+	parts := strings.Fields(trimmed)
+	if len(parts) >= 2 {
+		return parts[0] + " " + apiKey
+	}
+
+	return apiKey
+}
+
 func NewService(repository Repository, credentials credential.Store) *Service {
 	return &Service{
 		repository:  repository,
@@ -66,6 +129,9 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Provider, error) {
 func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	id := fmt.Sprintf("provider-%d", time.Now().UnixNano())
+	if input.AuthMode == "" {
+		input.AuthMode = InferAuthMode(input.Name, input.BaseURL)
+	}
 	apiKeyRef, err := s.credentials.Save(ctx, fmt.Sprintf("provider/%s/api-key", id), input.APIKey)
 	if err != nil {
 		return Provider{}, err
@@ -105,6 +171,10 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return Provider{}, err
+	}
+
+	if input.AuthMode == "" {
+		input.AuthMode = InferAuthMode(input.Name, input.BaseURL)
 	}
 
 	item.Name = strings.TrimSpace(input.Name)
@@ -181,19 +251,7 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 		return nil, fmt.Errorf("build models request: %w", err)
 	}
 
-	switch item.AuthMode {
-	case AuthModeBearer:
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	case AuthModeAPIKey:
-		req.Header.Set("x-api-key", apiKey)
-	case AuthModeBoth:
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("x-api-key", apiKey)
-	}
-
-	for key, value := range item.ExtraHeaders {
-		req.Header.Set(key, value)
-	}
+	ApplyCredentialHeaders(req, *item, apiKey, nil)
 
 	resp, err := s.client.Do(req)
 	if err != nil {

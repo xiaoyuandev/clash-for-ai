@@ -69,19 +69,7 @@ func (s *Service) CheckProvider(ctx context.Context, id string) (*CheckResult, e
 		return nil, fmt.Errorf("build healthcheck request: %w", err)
 	}
 
-	switch item.AuthMode {
-	case provider.AuthModeBearer:
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	case provider.AuthModeAPIKey:
-		req.Header.Set("x-api-key", apiKey)
-	case provider.AuthModeBoth:
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("x-api-key", apiKey)
-	}
-
-	for key, value := range item.ExtraHeaders {
-		req.Header.Set(key, value)
-	}
+	provider.ApplyCredentialHeaders(req, *item, apiKey, nil)
 
 	startedAt := time.Now()
 	resp, err := s.client.Do(req)
