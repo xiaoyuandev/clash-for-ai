@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { LogsPage } from "./pages/logs-page";
+import { ModelsPage } from "./pages/models-page";
 import { ProvidersPage } from "./pages/providers-page";
 import { SettingsPage } from "./pages/settings-page";
+import type { Provider } from "./types/provider";
 
 interface DesktopState {
   ok: boolean;
@@ -43,8 +45,9 @@ interface DesktopState {
 
 export default function App() {
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
-  const [view, setView] = useState<"providers" | "logs" | "settings">("providers");
+  const [view, setView] = useState<"providers" | "models" | "logs" | "settings">("providers");
   const [bootError, setBootError] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
 
   useEffect(() => {
     if (!window.desktopBridge) {
@@ -95,116 +98,133 @@ export default function App() {
   }
 
   return (
-    <>
-      <nav className="top-nav">
-        <button
-          type="button"
-          className={view === "providers" ? "nav-button active-nav" : "nav-button"}
-          onClick={() => {
-            setView("providers");
-          }}
-        >
-          Providers
-        </button>
-        <button
-          type="button"
-          className={view === "logs" ? "nav-button active-nav" : "nav-button"}
-          onClick={() => {
-            setView("logs");
-          }}
-        >
-          Logs
-        </button>
-        <button
-          type="button"
-          className={view === "settings" ? "nav-button active-nav" : "nav-button"}
-          onClick={() => {
-            setView("settings");
-          }}
-        >
-          Settings
-        </button>
-        <span className="runtime-chip">
-          core {desktopState?.core.running ? "running" : "not running"} on{" "}
-          {desktopState?.core.port ?? "-"}
-        </span>
-      </nav>
-      {view === "providers" ? (
-        <ProvidersPage desktopState={desktopState} apiBase={desktopState?.apiBase} />
-      ) : view === "logs" ? (
-        <LogsPage apiBase={desktopState?.apiBase} />
-      ) : (
-        <SettingsPage
-          desktopState={desktopState}
-          onCopyText={async (text) => {
-            if (!window.desktopBridge) {
-              return;
-            }
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div>
+          <p className="eyebrow">Clash for AI</p>
+          <h2 className="sidebar-title">Desktop Gateway</h2>
+          <p className="meta">
+            {selectedProvider ? `Current provider: ${selectedProvider.name}` : "Select a provider to manage models."}
+          </p>
+        </div>
 
-            await window.desktopBridge.copyText(text);
-          }}
-          onUpdateCorePort={async (port) => {
-            if (!window.desktopBridge) {
-              return;
-            }
+        <nav className="sidebar-nav">
+          {[
+            ["providers", "Providers"],
+            ["models", "Models"],
+            ["logs", "Logs"],
+            ["settings", "Settings"]
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={view === id ? "nav-button active-nav" : "nav-button"}
+              onClick={() => {
+                setView(id as typeof view);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
-            const response = await window.desktopBridge.updateCorePort(port);
-            setDesktopState((current) =>
-              current
-                ? {
-                    ...current,
-                    config: response.config,
-                    updates: response.updates,
-                    apiBase: response.core.apiBase,
-                    core: response.core
-                  }
-                : null
-            );
-          }}
-          onCheckUpdates={async () => {
-            if (!window.desktopBridge) {
-              return;
-            }
+        <div className="sidebar-runtime">
+          <span className="runtime-chip">
+            core {desktopState?.core.running ? "running" : "not running"} on{" "}
+            {desktopState?.core.port ?? "-"}
+          </span>
+        </div>
+      </aside>
 
-            const updates = await window.desktopBridge.checkUpdates();
-            setDesktopState((current) => (current ? { ...current, updates } : current));
-          }}
-          onDownloadUpdate={async () => {
-            if (!window.desktopBridge) {
-              return;
-            }
+      <section className="content-shell">
+        {view === "providers" ? (
+          <ProvidersPage
+            desktopState={desktopState}
+            apiBase={desktopState?.apiBase}
+            selectedProviderId={selectedProvider?.id ?? null}
+            onSelectedProviderChange={setSelectedProvider}
+          />
+        ) : view === "models" ? (
+          <ModelsPage
+            apiBase={desktopState?.apiBase}
+            selectedProvider={selectedProvider}
+            onSelectedProviderChange={setSelectedProvider}
+          />
+        ) : view === "logs" ? (
+          <LogsPage apiBase={desktopState?.apiBase} />
+        ) : (
+          <SettingsPage
+            desktopState={desktopState}
+            onCopyText={async (text) => {
+              if (!window.desktopBridge) {
+                return;
+              }
 
-            const updates = await window.desktopBridge.downloadUpdate();
-            setDesktopState((current) => (current ? { ...current, updates } : current));
-          }}
-          onQuitAndInstallUpdate={async () => {
-            if (!window.desktopBridge) {
-              return;
-            }
+              await window.desktopBridge.copyText(text);
+            }}
+            onUpdateCorePort={async (port) => {
+              if (!window.desktopBridge) {
+                return;
+              }
 
-            const updates = await window.desktopBridge.quitAndInstallUpdate();
-            setDesktopState((current) => (current ? { ...current, updates } : current));
-          }}
-          onCoreRestart={async () => {
-            if (!window.desktopBridge) {
-              return;
-            }
+              const response = await window.desktopBridge.updateCorePort(port);
+              setDesktopState((current) =>
+                current
+                  ? {
+                      ...current,
+                      config: response.config,
+                      updates: response.updates,
+                      apiBase: response.core.apiBase,
+                      core: response.core
+                    }
+                  : null
+              );
+            }}
+            onCheckUpdates={async () => {
+              if (!window.desktopBridge) {
+                return;
+              }
 
-            const response = await window.desktopBridge.restartCore();
-            setDesktopState((current) =>
-              current
-                ? {
-                    ...current,
-                    config: response.config,
-                    updates: response.updates,
-                    apiBase: response.core.apiBase,
-                    core: response.core
-                  }
-                : null
-            );
-          }}
-        />
-      )}
-    </>
+              const updates = await window.desktopBridge.checkUpdates();
+              setDesktopState((current) => (current ? { ...current, updates } : current));
+            }}
+            onDownloadUpdate={async () => {
+              if (!window.desktopBridge) {
+                return;
+              }
+
+              const updates = await window.desktopBridge.downloadUpdate();
+              setDesktopState((current) => (current ? { ...current, updates } : current));
+            }}
+            onQuitAndInstallUpdate={async () => {
+              if (!window.desktopBridge) {
+                return;
+              }
+
+              const updates = await window.desktopBridge.quitAndInstallUpdate();
+              setDesktopState((current) => (current ? { ...current, updates } : current));
+            }}
+            onCoreRestart={async () => {
+              if (!window.desktopBridge) {
+                return;
+              }
+
+              const response = await window.desktopBridge.restartCore();
+              setDesktopState((current) =>
+                current
+                  ? {
+                      ...current,
+                      config: response.config,
+                      updates: response.updates,
+                      apiBase: response.core.apiBase,
+                      core: response.core
+                    }
+                  : null
+              );
+            }}
+          />
+        )}
+      </section>
+    </div>
   );
 }

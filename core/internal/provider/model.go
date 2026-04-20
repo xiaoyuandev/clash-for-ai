@@ -33,3 +33,8 @@ type Provider struct {
 	Status       Status            `json:"status"`
 	APIKeyMasked string            `json:"api_key_masked"`
 }
+
+type SelectedModel struct {
+	ModelID  string `json:"model_id"`
+	Position int    `json:"position"`
+}

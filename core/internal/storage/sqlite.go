@@ -97,5 +97,25 @@ ON request_logs (timestamp DESC);`
 		return fmt.Errorf("migrate request_logs timestamp index: %w", err)
 	}
 
+	const providerSelectedModelsTable = `
+CREATE TABLE IF NOT EXISTS provider_selected_models (
+	provider_id TEXT NOT NULL,
+	model_id TEXT NOT NULL,
+	position INTEGER NOT NULL,
+	PRIMARY KEY (provider_id, model_id)
+);`
+
+	if _, err := s.DB.Exec(providerSelectedModelsTable); err != nil {
+		return fmt.Errorf("migrate provider_selected_models table: %w", err)
+	}
+
+	const providerSelectedModelsIndex = `
+CREATE INDEX IF NOT EXISTS idx_provider_selected_models_position
+ON provider_selected_models (provider_id, position ASC);`
+
+	if _, err := s.DB.Exec(providerSelectedModelsIndex); err != nil {
+		return fmt.Errorf("migrate provider_selected_models index: %w", err)
+	}
+
 	return nil
 }

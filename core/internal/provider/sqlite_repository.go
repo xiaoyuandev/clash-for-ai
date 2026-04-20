@@ -79,6 +79,65 @@ WHERE id = ?`, id)
 	return &item, nil
 }
 
+func (r *SQLiteRepository) ListSelectedModels(ctx context.Context, providerID string) ([]SelectedModel, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT model_id, position
+FROM provider_selected_models
+WHERE provider_id = ?
+ORDER BY position ASC, model_id ASC`, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("list selected models: %w", err)
+	}
+	defer rows.Close()
+
+	items := []SelectedModel{}
+	for rows.Next() {
+		var item SelectedModel
+		if err := rows.Scan(&item.ModelID, &item.Position); err != nil {
+			return nil, fmt.Errorf("scan selected model: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate selected models: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *SQLiteRepository) ReplaceSelectedModels(ctx context.Context, providerID string, items []SelectedModel) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin replace selected models tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM provider_selected_models WHERE provider_id = ?`, providerID); err != nil {
+		return fmt.Errorf("delete selected models: %w", err)
+	}
+
+	for index, item := range items {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO provider_selected_models (provider_id, model_id, position)
+VALUES (?, ?, ?)`,
+			providerID,
+			item.ModelID,
+			index,
+		); err != nil {
+			return fmt.Errorf("insert selected model: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit replace selected models tx: %w", err)
+	}
+
+	return nil
+}
+
 func (r *SQLiteRepository) Create(ctx context.Context, item Provider) (Provider, error) {
 	extraHeadersJSON, err := json.Marshal(item.ExtraHeaders)
 	if err != nil {
@@ -158,6 +217,10 @@ WHERE id = ?`,
 }
 
 func (r *SQLiteRepository) Delete(ctx context.Context, id string) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM provider_selected_models WHERE provider_id = ?`, id); err != nil {
+		return fmt.Errorf("delete selected models for provider: %w", err)
+	}
+
 	result, err := r.db.ExecContext(ctx, `DELETE FROM providers WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete provider: %w", err)

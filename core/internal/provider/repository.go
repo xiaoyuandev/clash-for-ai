@@ -12,6 +12,8 @@ type Repository interface {
 	List(ctx context.Context) ([]Provider, error)
 	GetActive(ctx context.Context) (*Provider, error)
 	GetByID(ctx context.Context, id string) (*Provider, error)
+	ListSelectedModels(ctx context.Context, providerID string) ([]SelectedModel, error)
+	ReplaceSelectedModels(ctx context.Context, providerID string, items []SelectedModel) error
 	Create(ctx context.Context, item Provider) (Provider, error)
 	Update(ctx context.Context, item Provider) (Provider, error)
 	Delete(ctx context.Context, id string) error
@@ -60,6 +62,14 @@ func (r *InMemoryRepository) Create(_ context.Context, item Provider) (Provider,
 	r.items = append(r.items, item)
 
 	return item, nil
+}
+
+func (r *InMemoryRepository) ListSelectedModels(context.Context, string) ([]SelectedModel, error) {
+	return []SelectedModel{}, nil
+}
+
+func (r *InMemoryRepository) ReplaceSelectedModels(context.Context, string, []SelectedModel) error {
+	return nil
 }
 
 func (r *InMemoryRepository) GetByID(_ context.Context, id string) (*Provider, error) {

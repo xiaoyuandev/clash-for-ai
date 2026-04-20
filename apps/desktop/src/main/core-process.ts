@@ -104,11 +104,18 @@ export async function startCoreProcess(
     return spawnCoreBinary(explicitCoreExecutable, coreDir, port, apiBase);
   }
 
+  const goBinary = resolveGoBinary();
+  if (goBinary) {
+    const builtBinary = buildCoreBinary(goBinary, coreDir, binaryPath);
+    if (builtBinary) {
+      return spawnCoreBinary(builtBinary, coreDir, port, apiBase);
+    }
+  }
+
   if (existsSync(binaryPath)) {
     return spawnCoreBinary(binaryPath, coreDir, port, apiBase);
   }
 
-  const goBinary = resolveGoBinary();
   if (!goBinary) {
     return {
       state: {
