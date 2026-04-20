@@ -38,6 +38,7 @@ export function ProvidersPage({
   const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
   const [models, setModels] = useState<ProviderModel[] | null>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,11 +86,17 @@ export function ProvidersPage({
     setModels(null);
     setSelectedProviderName(null);
 
+    if (!name.trim() || !baseUrl.trim() || !apiKey.trim()) {
+      setError("Name, Base URL, and API Key are required.");
+      return;
+    }
+
     try {
+      setSubmitting(true);
       const payload = {
-        name,
-        base_url: baseUrl,
-        api_key: apiKey,
+        name: name.trim(),
+        base_url: baseUrl.trim(),
+        api_key: apiKey.trim(),
         extra_headers: {}
       };
 
@@ -101,9 +108,12 @@ export function ProvidersPage({
 
       resetForm();
       setEditingId(null);
+      setHealthFeedback(editingId ? "Provider updated." : "Provider created.");
       await refreshProviders();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -244,6 +254,10 @@ export function ProvidersPage({
             Electron-vite desktop shell aligned to the packaging baseline before
             further feature development.
           </p>
+          <p className="meta">
+            connected api base:{" "}
+            <span className="mono">{apiBase ?? "http://127.0.0.1:3456"}</span>
+          </p>
         </div>
         <div className="hero-pills">
           <div className={`health-pill health-${health}`}>core: {health}</div>
@@ -297,11 +311,16 @@ export function ProvidersPage({
         <form className="provider-form" onSubmit={handleCreateProvider}>
           <label>
             <span>Name</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} />
+            <input
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
           </label>
           <label>
             <span>Base URL</span>
             <input
+              required
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
               placeholder="https://api.example.com/v1"
@@ -310,23 +329,32 @@ export function ProvidersPage({
           <label>
             <span>API Key</span>
             <input
+              required
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="sk-example"
+              type="password"
             />
             <span className="field-hint">
               Authentication header is detected automatically from the provider name
               and base URL.
             </span>
           </label>
-          <button type="submit">
-            {editingId ? "Save Provider" : "Create Provider"}
+          <button type="submit" disabled={submitting}>
+            {submitting
+              ? editingId
+                ? "Saving..."
+                : "Creating..."
+              : editingId
+                ? "Save Provider"
+                : "Create Provider"}
           </button>
           {editingId ? (
             <button
               type="button"
               className="secondary-button"
               onClick={resetForm}
+              disabled={submitting}
             >
               Cancel
             </button>

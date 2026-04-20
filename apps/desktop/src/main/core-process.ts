@@ -20,6 +20,7 @@ export interface CoreRuntimeHandle {
 export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
   const explicitApiBase = process.env.ELECTRON_API_BASE;
   if (explicitApiBase) {
+    console.info(`[core] using external api base ${explicitApiBase}`);
     return {
       state: {
         managed: false,
@@ -38,8 +39,9 @@ export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
     process.platform === "win32" ? "clash-for-ai-core.exe" : "clash-for-ai-core";
   const binaryPath = join(coreDir, "bin", binaryName);
   const desiredPort = Number(process.env.ELECTRON_API_PORT || 3456);
-  const port = await pickPort([desiredPort, 3457, 3458, 3459, 3460]);
+  const port = await pickPort(buildPortCandidates(desiredPort, 10));
   const apiBase = `http://127.0.0.1:${port}`;
+  console.info(`[core] selected port ${port}, api base ${apiBase}`);
 
   const explicitCoreExecutable = process.env.CORE_EXECUTABLE;
   if (explicitCoreExecutable) {
@@ -78,6 +80,7 @@ function spawnCoreBinary(
   port: number,
   apiBase: string
 ): CoreRuntimeHandle {
+  console.info(`[core] starting binary ${executable} on port ${port}`);
   const child = spawn(executable, [], {
     cwd: coreDir,
     stdio: "inherit",
@@ -98,6 +101,7 @@ function spawnCoreBinary(
   child.on("exit", (code, signal) => {
     state.running = false;
     state.lastError = `core exited (code=${code ?? "null"}, signal=${signal ?? "null"})`;
+    console.error(`[core] process exited: ${state.lastError}`);
   });
 
   return {
@@ -122,6 +126,7 @@ async function spawnGoCore(
   mkdirSync(modCacheDir, { recursive: true });
 
   const command = `${goBinary} run cmd/clash-for-ai-core/main.go`;
+  console.info(`[core] starting via go run on port ${port}`);
   const child = spawn(goBinary, ["run", "cmd/clash-for-ai-core/main.go"], {
     cwd: coreDir,
     stdio: "inherit",
@@ -144,12 +149,15 @@ async function spawnGoCore(
   child.on("exit", (code, signal) => {
     state.running = false;
     state.lastError = `core exited (code=${code ?? "null"}, signal=${signal ?? "null"})`;
+    console.error(`[core] process exited: ${state.lastError}`);
   });
 
   try {
     await waitForHealth(`${apiBase}/health`, 20, 250);
+    console.info(`[core] healthcheck ready at ${apiBase}/health`);
   } catch (error) {
     state.lastError = error instanceof Error ? error.message : "core healthcheck failed";
+    console.error(`[core] ${state.lastError}`);
   }
 
   return {
@@ -238,6 +246,16 @@ async function pickPort(candidates: number[]): Promise<number> {
   }
 
   return createEphemeralPort();
+}
+
+function buildPortCandidates(startPort: number, count: number): number[] {
+  const ports: number[] = [];
+
+  for (let offset = 0; offset < count; offset += 1) {
+    ports.push(startPort + offset);
+  }
+
+  return ports;
 }
 
 function isPortAvailable(port: number): Promise<boolean> {
