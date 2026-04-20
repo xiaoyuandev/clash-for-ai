@@ -35,7 +35,7 @@ func NewRouter(providers *provider.Service, healthService *health.Service, loggi
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.Handle("/v1/", router.gateway)
 
-	return mux
+	return withCORS(mux)
 }
 
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -192,4 +192,19 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, x-api-key, api-key")
+
+		if req.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, req)
+	})
 }
