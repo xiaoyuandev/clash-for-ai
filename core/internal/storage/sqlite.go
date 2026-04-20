@@ -89,5 +89,13 @@ CREATE TABLE IF NOT EXISTS request_logs (
 		return fmt.Errorf("migrate request_logs table: %w", err)
 	}
 
+	const requestLogsTimestampIndex = `
+CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp
+ON request_logs (timestamp DESC);`
+
+	if _, err := s.DB.Exec(requestLogsTimestampIndex); err != nil {
+		return fmt.Errorf("migrate request_logs timestamp index: %w", err)
+	}
+
 	return nil
 }

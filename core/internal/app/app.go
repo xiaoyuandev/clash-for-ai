@@ -33,7 +33,7 @@ func Run() error {
 
 	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
 	logRepository := logging.NewSQLiteRepository(sqliteStore.DB)
-	logService := logging.NewService(logRepository)
+	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	healthService := health.NewService(providerService, credentialStore)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)

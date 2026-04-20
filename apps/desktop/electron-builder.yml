@@ -18,4 +18,9 @@ mac:
     - NSDownloadsFolderUsageDescription: Clash for AI may access files in Downloads for local tooling workflows.
 dmg:
   artifactName: ${name}-${version}.${ext}
+publish:
+  provider: github
+  owner: xiaoyuandev
+  repo: clash-for-ai
+  releaseType: release
 npmRebuild: false

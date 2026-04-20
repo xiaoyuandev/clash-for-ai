@@ -8,6 +8,8 @@ export interface CoreRuntimeState {
   running: boolean;
   apiBase: string;
   port: number;
+  logRetentionDays: number;
+  logMaxRecords: number;
   lastError?: string;
   command?: string;
 }
@@ -26,7 +28,9 @@ export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
         managed: false,
         running: true,
         apiBase: explicitApiBase,
-        port: parsePort(explicitApiBase)
+        port: parsePort(explicitApiBase),
+        logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+        logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000)
       },
       stop() {}
     };
@@ -60,6 +64,8 @@ export async function startCoreProcess(): Promise<CoreRuntimeHandle> {
         running: false,
         apiBase,
         port,
+        logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+        logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
         lastError: "Go toolchain not found. Set CORE_EXECUTABLE or GO_BINARY."
       },
       stop() {}
@@ -95,6 +101,8 @@ function spawnCoreBinary(
     running: true,
     apiBase,
     port,
+    logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+    logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
     command: executable
   };
 
@@ -143,6 +151,8 @@ async function spawnGoCore(
     running: true,
     apiBase,
     port,
+    logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+    logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
     command
   };
 

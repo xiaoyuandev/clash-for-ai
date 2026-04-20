@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, item RequestLog) error
 	List(ctx context.Context, limit int) ([]RequestLog, error)
+	Prune(ctx context.Context, cutoffTimestamp string, keepLatest int) error
 }
 
 type SQLiteRepository struct {
@@ -104,6 +105,31 @@ LIMIT ?`, limit)
 	}
 
 	return items, nil
+}
+
+func (r *SQLiteRepository) Prune(ctx context.Context, cutoffTimestamp string, keepLatest int) error {
+	if cutoffTimestamp != "" {
+		if _, err := r.db.ExecContext(ctx, `
+DELETE FROM request_logs
+WHERE timestamp < ?`, cutoffTimestamp); err != nil {
+			return fmt.Errorf("prune request logs by age: %w", err)
+		}
+	}
+
+	if keepLatest > 0 {
+		if _, err := r.db.ExecContext(ctx, `
+DELETE FROM request_logs
+WHERE id IN (
+	SELECT id
+	FROM request_logs
+	ORDER BY timestamp DESC
+	LIMIT -1 OFFSET ?
+)`, keepLatest); err != nil {
+			return fmt.Errorf("prune request logs by count: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func boolToInt(value bool) int {

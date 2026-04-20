@@ -8,11 +8,29 @@ interface DesktopState {
   runtime: string;
   platform: string;
   apiBase: string;
+  updates: {
+    currentVersion: string;
+    status:
+      | "idle"
+      | "checking"
+      | "available"
+      | "not-available"
+      | "downloading"
+      | "downloaded"
+      | "error"
+      | "unsupported";
+    availableVersion?: string;
+    downloadedVersion?: string;
+    progressPercent?: number;
+    message?: string;
+  };
   core: {
     managed: boolean;
     running: boolean;
     apiBase: string;
     port: number;
+    logRetentionDays: number;
+    logMaxRecords: number;
     lastError?: string;
     command?: string;
   };
@@ -113,6 +131,30 @@ export default function App() {
       ) : (
         <SettingsPage
           desktopState={desktopState}
+          onCheckUpdates={async () => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            const updates = await window.desktopBridge.checkUpdates();
+            setDesktopState((current) => (current ? { ...current, updates } : current));
+          }}
+          onDownloadUpdate={async () => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            const updates = await window.desktopBridge.downloadUpdate();
+            setDesktopState((current) => (current ? { ...current, updates } : current));
+          }}
+          onQuitAndInstallUpdate={async () => {
+            if (!window.desktopBridge) {
+              return;
+            }
+
+            const updates = await window.desktopBridge.quitAndInstallUpdate();
+            setDesktopState((current) => (current ? { ...current, updates } : current));
+          }}
           onCoreRestart={async () => {
             if (!window.desktopBridge) {
               return;
@@ -123,6 +165,7 @@ export default function App() {
               current
                 ? {
                     ...current,
+                    updates: response.updates,
                     apiBase: response.core.apiBase,
                     core: response.core
                   }

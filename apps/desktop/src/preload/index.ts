@@ -3,7 +3,10 @@ import { electronAPI } from "@electron-toolkit/preload";
 
 const api = {
   ping: () => ipcRenderer.invoke("app:ping"),
-  restartCore: () => ipcRenderer.invoke("app:restart-core")
+  restartCore: () => ipcRenderer.invoke("app:restart-core"),
+  checkUpdates: () => ipcRenderer.invoke("app:check-updates"),
+  downloadUpdate: () => ipcRenderer.invoke("app:download-update"),
+  quitAndInstallUpdate: () => ipcRenderer.invoke("app:quit-and-install-update")
 };
 
 if (process.contextIsolated) {

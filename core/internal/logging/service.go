@@ -8,11 +8,17 @@ import (
 )
 
 type Service struct {
-	repository Repository
+	repository        Repository
+	retentionDays     int
+	maxRecordsToKeep  int
 }
 
-func NewService(repository Repository) *Service {
-	return &Service{repository: repository}
+func NewService(repository Repository, retentionDays int, maxRecordsToKeep int) *Service {
+	return &Service{
+		repository:       repository,
+		retentionDays:    retentionDays,
+		maxRecordsToKeep: maxRecordsToKeep,
+	}
 }
 
 func (s *Service) Record(ctx context.Context, entry Entry) error {
@@ -35,7 +41,16 @@ func (s *Service) Record(ctx context.Context, entry Entry) error {
 		ErrorSnippet: entry.ErrorSnippet,
 	}
 
-	return s.repository.Create(ctx, item)
+	if err := s.repository.Create(ctx, item); err != nil {
+		return err
+	}
+
+	cutoffTimestamp := ""
+	if s.retentionDays > 0 {
+		cutoffTimestamp = time.Now().UTC().AddDate(0, 0, -s.retentionDays).Format(time.RFC3339)
+	}
+
+	return s.repository.Prune(ctx, cutoffTimestamp, s.maxRecordsToKeep)
 }
 
 func (s *Service) List(ctx context.Context, limit int) ([]RequestLog, error) {
