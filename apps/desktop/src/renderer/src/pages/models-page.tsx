@@ -312,7 +312,7 @@ export function ModelsPage({
             </div>
 
             <div
-              className="mt-4 flex flex-col gap-4 xl:grid xl:items-stretch"
+              className="mt-4 flex min-h-0 flex-col gap-4 xl:grid xl:h-[min(62vh,720px)] xl:items-stretch"
               style={{
                 gridTemplateColumns: `minmax(0, ${leftPaneWidth}fr) 16px minmax(0, ${
                   100 - leftPaneWidth
@@ -320,73 +320,73 @@ export function ModelsPage({
               }}
             >
               <section className={columnCardClass}>
-              <div className={sectionHeadClass}>
-                <div className="space-y-1">
-                  <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
-                  <p className={sectionMetaClass}>{filteredAvailableModels.length}</p>
-                </div>
-              </div>
-
-              <div className={`${stickySearchClass} mt-4`}>
-                <label className="relative block">
-                  <input
-                    className={`${inputClass} pr-11`}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder={t("models.available.searchPlaceholder")}
-                  />
-                  <span
-                    className="pointer-events-none absolute inset-y-0 right-4 inline-flex items-center text-[color:var(--color-subtle)]"
-                    aria-hidden="true"
-                  >
-                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" />
-                      <path d="m15.3 14 4.7 4.7-1.4 1.4-4.7-4.7z" />
-                    </svg>
-                  </span>
-                </label>
-                <p className="px-1 pt-3 text-xs text-[color:var(--color-muted)]">
-                  Search by exact model id or provider-assigned alias.
-                </p>
-              </div>
-
-              <div className={`${scrollListClass} mt-4`}>
-                {filteredAvailableModels.length === 0 ? (
-                  <div className={emptyStateClass}>
-                    <p>{loading ? t("common.loading") : t("models.available.empty")}</p>
+                <div className={sectionHeadClass}>
+                  <div className="space-y-1">
+                    <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
+                    <p className={sectionMetaClass}>{filteredAvailableModels.length}</p>
                   </div>
-                ) : (
-                  filteredAvailableModels.map((model) => (
-                    <article key={model.id} className={queueItemClass}>
-                      <button
-                        type="button"
-                        className={`${iconButtonClass} absolute right-3 top-3 min-h-9 min-w-9 rounded-xl`}
-                        aria-label={t("models.available.add", { id: model.id })}
-                        title={t("models.available.add", { id: model.id })}
-                        onClick={() => addModel(model.id)}
-                      >
-                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M11 5h2v14h-2z" />
-                          <path d="M5 11h14v2H5z" />
-                        </svg>
-                      </button>
-                      <div className="flex items-start gap-3 pr-12">
-                        <span className={`${iconBadgeClass} mt-0.5`}>
+                </div>
+
+                <div className={`${stickySearchClass} mt-4`}>
+                  <label className="relative block">
+                    <input
+                      className={`${inputClass} pr-11`}
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder={t("models.available.searchPlaceholder")}
+                    />
+                    <span
+                      className="pointer-events-none absolute inset-y-0 right-4 inline-flex items-center text-[color:var(--color-subtle)]"
+                      aria-hidden="true"
+                    >
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" />
+                        <path d="m15.3 14 4.7 4.7-1.4 1.4-4.7-4.7z" />
+                      </svg>
+                    </span>
+                  </label>
+                  <p className="px-1 pt-3 text-xs text-[color:var(--color-muted)]">
+                    Search by exact model id or provider-assigned alias.
+                  </p>
+                </div>
+
+                <div className={`${scrollListClass} mt-4`}>
+                  {filteredAvailableModels.length === 0 ? (
+                    <div className={emptyStateClass}>
+                      <p>{loading ? t("common.loading") : t("models.available.empty")}</p>
+                    </div>
+                  ) : (
+                    filteredAvailableModels.map((model) => (
+                      <article key={model.id} className={queueItemClass}>
+                        <button
+                          type="button"
+                          className={`${iconButtonClass} absolute right-3 top-3 min-h-9 min-w-9 rounded-xl`}
+                          aria-label={t("models.available.add", { id: model.id })}
+                          title={t("models.available.add", { id: model.id })}
+                          onClick={() => addModel(model.id)}
+                        >
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                            <path d="M11 5h2v14h-2z" />
+                            <path d="M5 11h14v2H5z" />
                           </svg>
-                        </span>
-                        <div>
-                          <p className={monoClass}>{model.id}</p>
-                        <p className={`${metaClass} mt-2`}>
-                          {model.owned_by ?? t("models.available.ownerUnknown")}
-                        </p>
+                        </button>
+                        <div className="flex items-start gap-3 pr-12">
+                          <span className={`${iconBadgeClass} mt-0.5`}>
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                            </svg>
+                          </span>
+                          <div>
+                            <p className={monoClass}>{model.id}</p>
+                            <p className={`${metaClass} mt-2`}>
+                              {model.owned_by ?? t("models.available.ownerUnknown")}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  ))
-                )}
-              </div>
+                      </article>
+                    ))
+                  )}
+                </div>
               </section>
 
               <div

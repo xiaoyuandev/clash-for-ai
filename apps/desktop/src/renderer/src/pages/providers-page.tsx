@@ -11,35 +11,27 @@ import {
 } from "../services/api";
 import type { Provider } from "../types/provider";
 import {
-  actionRowClass,
   buttonClass,
   dangerNoticeClass,
   emptyStateClass,
   eyebrowClass,
   fieldLabelClass,
-  gridStatsClass,
   heroClass,
   heroCopyClass,
   heroPillsClass,
   heroTitleClass,
-  hintClass,
   iconBadgeClass,
-  infoCardClass,
   inputClass,
   labelClass,
   listClass,
   metaClass,
-  metricValueClass,
   monoClass,
-  nestedCardClass,
   pageShellClass,
   sectionCardClass,
   sectionHeadClass,
   sectionMetaClass,
   sectionTitleClass,
   selectableItemClass,
-  statusDotClass,
-  splitLayoutClass,
   successNoticeClass,
   statusPillClass
 } from "../ui";
@@ -72,6 +64,7 @@ export function ProvidersPage({
   const [apiKey, setApiKey] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -100,6 +93,7 @@ export function ProvidersPage({
           providersData.find((provider) => provider.status.is_active) ??
           providersData[0] ??
           null;
+        setExpandedProviderId(nextSelected?.id ?? null);
         onSelectedProviderChange(nextSelected);
       } catch (loadError) {
         if (cancelled) {
@@ -127,6 +121,7 @@ export function ProvidersPage({
       providersData.find((provider) => provider.status.is_active) ??
       providersData[0] ??
       null;
+    setExpandedProviderId(nextSelected?.id ?? null);
     onSelectedProviderChange(nextSelected);
   }
 
@@ -281,7 +276,7 @@ export function ProvidersPage({
           </div>
         </div>
 
-        <form className="mt-6 grid gap-4 xl:grid-cols-4" onSubmit={handleCreateProvider}>
+        <form className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]" onSubmit={handleCreateProvider}>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.name")}</span>
             <input
@@ -290,7 +285,6 @@ export function ProvidersPage({
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-            <span className={hintClass}>{t("providers.form.nameHint")}</span>
           </label>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.baseUrl")}</span>
@@ -301,7 +295,6 @@ export function ProvidersPage({
               onChange={(event) => setBaseUrl(event.target.value)}
               placeholder="https://api.example.com/v1"
             />
-            <span className={hintClass}>{t("providers.form.baseUrlHint")}</span>
           </label>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.apiKey")}</span>
@@ -313,9 +306,8 @@ export function ProvidersPage({
               placeholder="sk-example"
               type="password"
             />
-            <span className={hintClass}>{t("providers.form.apiKeyHint")}</span>
           </label>
-          <div className="flex flex-wrap items-end gap-3 xl:justify-end">
+          <div className="flex flex-wrap items-center gap-3 xl:self-end xl:pb-0.5">
             <button type="submit" className={buttonClass("primary")} disabled={submitting}>
               {submitting
                 ? t("common.saving")
@@ -337,50 +329,79 @@ export function ProvidersPage({
         </form>
       </section>
 
-      <section className={splitLayoutClass}>
-        <aside className={sectionCardClass}>
-          <div className={sectionHeadClass}>
-            <div className="space-y-1">
-              <h2 className={sectionTitleClass}>{t("providers.list.title")}</h2>
-              <p className={sectionMetaClass}>
-                {t("providers.list.configured", { count: providers.length })}
-              </p>
+      <section className={sectionCardClass}>
+        <div className={sectionHeadClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>{t("providers.list.title")}</h2>
+            <p className={sectionMetaClass}>
+              {t("providers.list.configured", { count: providers.length })}
+            </p>
+          </div>
+        </div>
+
+        {providers.length === 0 ? (
+          <div className="mt-5">
+            <div className={emptyStateClass}>
+              <p>{t("providers.list.empty")}</p>
             </div>
           </div>
-
-          {providers.length === 0 ? (
-            <div className="mt-5">
-              <div className={emptyStateClass}>
-                <p>{t("providers.list.empty")}</p>
-              </div>
-            </div>
-          ) : (
-            <div className={`${listClass} mt-5`}>
-              {providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  type="button"
-                  className={selectableItemClass(selectedProvider?.id === provider.id)}
-                  onClick={() => {
-                    onSelectedProviderChange(provider);
-                  }}
-                >
-                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={iconBadgeClass}>
-                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM6.5 7a.5.5 0 0 0-.5.5V10h12V7.5a.5.5 0 0 0-.5-.5zM18 12H6v4.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
-                        </svg>
-                      </span>
-                      <div>
-                        <strong className="text-base font-semibold text-[color:var(--color-heading)]">
-                          {provider.name}
-                        </strong>
-                        <p className="text-xs text-[color:var(--color-muted)]">
-                          {provider.status.last_health_status}
-                        </p>
+        ) : (
+          <div className={`${listClass} mt-5`}>
+            {providers.map((provider) => (
+              <article
+                key={provider.id}
+                className={selectableItemClass(selectedProvider?.id === provider.id)}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => {
+                        onSelectedProviderChange(provider);
+                        setExpandedProviderId((current) =>
+                          current === provider.id ? null : provider.id
+                        );
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={iconBadgeClass}>
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM6.5 7a.5.5 0 0 0-.5.5V10h12V7.5a.5.5 0 0 0-.5-.5zM18 12H6v4.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0">
+                          <strong className="block truncate text-base font-semibold text-[color:var(--color-heading)]">
+                            {provider.name}
+                          </strong>
+                          <p className="mt-1 text-xs text-[color:var(--color-muted)]">
+                            {provider.api_key_masked}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
+                      onClick={() => {
+                        onSelectedProviderChange(provider);
+                        setExpandedProviderId((current) =>
+                          current === provider.id ? null : provider.id
+                        );
+                      }}
+                      aria-label={expandedProviderId === provider.id ? "Collapse" : "Expand"}
+                    >
+                      <svg
+                        className={`h-4 w-4 fill-current transition-transform ${expandedProviderId === provider.id ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="m12 15.5-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 9.5z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={statusPillClass(
                         provider.status.is_active ? "success" : "default"
@@ -390,126 +411,11 @@ export function ProvidersPage({
                         ? t("providers.status.active")
                         : t("providers.status.standby")}
                     </span>
-                  </div>
-                  <p className={monoClass}>{provider.base_url}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </aside>
-
-        <section className="grid gap-4">
-          <section className={`${sectionCardClass} min-h-[460px]`}>
-            <div className={sectionHeadClass}>
-              <div className="space-y-1">
-                <h2 className={sectionTitleClass}>
-                  {selectedProvider
-                    ? t("providers.detail.title", { name: selectedProvider.name })
-                    : t("providers.detail.fallbackTitle")}
-                </h2>
-                <p className={sectionMetaClass}>
-                  {selectedProvider?.status.is_active
-                    ? t("providers.status.active")
-                    : t("providers.status.standby")}
-                </p>
-              </div>
-            </div>
-
-            {!selectedProvider ? (
-              <div className="mt-6">
-                <div className={emptyStateClass}>
-                  <p>{t("providers.detail.inspectHint")}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-6 space-y-5">
-                <div className={gridStatsClass}>
-                  <div className={infoCardClass}>
-                    <div className="flex items-center gap-3">
-                      <span className={iconBadgeClass}>
-                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.8-4.2L13 11h7V4l-2.4 2.4A7.9 7.9 0 0 0 12 4" />
-                        </svg>
-                      </span>
-                      <p className={fieldLabelClass}>{t("providers.detail.baseUrl")}</p>
-                    </div>
-                    <p className={`${monoClass} mt-3`}>{selectedProvider.base_url}</p>
-                  </div>
-                  <div className={infoCardClass}>
-                    <div className="flex items-center gap-3">
-                      <span className={iconBadgeClass}>
-                        <span
-                          className={statusDotClass(
-                            selectedProvider.status.last_health_status === "ok"
-                              ? "success"
-                              : selectedProvider.status.last_health_status === "offline"
-                                ? "danger"
-                                : "warning"
-                          )}
-                        />
-                      </span>
-                      <p className={fieldLabelClass}>{t("providers.detail.health")}</p>
-                    </div>
-                    <p className={metricValueClass}>
-                      {selectedProvider.status.last_health_status}
-                    </p>
-                  </div>
-                  <div className={infoCardClass}>
-                    <div className="flex items-center gap-3">
-                      <span className={iconBadgeClass}>
-                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7H4v-7a2 2 0 0 1 2-2zm2 0h6V8a3 3 0 1 0-6 0z" />
-                        </svg>
-                      </span>
-                      <p className={fieldLabelClass}>{t("providers.detail.apiKey")}</p>
-                    </div>
-                    <p className={`${monoClass} mt-3`}>{selectedProvider.api_key_masked}</p>
-                  </div>
-                  <div className={infoCardClass}>
-                    <div className="flex items-center gap-3">
-                      <span className={iconBadgeClass}>
-                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M5 5h14v4H5zm0 5h6v9H5zm7 0h7v9h-7z" />
-                        </svg>
-                      </span>
-                      <p className={fieldLabelClass}>{t("providers.detail.capabilities")}</p>
-                    </div>
-                    <p className={`${hintClass} mt-3`}>
-                      {selectedProvider.capabilities.supports_models_api
-                        ? `${t("providers.detail.capability.models")} `
-                        : ""}
-                      {selectedProvider.capabilities.supports_balance_api
-                        ? `${t("providers.detail.capability.balance")} `
-                        : ""}
-                      {selectedProvider.capabilities.supports_stream
-                        ? t("providers.detail.capability.stream")
-                        : ""}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className={nestedCardClass}>
-                    <p className="flex items-center gap-2">
-                      <span
-                        className={statusDotClass(
-                          selectedProvider.status.is_active ? "success" : "default"
-                        )}
-                      />
-                      <span className={fieldLabelClass}>Provider State</span>
-                    </p>
-                    <p className={`${metricValueClass} mt-2`}>
-                      {selectedProvider.status.is_active
-                        ? t("providers.status.active")
-                        : t("providers.status.standby")}
-                    </p>
-                  </div>
-                  <div className={actionRowClass}>
-                    {!selectedProvider.status.is_active ? (
+                    {!provider.status.is_active ? (
                       <button
                         type="button"
                         className={buttonClass("primary")}
-                        onClick={() => void handleActivateProvider(selectedProvider)}
+                        onClick={() => void handleActivateProvider(provider)}
                       >
                         {t("providers.action.activate")}
                       </button>
@@ -518,7 +424,8 @@ export function ProvidersPage({
                       type="button"
                       className={buttonClass("secondary")}
                       onClick={() => {
-                        startEditing(selectedProvider);
+                        onSelectedProviderChange(provider);
+                        startEditing(provider);
                       }}
                     >
                       {t("common.edit")}
@@ -527,7 +434,7 @@ export function ProvidersPage({
                       type="button"
                       className={buttonClass("secondary")}
                       onClick={() => {
-                        void handleHealthcheck(selectedProvider.id);
+                        void handleHealthcheck(provider.id);
                       }}
                     >
                       {t("common.check")}
@@ -536,17 +443,43 @@ export function ProvidersPage({
                       type="button"
                       className={buttonClass("danger")}
                       onClick={() => {
-                        void handleDeleteProvider(selectedProvider.id);
+                        void handleDeleteProvider(provider.id);
                       }}
                     >
                       {t("common.delete")}
                     </button>
                   </div>
+
+                  {expandedProviderId === provider.id ? (
+                    <div className="grid gap-3 rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+                      <p className={metaClass}>
+                        {t("providers.detail.baseUrl")} <span className={monoClass}>{provider.base_url}</span>
+                      </p>
+                      <p className={metaClass}>
+                        {t("providers.detail.health")}{" "}
+                        <span className={monoClass}>{provider.status.last_health_status}</span>
+                      </p>
+                      <p className={metaClass}>
+                        {t("providers.detail.capabilities")}{" "}
+                        <span className={monoClass}>
+                          {provider.capabilities.supports_models_api
+                            ? `${t("providers.detail.capability.models")} `
+                            : ""}
+                          {provider.capabilities.supports_balance_api
+                            ? `${t("providers.detail.capability.balance")} `
+                            : ""}
+                          {provider.capabilities.supports_stream
+                            ? t("providers.detail.capability.stream")
+                            : ""}
+                        </span>
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            )}
-          </section>
-        </section>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

@@ -9,7 +9,6 @@ import type { Provider } from "./types/provider";
 import {
   appBackdropClass,
   appShellClass,
-  buttonClass,
   eyebrowClass,
   glassPanelClass,
   heroClass,
@@ -17,7 +16,6 @@ import {
   heroTitleClass,
   iconBadgeClass,
   inputClass,
-  labelClass,
   metaClass,
   navButtonClass,
   pageShellClass,
@@ -66,7 +64,7 @@ interface DesktopState {
 
 export default function App() {
   const { locale, localeLabels, setLocale, t } = useI18n();
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
   const [view, setView] = useState<"providers" | "models" | "logs" | "settings">("providers");
   const [bootError, setBootError] = useState<string | null>(null);
@@ -161,9 +159,9 @@ export default function App() {
   return (
     <div className={appShellClass}>
       <div className={appBackdropClass} />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[1680px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6 xl:flex-row xl:gap-6 xl:px-8">
+      <div className="relative mx-auto flex h-screen w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6 sm:py-6 xl:flex-row xl:gap-6 xl:px-8">
         <aside
-          className={`${glassPanelClass} flex w-full flex-col gap-5 px-4 py-5 sm:px-5 xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:w-[290px] xl:min-w-[290px] xl:self-start xl:overflow-y-auto`}
+          className={`${glassPanelClass} flex w-full flex-col gap-5 overflow-y-auto px-4 py-5 sm:px-5 xl:h-[calc(100vh-3rem)] xl:w-[290px] xl:min-w-[290px] xl:self-start`}
         >
           <div className="space-y-3">
             <p className={eyebrowClass}>Clash for AI</p>
@@ -180,7 +178,7 @@ export default function App() {
           </div>
 
           <nav className="grid gap-2">
-            {navItems.map(({ id, label, icon }, index) => (
+            {navItems.map(({ id, label, icon }) => (
               <button
                 key={id}
                 type="button"
@@ -193,67 +191,53 @@ export default function App() {
                   <span className={iconBadgeClass}>{icon}</span>
                   <span>{label}</span>
                 </span>
-                <span className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-subtle)]">
-                  0{index + 1}
-                </span>
               </button>
             ))}
           </nav>
 
           <div className="grid gap-2 rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
-              {t("app.theme")}
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                className={buttonClass(theme === "system" ? "primary" : "secondary")}
-                onClick={() => setTheme("system")}
-              >
-                {t("app.themeSystem")}
-              </button>
-              <button
-                type="button"
-                className={buttonClass(theme === "light" ? "primary" : "secondary")}
-                onClick={() => setTheme("light")}
-              >
-                {t("app.themeLight")}
-              </button>
-              <button
-                type="button"
-                className={buttonClass(theme === "dark" ? "primary" : "secondary")}
-                onClick={() => setTheme("dark")}
-              >
-                {t("app.themeDark")}
-              </button>
-            </div>
-            <p className="text-xs text-[color:var(--color-muted)]">
-              {theme === "system"
-                ? t("app.themeSystemHint", {
-                    theme: resolvedTheme === "dark" ? t("app.themeDark") : t("app.themeLight")
-                  })
-                : t("app.themeActive", {
-                    theme: theme === "dark" ? t("app.themeDark") : t("app.themeLight")
-                  })}
-            </p>
-          </div>
+            <div className="flex items-center justify-between gap-3">
+              <label className="min-w-0 flex-1">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                  {t("app.language")}
+                </span>
+                <select
+                  className={inputClass}
+                  value={locale}
+                  onChange={(event) => setLocale(event.target.value as typeof locale)}
+                >
+                  {Object.entries(localeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className={labelClass}>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
-              {t("app.language")}
-            </span>
-            <select
-              className={inputClass}
-              value={locale}
-              onChange={(event) => setLocale(event.target.value as typeof locale)}
-            >
-              {Object.entries(localeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <div className="shrink-0">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                  {t("app.theme")}
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
+                  onClick={() => toggleTheme()}
+                  aria-label={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
+                  title={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
+                >
+                  {resolvedTheme === "dark" ? (
+                    <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6.8 5.4 5.4 4l-1.4 1.4 1.4 1.4zM12 2h-1v3h2V2zm6.6 3.4L20 4l-1.4-1.4-1.4 1.4zM19 11v2h3v-2zm-7 10h1v-3h-2v3zm6.6-2.4 1.4 1.4 1.4-1.4-1.4-1.4zM2 11v2h3v-2zm3.4 7.6L4 20l1.4 1.4 1.4-1.4zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 14.2A8 8 0 0 1 9.8 4 8 8 0 1 0 20 14.2" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div className="mt-auto grid gap-3">
             <span
@@ -283,7 +267,7 @@ export default function App() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1">
+        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto xl:h-[calc(100vh-3rem)]">
           {view === "providers" ? (
             <ProvidersPage
               desktopState={desktopState}

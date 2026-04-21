@@ -1,4 +1,4 @@
-export const appShellClass = "relative min-h-screen overflow-hidden text-[color:var(--color-text)]";
+export const appShellClass = "relative h-screen overflow-hidden text-[color:var(--color-text)]";
 
 export const appBackdropClass =
   "pointer-events-none absolute inset-0 [background:var(--overlay-sheen)] transition-[background] duration-300";
@@ -10,16 +10,16 @@ export const softPanelClass =
   "rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-soft)] shadow-[var(--shadow-soft)] backdrop-blur-lg transition-[background,border-color,box-shadow] duration-300";
 
 export const pageShellClass =
-  "relative mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 sm:py-6 xl:px-8";
+  "relative mx-auto flex min-h-full w-full max-w-[1600px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-5 xl:px-8";
 
 export const heroClass =
-  "flex flex-col gap-5 rounded-[32px] border [border-color:var(--border-soft)] [background:var(--panel-hero)] px-5 py-6 shadow-[var(--shadow-panel)] backdrop-blur-2xl transition-[background,border-color,box-shadow] duration-300 lg:flex-row lg:items-start lg:justify-between lg:px-8 lg:py-8";
+  "flex flex-col gap-4 rounded-[30px] border [border-color:var(--border-soft)] [background:var(--panel-hero)] px-5 py-5 shadow-[var(--shadow-panel)] backdrop-blur-2xl transition-[background,border-color,box-shadow] duration-300 lg:flex-row lg:items-start lg:justify-between lg:px-7 lg:py-6";
 
 export const eyebrowClass =
   "mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]/80";
 
 export const heroTitleClass =
-  "max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)] sm:text-5xl xl:text-6xl";
+  "max-w-4xl text-3xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)] sm:text-4xl xl:text-5xl";
 
 export const heroCopyClass = "max-w-2xl text-sm leading-7 text-[color:var(--color-muted)] sm:text-base";
 export const heroContentClass = "space-y-4";
@@ -63,7 +63,7 @@ export function buttonClass(variant: "primary" | "secondary" | "danger" | "ghost
 }
 
 export function navButtonClass(active: boolean) {
-  return `${buttonClass(active ? "primary" : "ghost")} w-full justify-between px-4`;
+  return `${buttonClass(active ? "primary" : "ghost")} w-full justify-start px-4 text-left`;
 }
 
 export const inputClass =
@@ -76,7 +76,7 @@ export const metaClass = "text-sm leading-6 text-[color:var(--color-muted)]";
 export const monoClass = "font-mono text-[13px] leading-6 text-[color:var(--color-text)] break-all";
 
 export const sectionHeadClass = "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between";
-export const sectionTitleClass = "text-xl font-semibold tracking-[-0.02em] text-[color:var(--color-heading)]";
+export const sectionTitleClass = "text-lg font-semibold tracking-[-0.02em] text-[color:var(--color-heading)] sm:text-xl";
 export const sectionMetaClass = "text-sm text-[color:var(--color-muted)]";
 
 export const sectionCardClass = `${glassPanelClass} p-5 sm:p-6`;
@@ -127,8 +127,8 @@ export const splitLayoutClass = "grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]";
 export const actionRowClass = "flex flex-wrap items-center gap-3";
 export const stickySearchClass =
   "sticky top-0 z-10 -mx-2 rounded-2xl px-2 py-2 backdrop-blur-xl [background:color-mix(in_srgb,var(--panel-solid)_88%,transparent)]";
-export const columnCardClass = `${nestedCardClass} flex min-h-[460px] min-w-0 flex-col`;
-export const scrollListClass = "grid gap-3 overflow-y-auto pr-1";
+export const columnCardClass = `${nestedCardClass} flex min-h-0 min-w-0 flex-col overflow-hidden`;
+export const scrollListClass = "grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1";
 export const queueItemClass =
   "relative flex items-start justify-between gap-4 rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4 transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]";
 export const iconButtonClass =

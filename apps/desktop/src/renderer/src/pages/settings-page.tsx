@@ -387,7 +387,7 @@ export function SettingsPage({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className={infoCardClass}>
             <p className={fieldLabelClass}>{t("settings.fixedPort")}</p>
             <input
@@ -409,34 +409,12 @@ export function SettingsPage({
               </svg>
             }
           />
-          <StatCard
-            label={t("settings.portSource")}
-            value={desktopState?.config.apiPortSource ?? "-"}
-            meta={portLocked ? t("settings.meta.envLocked") : t("settings.meta.configStored")}
-            icon={
-              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6zm0 2.2 5.8 2.6V12c0 3.8-2.4 7.3-5.8 8.6C8.6 19.3 6.2 15.8 6.2 12V6.8z" />
-              </svg>
-            }
-          />
-          <StatCard
-            label={t("settings.launchFlow")}
-            value={
-              desktopState?.core.managed ? t("settings.flow.managed") : t("settings.flow.reuse")
-            }
-            meta={t("settings.meta.managedLaunch")}
-            icon={
-              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 6h14v9H5zm2 2v5h10V8zm-3 9h16v2H4z" />
-              </svg>
-            }
-          />
         </div>
 
         <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <button
             type="button"
-            className={buttonClass("secondary")}
+            className={buttonClass("primary")}
             onClick={() => setConnectOpen(true)}
           >
             {t("settings.button.connectTool")}
@@ -507,10 +485,6 @@ export function SettingsPage({
           <StatCard
             label={t("settings.runtime.coreRunning")}
             value={desktopState?.core.running ? t("settings.runtime.yes") : t("settings.runtime.no")}
-          />
-          <StatCard
-            label={t("settings.runtime.launchCommand")}
-            value={desktopState?.core.command ?? "-"}
           />
           <StatCard
             label={t("settings.runtime.logRetention")}
