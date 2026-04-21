@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useI18n } from "./i18n/i18n-provider";
 import { LogsPage } from "./pages/logs-page";
 import { ModelsPage } from "./pages/models-page";
 import { ProvidersPage } from "./pages/providers-page";
@@ -44,6 +45,7 @@ interface DesktopState {
 }
 
 export default function App() {
+  const { locale, localeLabels, setLocale, t } = useI18n();
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
   const [view, setView] = useState<"providers" | "models" | "logs" | "settings">("providers");
   const [bootError, setBootError] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export default function App() {
         if (cancelled) {
           return;
         }
-        setBootError(error instanceof Error ? error.message : "failed to load desktop state");
+        setBootError(error instanceof Error ? error.message : t("app.failedLoadState"));
       }
     }
 
@@ -89,8 +91,8 @@ export default function App() {
         <section className="hero">
           <div>
             <p className="eyebrow">Clash for AI</p>
-            <h1>Desktop Boot</h1>
-            <p className="subcopy">{bootError ?? "Waiting for desktop runtime..."}</p>
+            <h1>{t("app.desktopBoot")}</h1>
+            <p className="subcopy">{bootError ?? t("app.waitingRuntime")}</p>
           </div>
         </section>
       </main>
@@ -102,18 +104,20 @@ export default function App() {
       <aside className="sidebar">
         <div>
           <p className="eyebrow">Clash for AI</p>
-          <h2 className="sidebar-title">Desktop Gateway</h2>
+          <h2 className="sidebar-title">{t("app.desktopGateway")}</h2>
           <p className="meta">
-            {selectedProvider ? `Current provider: ${selectedProvider.name}` : "Select a provider to manage models."}
+            {selectedProvider
+              ? t("app.currentProvider", { name: selectedProvider.name })
+              : t("app.selectProviderHint")}
           </p>
         </div>
 
         <nav className="sidebar-nav">
           {[
-            ["providers", "Providers"],
-            ["models", "Models"],
-            ["logs", "Logs"],
-            ["settings", "Settings"]
+            ["providers", t("app.nav.providers")],
+            ["models", t("app.nav.models")],
+            ["logs", t("app.nav.logs")],
+            ["settings", t("app.nav.settings")]
           ].map(([id, label]) => (
             <button
               key={id}
@@ -129,9 +133,28 @@ export default function App() {
         </nav>
 
         <div className="sidebar-runtime">
+          <label className="sidebar-language">
+            <span className="settings-label">{t("app.language")}</span>
+            <select
+              className="settings-input sidebar-language-select"
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as typeof locale)}
+            >
+              {Object.entries(localeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="sidebar-runtime">
           <span className="runtime-chip">
-            core {desktopState?.core.running ? "running" : "not running"} on{" "}
-            {desktopState?.core.port ?? "-"}
+            {t("app.runtimeChip", {
+              status: desktopState?.core.running ? t("app.coreRunning") : t("app.coreStopped"),
+              port: desktopState?.core.port ?? "-"
+            })}
           </span>
         </div>
       </aside>

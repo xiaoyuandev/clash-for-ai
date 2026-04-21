@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "../i18n/i18n-provider";
 import {
   getProviderModels,
   getProviders,
@@ -20,6 +21,7 @@ export function ModelsPage({
   selectedProvider,
   onSelectedProviderChange
 }: ModelsPageProps) {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
   const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([]);
@@ -50,7 +52,7 @@ export function ModelsPage({
         );
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unknown error");
+          setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
         }
       }
     }
@@ -89,7 +91,7 @@ export function ModelsPage({
         setError(null);
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unknown error");
+          setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
         }
       } finally {
         if (!cancelled) {
@@ -140,7 +142,7 @@ export function ModelsPage({
       setSelectedModels(saved);
       setFeedback(successMessage);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unknown error");
+      setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
     } finally {
       setSaving(false);
     }
@@ -149,7 +151,7 @@ export function ModelsPage({
   function addModel(modelID: string) {
     void persistSelectedModels(
       [...selectedModels, { model_id: modelID, position: selectedModels.length }],
-      "Fallback order updated."
+      t("models.feedback.orderUpdated")
     );
   }
 
@@ -158,7 +160,7 @@ export function ModelsPage({
       selectedModels
         .filter((item) => item.model_id !== modelID)
         .map((item, index) => ({ ...item, position: index })),
-      "Model removed from fallback order."
+      t("models.feedback.removed")
     );
   }
 
@@ -178,7 +180,7 @@ export function ModelsPage({
     current.splice(toIndex, 0, moved);
     void persistSelectedModels(
       current.map((item, index) => ({ ...item, position: index })),
-      "Fallback order updated."
+      t("models.feedback.orderUpdated")
     );
   }
 
@@ -208,10 +210,8 @@ export function ModelsPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Clash for AI</p>
-          <h1>Models</h1>
-          <p className="subcopy">
-            The left side shows the current active provider's supported models. Pick favorites into the ordered fallback list on the right.
-          </p>
+          <h1>{t("models.title")}</h1>
+          <p className="subcopy">{t("models.subtitle")}</p>
         </div>
       </section>
 
@@ -220,13 +220,23 @@ export function ModelsPage({
 
       <section className="panel">
         <div className="section-head">
-          <h2>{activeProvider ? `Models / ${activeProvider.name}` : "Models"}</h2>
-          <span>{saving ? "saving" : loading ? "loading" : `${selectedModels.length} selected`}</span>
+          <h2>
+            {activeProvider
+              ? t("models.section.title", { name: activeProvider.name })
+              : t("models.section.fallbackTitle")}
+          </h2>
+          <span>
+            {saving
+              ? t("common.saving")
+              : loading
+                ? t("common.loading")
+                : t("models.section.state.selected", { count: selectedModels.length })}
+          </span>
         </div>
 
         {!activeProvider ? (
           <div className="empty-state">
-            <p>Activate a provider first. This page only shows the current enabled provider.</p>
+            <p>{t("models.empty.noActiveProvider")}</p>
           </div>
         ) : (
           <div
@@ -237,7 +247,7 @@ export function ModelsPage({
           >
             <section className="settings-card models-column">
               <div className="section-head">
-                <h3>Supported Models</h3>
+                <h3>{t("models.available.title")}</h3>
                 <span>{filteredAvailableModels.length}</span>
               </div>
               <div className="sticky-search-shell">
@@ -245,7 +255,7 @@ export function ModelsPage({
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="model id..."
+                    placeholder={t("models.available.searchPlaceholder")}
                   />
                   <span className="search-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24">
@@ -259,7 +269,7 @@ export function ModelsPage({
               <div className="models-list models-scroll-list">
                 {filteredAvailableModels.length === 0 ? (
                   <div className="empty-state">
-                    <p>{loading ? "Loading models..." : "No more models to add."}</p>
+                    <p>{loading ? t("common.loading") : t("models.available.empty")}</p>
                   </div>
                 ) : (
                   filteredAvailableModels.map((model) => (
@@ -267,8 +277,8 @@ export function ModelsPage({
                       <button
                         type="button"
                         className="icon-button icon-button-small supported-model-add"
-                        aria-label={`Add ${model.id}`}
-                        title={`Add ${model.id}`}
+                        aria-label={t("models.available.add", { id: model.id })}
+                        title={t("models.available.add", { id: model.id })}
                         onClick={() => addModel(model.id)}
                       >
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -278,7 +288,7 @@ export function ModelsPage({
                       </button>
                       <div>
                         <p className="mono">{model.id}</p>
-                        <p className="meta">{model.owned_by ?? "unknown owner"}</p>
+                        <p className="meta">{model.owned_by ?? t("models.available.ownerUnknown")}</p>
                       </div>
                     </article>
                   ))
@@ -290,7 +300,7 @@ export function ModelsPage({
               className="pane-resizer"
               role="separator"
               aria-orientation="vertical"
-              aria-label="Resize model columns"
+              aria-label={t("models.resizeColumns")}
               onPointerDown={startResize}
             >
               <span className="pane-resizer-line" />
@@ -298,17 +308,15 @@ export function ModelsPage({
 
             <section className="settings-card models-column">
               <div className="section-head">
-                <h3>Fallback Order</h3>
+                <h3>{t("models.fallback.title")}</h3>
                 <span>{selectedModels.length}</span>
               </div>
-              <p className="meta">
-                Drag to reorder. Requests use the first model by default, then fall back in this order.
-              </p>
+              <p className="meta">{t("models.fallback.subtitle")}</p>
 
               <div className="models-list models-scroll-list">
                 {selectedModelDetails.length === 0 ? (
                   <div className="empty-state">
-                    <p>No models selected yet.</p>
+                    <p>{t("models.fallback.empty")}</p>
                   </div>
                 ) : (
                   selectedModelDetails.map((item, index) => (
@@ -335,7 +343,9 @@ export function ModelsPage({
                             {index + 1}. {item.model_id}
                           </p>
                           <p className="meta">
-                            {index === 0 ? "Primary model" : `Fallback ${index}`}
+                            {index === 0
+                              ? t("models.fallback.primary")
+                              : t("models.fallback.secondary", { index })}
                             {item.details?.owned_by ? ` · ${item.details.owned_by}` : ""}
                           </p>
                         </div>
@@ -345,7 +355,7 @@ export function ModelsPage({
                         className="secondary-button"
                         onClick={() => removeModel(item.model_id)}
                       >
-                        Remove
+                        {t("models.fallback.remove")}
                       </button>
                     </article>
                   ))

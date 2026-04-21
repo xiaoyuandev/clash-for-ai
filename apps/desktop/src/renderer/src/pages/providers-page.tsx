@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useI18n } from "../i18n/i18n-provider";
 import {
   activateProvider,
   createProvider,
@@ -28,6 +29,7 @@ export function ProvidersPage({
   selectedProviderId,
   onSelectedProviderChange
 }: ProvidersPageProps) {
+  const { t } = useI18n();
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export function ProvidersPage({
         }
 
         setHealth("offline");
-        setError(loadError instanceof Error ? loadError.message : "Unknown error");
+        setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
       }
     }
 
@@ -101,7 +103,7 @@ export function ProvidersPage({
     setFeedback(null);
 
     if (!name.trim() || !baseUrl.trim() || !apiKey.trim()) {
-      setError("Name, Base URL, and API Key are required.");
+      setError(t("providers.form.validation.required"));
       return;
     }
 
@@ -119,10 +121,12 @@ export function ProvidersPage({
         : await createProvider(payload, apiBase);
 
       resetForm();
-      setFeedback(editingId ? "Provider updated." : "Provider created.");
+      setFeedback(
+        editingId ? t("providers.feedback.updated") : t("providers.feedback.created")
+      );
       await refreshProviders(provider.id);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Unknown error");
+      setError(createError instanceof Error ? createError.message : t("common.unknownError"));
     } finally {
       setSubmitting(false);
     }
@@ -135,9 +139,9 @@ export function ProvidersPage({
     try {
       await activateProvider(provider.id, apiBase);
       await refreshProviders(provider.id);
-      setFeedback(`${provider.name} activated.`);
+      setFeedback(t("providers.feedback.activated", { name: provider.name }));
     } catch (activateError) {
-      setError(activateError instanceof Error ? activateError.message : "Unknown error");
+      setError(activateError instanceof Error ? activateError.message : t("common.unknownError"));
     }
   }
 
@@ -152,7 +156,7 @@ export function ProvidersPage({
       }
       await refreshProviders();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unknown error");
+      setError(deleteError instanceof Error ? deleteError.message : t("common.unknownError"));
     }
   }
 
@@ -162,12 +166,14 @@ export function ProvidersPage({
 
     try {
       const result = await runProviderHealthcheck(id, apiBase);
-      setFeedback(
-        `${result.status.toUpperCase()} ${result.status_code} in ${result.latency_ms}ms`
-      );
+      setFeedback(t("providers.feedback.healthcheck", {
+        status: result.status.toUpperCase(),
+        code: result.status_code,
+        latency: result.latency_ms
+      }));
       await refreshProviders(id);
     } catch (healthError) {
-      setError(healthError instanceof Error ? healthError.message : "Unknown error");
+      setError(healthError instanceof Error ? healthError.message : t("common.unknownError"));
     }
   }
 
@@ -192,23 +198,25 @@ export function ProvidersPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Clash for AI</p>
-          <h1>Providers</h1>
-          <p className="subcopy">
-            Manage provider connections here. Supported models are now managed from the Models menu for the active provider.
-          </p>
+          <h1>{t("providers.title")}</h1>
+          <p className="subcopy">{t("providers.subtitle")}</p>
           <p className="meta">
-            connected api base:{" "}
+            {t("providers.connectedApiBase")}{" "}
             <span className="mono">{desktopState?.apiBase ?? apiBase ?? "http://127.0.0.1:3456"}</span>
           </p>
         </div>
         <div className="hero-pills">
-          <div className={`health-pill health-${health}`}>core: {health}</div>
+          <div className={`health-pill health-${health}`}>
+            {t("providers.coreHealth", { status: health })}
+          </div>
           <div
             className={`health-pill ${
               desktopState?.ok ? "health-ok" : "health-offline"
             }`}
           >
-            desktop: {desktopState?.runtime ?? "browser"}
+            {t("providers.desktopRuntime", {
+              runtime: desktopState?.runtime ?? t("settings.value.browser")
+            })}
           </div>
         </div>
       </section>
@@ -218,17 +226,17 @@ export function ProvidersPage({
 
       <section className="panel form-panel">
         <div className="section-head">
-          <h2>{editingId ? "Edit Provider" : "Add Provider"}</h2>
-          <span>{editingId ? "update existing" : "add new"}</span>
+          <h2>{editingId ? t("providers.form.editTitle") : t("providers.form.addTitle")}</h2>
+          <span>{editingId ? t("providers.form.editMeta") : t("providers.form.addMeta")}</span>
         </div>
 
         <form className="provider-form" onSubmit={handleCreateProvider}>
           <label>
-            <span>Name</span>
+            <span>{t("providers.form.name")}</span>
             <input required value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label>
-            <span>Base URL</span>
+            <span>{t("providers.form.baseUrl")}</span>
             <input
               required
               value={baseUrl}
@@ -237,7 +245,7 @@ export function ProvidersPage({
             />
           </label>
           <label>
-            <span>API Key</span>
+            <span>{t("providers.form.apiKey")}</span>
             <input
               required
               value={apiKey}
@@ -247,7 +255,11 @@ export function ProvidersPage({
             />
           </label>
           <button type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : editingId ? "Save Provider" : "Create Provider"}
+            {submitting
+              ? t("common.saving")
+              : editingId
+                ? t("providers.form.save")
+                : t("providers.form.create")}
           </button>
           {editingId ? (
             <button
@@ -256,7 +268,7 @@ export function ProvidersPage({
               onClick={resetForm}
               disabled={submitting}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
           ) : null}
         </form>
@@ -265,13 +277,13 @@ export function ProvidersPage({
       <section className="providers-layout">
         <aside className="panel providers-sidebar">
           <div className="section-head">
-            <h2>Provider List</h2>
-            <span>{providers.length} configured</span>
+            <h2>{t("providers.list.title")}</h2>
+            <span>{t("providers.list.configured", { count: providers.length })}</span>
           </div>
 
           {providers.length === 0 ? (
             <div className="empty-state">
-              <p>No providers configured yet.</p>
+              <p>{t("providers.list.empty")}</p>
             </div>
           ) : (
             <div className="provider-list">
@@ -291,7 +303,9 @@ export function ProvidersPage({
                   <div className="provider-list-head">
                     <strong>{provider.name}</strong>
                     <span className={provider.status.is_active ? "status-badge active" : "status-badge"}>
-                      {provider.status.is_active ? "active" : "standby"}
+                      {provider.status.is_active
+                        ? t("providers.status.active")
+                        : t("providers.status.standby")}
                     </span>
                   </div>
                   <p className="meta mono">{provider.base_url}</p>
@@ -304,35 +318,49 @@ export function ProvidersPage({
         <section className="providers-main">
           <section className="panel detail-panel">
             <div className="section-head">
-              <h2>{selectedProvider ? `Providers / ${selectedProvider.name}` : "Providers"}</h2>
-              <span>{selectedProvider?.status.is_active ? "active" : "standby"}</span>
+              <h2>
+                {selectedProvider
+                  ? t("providers.detail.title", { name: selectedProvider.name })
+                  : t("providers.detail.fallbackTitle")}
+              </h2>
+              <span>
+                {selectedProvider?.status.is_active
+                  ? t("providers.status.active")
+                  : t("providers.status.standby")}
+              </span>
             </div>
 
             {!selectedProvider ? (
               <div className="empty-state">
-                <p>Select a provider to inspect its models and actions.</p>
+                <p>{t("providers.detail.inspectHint")}</p>
               </div>
             ) : (
               <>
                 <div className="settings-grid">
                   <div className="settings-card">
-                    <p className="settings-label">Base URL</p>
+                    <p className="settings-label">{t("providers.detail.baseUrl")}</p>
                     <p className="mono">{selectedProvider.base_url}</p>
                   </div>
                   <div className="settings-card">
-                    <p className="settings-label">Health</p>
+                    <p className="settings-label">{t("providers.detail.health")}</p>
                     <p className="mono">{selectedProvider.status.last_health_status}</p>
                   </div>
                   <div className="settings-card">
-                    <p className="settings-label">API Key</p>
+                    <p className="settings-label">{t("providers.detail.apiKey")}</p>
                     <p className="mono">{selectedProvider.api_key_masked}</p>
                   </div>
                   <div className="settings-card">
-                    <p className="settings-label">Capabilities</p>
+                    <p className="settings-label">{t("providers.detail.capabilities")}</p>
                     <p className="mono">
-                      {selectedProvider.capabilities.supports_models_api ? "models " : ""}
-                      {selectedProvider.capabilities.supports_balance_api ? "balance " : ""}
-                      {selectedProvider.capabilities.supports_stream ? "stream" : ""}
+                      {selectedProvider.capabilities.supports_models_api
+                        ? `${t("providers.detail.capability.models")} `
+                        : ""}
+                      {selectedProvider.capabilities.supports_balance_api
+                        ? `${t("providers.detail.capability.balance")} `
+                        : ""}
+                      {selectedProvider.capabilities.supports_stream
+                        ? t("providers.detail.capability.stream")
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -341,7 +369,7 @@ export function ProvidersPage({
                   <div className="settings-action-row">
                     {!selectedProvider.status.is_active ? (
                       <button type="button" onClick={() => void handleActivateProvider(selectedProvider)}>
-                        Activate
+                        {t("providers.action.activate")}
                       </button>
                     ) : null}
                     <button
@@ -351,7 +379,7 @@ export function ProvidersPage({
                         startEditing(selectedProvider);
                       }}
                     >
-                      Edit
+                      {t("common.edit")}
                     </button>
                     <button
                       type="button"
@@ -360,7 +388,7 @@ export function ProvidersPage({
                         void handleHealthcheck(selectedProvider.id);
                       }}
                     >
-                      Check
+                      {t("common.check")}
                     </button>
                     <button
                       type="button"
@@ -369,7 +397,7 @@ export function ProvidersPage({
                         void handleDeleteProvider(selectedProvider.id);
                       }}
                     >
-                      Delete
+                      {t("common.delete")}
                     </button>
                   </div>
                 </div>
