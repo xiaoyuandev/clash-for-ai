@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   getProviderModels,
@@ -13,7 +14,6 @@ import {
   buttonClass,
   columnCardClass,
   compactStatGridClass,
-  dangerNoticeClass,
   emptyStateClass,
   eyebrowClass,
   heroClass,
@@ -34,7 +34,6 @@ import {
   sectionHeadClass,
   sectionMetaClass,
   sectionTitleClass,
-  successNoticeClass,
   statusPillClass,
   stickySearchClass
 } from "../ui";
@@ -58,6 +57,7 @@ export function ModelsPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [search, setSearch] = useState("");
   const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
   const activeProvider = providers.find((provider) => provider.status.is_active) ?? null;
@@ -159,6 +159,32 @@ export function ModelsPage({
   const availableCount = filteredAvailableModels.length;
   const providerModelCount = availableModels.length;
 
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-error`, message: error, tone: "error" }
+    ]);
+    setError(null);
+  }, [error]);
+
+  useEffect(() => {
+    if (!feedback) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-success`, message: feedback, tone: "success" }
+    ]);
+    setFeedback(null);
+  }, [feedback]);
+
   async function persistSelectedModels(nextItems: SelectedModel[], successMessage: string) {
     if (!activeProvider) {
       return;
@@ -238,6 +264,7 @@ export function ModelsPage({
 
   return (
     <main className={pageShellClass}>
+      <ToastRegion items={toasts} onDismiss={dismissToast} />
       <section className={heroClass}>
         <div className={heroContentClass}>
           <div className={heroLabelStackClass}>
@@ -261,13 +288,6 @@ export function ModelsPage({
           </span>
         </div>
       </section>
-
-      {error ? (
-        <p className={dangerNoticeClass}>{error}</p>
-      ) : null}
-      {feedback ? (
-        <p className={successNoticeClass}>{feedback}</p>
-      ) : null}
 
       <section className={sectionCardClass}>
         <div className={sectionHeadClass}>
@@ -297,17 +317,23 @@ export function ModelsPage({
               <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
                 <p className={metaClass}>{activeProvider.name}</p>
                 <p className={metricNumberClass}>{providerModelCount}</p>
-                <p className="text-xs text-[color:var(--color-muted)]">Provider models</p>
+                <p className="text-xs text-[color:var(--color-muted)]">
+                  {t("models.stats.providerModels")}
+                </p>
               </div>
               <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
-                <p className={metaClass}>Available to add</p>
+                <p className={metaClass}>{t("models.stats.availableToAdd")}</p>
                 <p className={metricNumberClass}>{availableCount}</p>
-                <p className="text-xs text-[color:var(--color-muted)]">Filtered by current search</p>
+                <p className="text-xs text-[color:var(--color-muted)]">
+                  {t("models.stats.filteredBySearch")}
+                </p>
               </div>
               <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
-                <p className={metaClass}>Fallback slots</p>
+                <p className={metaClass}>{t("models.stats.failoverSlots")}</p>
                 <p className={metricNumberClass}>{selectedModels.length}</p>
-                <p className="text-xs text-[color:var(--color-muted)]">Ordered active fallback chain</p>
+                <p className="text-xs text-[color:var(--color-muted)]">
+                  {t("models.stats.activeChain")}
+                </p>
               </div>
             </div>
 

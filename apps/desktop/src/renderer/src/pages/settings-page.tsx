@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   actionRowClass,
@@ -24,7 +25,6 @@ import {
   sectionHeadClass,
   sectionMetaClass,
   sectionTitleClass,
-  successNoticeClass,
   statusPillClass
 } from "../ui";
 
@@ -125,6 +125,7 @@ export function SettingsPage({
   const [updateBusy, setUpdateBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [portInput, setPortInput] = useState(String(desktopState?.config.apiPort ?? 3456));
   const [connectOpen, setConnectOpen] = useState(false);
   const [toolPreset, setToolPreset] = useState<ToolPreset>("codex-cli");
@@ -132,10 +133,26 @@ export function SettingsPage({
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [manualCopyFeedback, setManualCopyFeedback] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState<ConnectMode>("command");
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   useEffect(() => {
     setPortInput(String(desktopState?.config.apiPort ?? 3456));
   }, [desktopState?.config.apiPort]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!feedback) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-feedback`, message: feedback, tone: feedbackTone }
+    ]);
+    setFeedback(null);
+  }, [feedback, feedbackTone]);
 
   async function handleRestart() {
     setBusy(true);
@@ -143,8 +160,10 @@ export function SettingsPage({
 
     try {
       await onCoreRestart();
+      setFeedbackTone("success");
       setFeedback(t("settings.feedback.coreRestarted"));
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.restartFailed"));
     } finally {
       setBusy(false);
@@ -154,6 +173,7 @@ export function SettingsPage({
   async function handleSavePort() {
     const nextPort = Number(portInput);
     if (!Number.isInteger(nextPort) || nextPort < 1 || nextPort > 65535) {
+      setFeedbackTone("error");
       setFeedback(t("settings.feedback.invalidPort"));
       return;
     }
@@ -163,8 +183,10 @@ export function SettingsPage({
 
     try {
       await onUpdateCorePort(nextPort);
+      setFeedbackTone("success");
       setFeedback(t("settings.feedback.portUpdated", { port: nextPort }));
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.portUpdateFailed"));
     } finally {
       setSaveBusy(false);
@@ -178,6 +200,7 @@ export function SettingsPage({
     try {
       await onCheckUpdates();
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.updateCheckFailed"));
     } finally {
       setUpdateBusy(false);
@@ -191,6 +214,7 @@ export function SettingsPage({
     try {
       await onDownloadUpdate();
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.updateDownloadFailed"));
     } finally {
       setUpdateBusy(false);
@@ -204,6 +228,7 @@ export function SettingsPage({
     try {
       await onQuitAndInstallUpdate();
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(
         error instanceof Error ? error.message : t("settings.feedback.updateInstallFailed")
       );
@@ -318,12 +343,14 @@ export function SettingsPage({
   async function handleCopyCommand(text: string, title: string) {
     try {
       await onCopyText(text);
+      setFeedbackTone("success");
       setCopyFeedback(t("settings.copy.copied"));
       setFeedback(t("settings.feedback.commandCopied", { title }));
       window.setTimeout(() => {
         setCopyFeedback((current) => (current === t("settings.copy.copied") ? null : current));
       }, 1500);
     } catch (error) {
+      setFeedbackTone("error");
       setCopyFeedback(t("settings.copy.failed"));
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.copyCommandFailed"));
       window.setTimeout(() => {
@@ -341,12 +368,14 @@ export function SettingsPage({
   async function handleCopyValue(text: string, label: string) {
     try {
       await onCopyText(text);
+      setFeedbackTone("success");
       setManualCopyFeedback(label);
       setFeedback(t("settings.feedback.valueCopied", { label }));
       window.setTimeout(() => {
         setManualCopyFeedback((current) => (current === label ? null : current));
       }, 1500);
     } catch (error) {
+      setFeedbackTone("error");
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.copyValueFailed"));
     }
   }
@@ -355,6 +384,7 @@ export function SettingsPage({
 
   return (
     <main className={pageShellClass}>
+      <ToastRegion items={toasts} onDismiss={dismissToast} />
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
@@ -372,10 +402,6 @@ export function SettingsPage({
           </span>
         </div>
       </section>
-
-      {feedback ? (
-        <p className={successNoticeClass}>{feedback}</p>
-      ) : null}
 
       <section className={sectionCardClass}>
         <div className={sectionHeadClass}>

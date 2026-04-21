@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   activateProvider,
@@ -12,7 +13,6 @@ import {
 import type { Provider } from "../types/provider";
 import {
   buttonClass,
-  dangerNoticeClass,
   emptyStateClass,
   eyebrowClass,
   fieldLabelClass,
@@ -32,7 +32,6 @@ import {
   sectionMetaClass,
   sectionTitleClass,
   selectableItemClass,
-  successNoticeClass,
   statusPillClass
 } from "../ui";
 
@@ -59,6 +58,7 @@ export function ProvidersPage({
   const [providers, setProviders] = useState<Provider[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -71,6 +71,32 @@ export function ProvidersPage({
     providers.find((provider) => provider.status.is_active) ??
     providers[0] ??
     null;
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-error`, message: error, tone: "error" }
+    ]);
+    setError(null);
+  }, [error]);
+
+  useEffect(() => {
+    if (!feedback) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-success`, message: feedback, tone: "success" }
+    ]);
+    setFeedback(null);
+  }, [feedback]);
 
   useEffect(() => {
     let cancelled = false;
@@ -223,6 +249,7 @@ export function ProvidersPage({
 
   return (
     <main className={pageShellClass}>
+      <ToastRegion items={toasts} onDismiss={dismissToast} />
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
@@ -252,17 +279,6 @@ export function ProvidersPage({
           </div>
         </div>
       </section>
-
-      {error ? (
-        <p className={dangerNoticeClass}>
-          {error}
-        </p>
-      ) : null}
-      {feedback ? (
-        <p className={successNoticeClass}>
-          {feedback}
-        </p>
-      ) : null}
 
       <section className={sectionCardClass}>
         <div className={sectionHeadClass}>
@@ -402,15 +418,11 @@ export function ProvidersPage({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={statusPillClass(
-                        provider.status.is_active ? "success" : "default"
-                      )}
-                    >
-                      {provider.status.is_active
-                        ? t("providers.status.active")
-                        : t("providers.status.standby")}
-                    </span>
+                    {provider.status.is_active ? (
+                      <span className={statusPillClass("success")}>
+                        {t("providers.status.active")}
+                      </span>
+                    ) : null}
                     {!provider.status.is_active ? (
                       <button
                         type="button"
@@ -430,15 +442,15 @@ export function ProvidersPage({
                     >
                       {t("common.edit")}
                     </button>
-                    <button
-                      type="button"
-                      className={buttonClass("secondary")}
-                      onClick={() => {
-                        void handleHealthcheck(provider.id);
-                      }}
-                    >
-                      {t("common.check")}
-                    </button>
+                      <button
+                        type="button"
+                        className={buttonClass("secondary")}
+                        onClick={() => {
+                          void handleHealthcheck(provider.id);
+                        }}
+                      >
+                        {t("providers.action.test")}
+                      </button>
                     <button
                       type="button"
                       className={buttonClass("danger")}

@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import { getLogs } from "../services/api";
 import type { RequestLog } from "../types/request-log";
 import {
   actionRowClass,
   buttonClass,
-  dangerNoticeClass,
   emptyStateClass,
   eyebrowClass,
   fieldLabelClass,
@@ -38,6 +38,22 @@ export function LogsPage({ apiBase }: LogsPageProps) {
   const [providerFilter, setProviderFilter] = useState("all");
   const [errorFilter, setErrorFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    setToasts((current) => [
+      ...current,
+      { id: `${Date.now()}-error`, message: error, tone: "error" }
+    ]);
+    setError(null);
+  }, [error]);
 
   async function loadLogs() {
     setLoading(true);
@@ -120,6 +136,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
 
   return (
     <main className={pageShellClass}>
+      <ToastRegion items={toasts} onDismiss={dismissToast} />
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
@@ -134,10 +151,6 @@ export function LogsPage({ apiBase }: LogsPageProps) {
           </span>
         </div>
       </section>
-
-      {error ? (
-        <p className={dangerNoticeClass}>{error}</p>
-      ) : null}
 
       <section className={sectionCardClass}>
         <div className={sectionHeadClass}>

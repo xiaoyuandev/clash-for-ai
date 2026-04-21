@@ -159,9 +159,9 @@ export default function App() {
   return (
     <div className={appShellClass}>
       <div className={appBackdropClass} />
-      <div className="relative mx-auto flex h-screen w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6 sm:py-6 xl:flex-row xl:gap-6 xl:px-8">
+      <div className="relative mx-auto flex h-screen w-full max-w-[1680px] flex-row gap-4 overflow-hidden px-4 py-4 sm:px-5 sm:py-5 xl:gap-6 xl:px-8">
         <aside
-          className={`${glassPanelClass} flex w-full flex-col gap-5 overflow-y-auto px-4 py-5 sm:px-5 xl:h-[calc(100vh-3rem)] xl:w-[290px] xl:min-w-[290px] xl:self-start`}
+          className={`${glassPanelClass} flex h-[calc(100vh-2rem)] w-[272px] min-w-[272px] flex-col gap-5 overflow-y-auto px-4 py-5 sm:h-[calc(100vh-2.5rem)] sm:w-[290px] sm:min-w-[290px] sm:px-5 xl:h-[calc(100vh-3rem)]`}
         >
           <div className="space-y-3">
             <p className={eyebrowClass}>Clash for AI</p>
@@ -267,7 +267,7 @@ export default function App() {
           </div>
         </aside>
 
-        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto xl:h-[calc(100vh-3rem)]">
+        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {view === "providers" ? (
             <ProvidersPage
               desktopState={desktopState}
