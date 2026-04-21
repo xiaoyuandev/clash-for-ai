@@ -7,6 +7,7 @@ import { SettingsPage } from "./pages/settings-page";
 import { useTheme } from "./theme/theme-provider";
 import type { Provider } from "./types/provider";
 import { getRuntimeLabel } from "./utils/runtime-label";
+import appIcon from "../../../build/icon.png";
 import {
   appBackdropClass,
   appShellClass,
@@ -170,17 +171,24 @@ export default function App() {
           className={`${glassPanelClass} flex h-[calc(100vh-2rem)] w-[272px] min-w-[272px] flex-col gap-5 overflow-y-auto px-4 py-5 sm:h-[calc(100vh-2.5rem)] sm:w-[290px] sm:min-w-[290px] sm:px-5 xl:h-[calc(100vh-3rem)]`}
         >
           <div className="space-y-3">
-            <p className={eyebrowClass}>Clash for AI</p>
-            <div className="space-y-2">
-              <h2 className="text-[28px] font-semibold tracking-[-0.04em] text-[color:var(--color-heading)]">
-                {t("app.desktopGateway")}
-              </h2>
-              <p className={metaClass}>
-                {selectedProvider
-                  ? t("app.currentProvider", { name: selectedProvider.name })
-                  : t("app.selectProviderHint")}
-              </p>
+            <div className="flex items-center gap-3">
+              <img
+                src={appIcon}
+                alt="Clash for AI"
+                className="h-14 w-14 rounded-2xl shadow-[0_14px_30px_rgba(15,23,42,0.18)]"
+              />
+              <div className="min-w-0">
+                <p className={`${eyebrowClass} mb-1`}>AI Gateway</p>
+                <h2 className="truncate bg-[linear-gradient(135deg,var(--accent-strong),#a5f3fc)] bg-clip-text text-[30px] font-semibold tracking-[-0.05em] text-transparent">
+                  Clash for AI
+                </h2>
+              </div>
             </div>
+            <p className={metaClass}>
+              {selectedProvider
+                ? t("app.currentProvider", { name: selectedProvider.name })
+                : t("app.selectProviderHint")}
+            </p>
           </div>
 
           <nav className="grid gap-2">

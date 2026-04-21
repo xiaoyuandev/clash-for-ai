@@ -11,7 +11,6 @@ import {
   updateProvider
 } from "../services/api";
 import type { Provider } from "../types/provider";
-import { getRuntimeLabel } from "../utils/runtime-label";
 import {
   buttonClass,
   emptyStateClass,
@@ -72,11 +71,6 @@ export function ProvidersPage({
     providers.find((provider) => provider.status.is_active) ??
     providers[0] ??
     null;
-  const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
-    desktopApp: t("settings.value.desktopApp"),
-    browser: t("settings.value.browser"),
-    unknown: t("settings.value.unknown")
-  });
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -471,6 +465,12 @@ export function ProvidersPage({
                       <p className={metaClass}>
                         {t("providers.detail.health")}{" "}
                         <span className={monoClass}>{provider.status.last_health_status}</span>
+                      </p>
+                      <p className={metaClass}>
+                        {t("providers.detail.apiKey")}{" "}
+                        <span className={monoClass}>
+                          {provider.api_key_masked}
+                        </span>
                       </p>
                       <p className={metaClass}>
                         {t("providers.detail.capabilities")}{" "}

@@ -123,15 +123,36 @@ func NewService(repository Repository, credentials credential.Store) *Service {
 }
 
 func (s *Service) List(ctx context.Context) ([]Provider, error) {
-	return s.repository.List(ctx)
+	items, err := s.repository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for index := range items {
+		items[index] = s.refreshMaskedKey(ctx, items[index])
+	}
+
+	return items, nil
 }
 
 func (s *Service) GetActive(ctx context.Context) (*Provider, error) {
-	return s.repository.GetActive(ctx)
+	item, err := s.repository.GetActive(ctx)
+	if err != nil || item == nil {
+		return item, err
+	}
+
+	refreshed := s.refreshMaskedKey(ctx, *item)
+	return &refreshed, nil
 }
 
 func (s *Service) GetByID(ctx context.Context, id string) (*Provider, error) {
-	return s.repository.GetByID(ctx, id)
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil || item == nil {
+		return item, err
+	}
+
+	refreshed := s.refreshMaskedKey(ctx, *item)
+	return &refreshed, nil
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, error) {
@@ -364,13 +385,28 @@ func joinURLPath(basePath string, requestPath string) string {
 }
 
 func maskAPIKey(value string) string {
-	if len(value) <= 4 {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) <= 4 {
 		return "****"
 	}
 
-	if len(value) <= 12 {
-		return fmt.Sprintf("%s****", value[:len(value)-4])
+	if len(trimmed) <= 12 {
+		return fmt.Sprintf("%s****", trimmed[:len(trimmed)-4])
 	}
 
-	return fmt.Sprintf("%s****%s", value[:8], value[len(value)-4:])
+	return fmt.Sprintf("%s••••%s", trimmed[:8], trimmed[len(trimmed)-4:])
+}
+
+func (s *Service) refreshMaskedKey(ctx context.Context, item Provider) Provider {
+	if strings.TrimSpace(item.APIKeyRef) == "" {
+		return item
+	}
+
+	apiKey, err := s.credentials.Get(ctx, item.APIKeyRef)
+	if err != nil {
+		return item
+	}
+
+	item.APIKeyMasked = maskAPIKey(apiKey)
+	return item
 }
