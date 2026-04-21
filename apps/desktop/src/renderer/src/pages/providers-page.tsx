@@ -290,6 +290,7 @@ export function ProvidersPage({
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
+            <span className={hintClass}>{t("providers.form.nameHint")}</span>
           </label>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.baseUrl")}</span>
@@ -300,6 +301,7 @@ export function ProvidersPage({
               onChange={(event) => setBaseUrl(event.target.value)}
               placeholder="https://api.example.com/v1"
             />
+            <span className={hintClass}>{t("providers.form.baseUrlHint")}</span>
           </label>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.apiKey")}</span>
@@ -311,6 +313,7 @@ export function ProvidersPage({
               placeholder="sk-example"
               type="password"
             />
+            <span className={hintClass}>{t("providers.form.apiKeyHint")}</span>
           </label>
           <div className="flex flex-wrap items-end gap-3 xl:justify-end">
             <button type="submit" className={buttonClass("primary")} disabled={submitting}>

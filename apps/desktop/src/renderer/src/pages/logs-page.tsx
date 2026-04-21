@@ -110,6 +110,14 @@ export function LogsPage({ apiBase }: LogsPageProps) {
     return true;
   });
 
+  const successCount = filteredLogs.filter((log) => !log.error_type).length;
+  const errorCount = filteredLogs.filter((log) => Boolean(log.error_type)).length;
+  const averageLatency = filteredLogs.length
+    ? Math.round(
+        filteredLogs.reduce((total, log) => total + log.latency_ms, 0) / filteredLogs.length
+      )
+    : 0;
+
   return (
     <main className={pageShellClass}>
       <section className={heroClass}>
@@ -195,6 +203,27 @@ export function LogsPage({ apiBase }: LogsPageProps) {
               placeholder={t("logs.filter.placeholder")}
             />
           </label>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className={surfaceCardClass}>
+            <p className={fieldLabelClass}>{t("logs.summary.success")}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[color:var(--color-heading)]">
+              {successCount}
+            </p>
+          </div>
+          <div className={surfaceCardClass}>
+            <p className={fieldLabelClass}>{t("logs.summary.errors")}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[color:var(--color-heading)]">
+              {errorCount}
+            </p>
+          </div>
+          <div className={surfaceCardClass}>
+            <p className={fieldLabelClass}>{t("logs.summary.avgLatency")}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[color:var(--color-heading)]">
+              {averageLatency} ms
+            </p>
+          </div>
         </div>
 
         {filteredLogs.length === 0 ? (

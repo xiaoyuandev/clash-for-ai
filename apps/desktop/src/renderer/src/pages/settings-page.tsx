@@ -647,7 +647,7 @@ export function SettingsPage({
             </div>
 
             {connectionGuide.supportsManual ? (
-              <div className="mt-6 inline-flex rounded-full border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
+              <div className="mt-6 grid grid-cols-2 rounded-[22px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
                 <button
                   type="button"
                   className={
@@ -674,7 +674,7 @@ export function SettingsPage({
             ) : null}
 
             {connectMode === "command" || !connectionGuide.supportsManual ? (
-              <div className={`${infoCardClass} mt-6`}>
+              <div className={`${infoCardClass} mt-6 p-5`}>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <p className={fieldLabelClass}>{connectionGuide.title}</p>
@@ -708,10 +708,12 @@ export function SettingsPage({
                 <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
                   <code>{connectionGuide.command}</code>
                 </pre>
-                <p className={`${metaClass} mt-4`}>{connectionGuide.note}</p>
+                <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+                  <p className={metaClass}>{connectionGuide.note}</p>
+                </div>
               </div>
             ) : (
-              <div className={`${infoCardClass} mt-6`}>
+              <div className={`${infoCardClass} mt-6 p-5`}>
                 <div className="mb-4">
                   <p className={fieldLabelClass}>{connectionGuide.manualTitle}</p>
                 </div>
@@ -754,7 +756,9 @@ export function SettingsPage({
                 ) : (
                   <div className={emptyStateClass}>No manual settings available.</div>
                 )}
-                <p className={`${metaClass} mt-4`}>{connectionGuide.note}</p>
+                <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+                  <p className={metaClass}>{connectionGuide.note}</p>
+                </div>
               </div>
             )}
           </section>

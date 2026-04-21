@@ -12,15 +12,19 @@ import type { SelectedModel } from "../types/selected-model";
 import {
   buttonClass,
   columnCardClass,
+  compactStatGridClass,
   dangerNoticeClass,
   emptyStateClass,
   eyebrowClass,
   heroClass,
+  heroContentClass,
   heroCopyClass,
+  heroLabelStackClass,
   heroTitleClass,
   iconBadgeClass,
   iconButtonClass,
   inputClass,
+  metricNumberClass,
   metaClass,
   monoClass,
   pageShellClass,
@@ -152,6 +156,8 @@ export function ModelsPage({
     ...item,
     details: availableModels.find((model) => model.id === item.model_id)
   }));
+  const availableCount = filteredAvailableModels.length;
+  const providerModelCount = availableModels.length;
 
   async function persistSelectedModels(nextItems: SelectedModel[], successMessage: string) {
     if (!activeProvider) {
@@ -233,8 +239,8 @@ export function ModelsPage({
   return (
     <main className={pageShellClass}>
       <section className={heroClass}>
-        <div className="space-y-4">
-          <div>
+        <div className={heroContentClass}>
+          <div className={heroLabelStackClass}>
             <p className={eyebrowClass}>Clash for AI</p>
             <h1 className={heroTitleClass}>{t("models.title")}</h1>
           </div>
@@ -286,15 +292,34 @@ export function ModelsPage({
             </div>
           </div>
         ) : (
-          <div
-            className="mt-6 flex flex-col gap-4 xl:grid xl:items-stretch"
-            style={{
-              gridTemplateColumns: `minmax(0, ${leftPaneWidth}fr) 16px minmax(0, ${
-                100 - leftPaneWidth
-              }fr)`
-            }}
-          >
-            <section className={columnCardClass}>
+          <>
+            <div className={`${compactStatGridClass} mt-6`}>
+              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+                <p className={metaClass}>{activeProvider.name}</p>
+                <p className={metricNumberClass}>{providerModelCount}</p>
+                <p className="text-xs text-[color:var(--color-muted)]">Provider models</p>
+              </div>
+              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+                <p className={metaClass}>Available to add</p>
+                <p className={metricNumberClass}>{availableCount}</p>
+                <p className="text-xs text-[color:var(--color-muted)]">Filtered by current search</p>
+              </div>
+              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+                <p className={metaClass}>Fallback slots</p>
+                <p className={metricNumberClass}>{selectedModels.length}</p>
+                <p className="text-xs text-[color:var(--color-muted)]">Ordered active fallback chain</p>
+              </div>
+            </div>
+
+            <div
+              className="mt-4 flex flex-col gap-4 xl:grid xl:items-stretch"
+              style={{
+                gridTemplateColumns: `minmax(0, ${leftPaneWidth}fr) 16px minmax(0, ${
+                  100 - leftPaneWidth
+                }fr)`
+              }}
+            >
+              <section className={columnCardClass}>
               <div className={sectionHeadClass}>
                 <div className="space-y-1">
                   <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
@@ -320,6 +345,9 @@ export function ModelsPage({
                     </svg>
                   </span>
                 </label>
+                <p className="px-1 pt-3 text-xs text-[color:var(--color-muted)]">
+                  Search by exact model id or provider-assigned alias.
+                </p>
               </div>
 
               <div className={`${scrollListClass} mt-4`}>
@@ -359,83 +387,84 @@ export function ModelsPage({
                   ))
                 )}
               </div>
-            </section>
+              </section>
 
-            <div
-              className="pane-resizer"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t("models.resizeColumns")}
-              onPointerDown={startResize}
-            >
-              <span className="pane-resizer-line" />
-            </div>
-
-            <section className={columnCardClass}>
-              <div className={sectionHeadClass}>
-                <div className="space-y-1">
-                  <h3 className={sectionTitleClass}>{t("models.fallback.title")}</h3>
-                  <p className={sectionMetaClass}>{selectedModels.length}</p>
-                </div>
+              <div
+                className="pane-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label={t("models.resizeColumns")}
+                onPointerDown={startResize}
+              >
+                <span className="pane-resizer-line" />
               </div>
-              <p className={`${metaClass} mt-4`}>{t("models.fallback.subtitle")}</p>
 
-              <div className={`${scrollListClass} mt-4`}>
-                {selectedModelDetails.length === 0 ? (
-                  <div className={emptyStateClass}>
-                    <p>{t("models.fallback.empty")}</p>
+              <section className={columnCardClass}>
+                <div className={sectionHeadClass}>
+                  <div className="space-y-1">
+                    <h3 className={sectionTitleClass}>{t("models.fallback.title")}</h3>
+                    <p className={sectionMetaClass}>{selectedModels.length}</p>
                   </div>
-                ) : (
-                  selectedModelDetails.map((item, index) => (
-                    <article
-                      key={item.model_id}
-                      className={`${queueItemClass} cursor-grab`}
-                      draggable
-                      onDragStart={() => {
-                        setDraggedModelId(item.model_id);
-                      }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                      }}
-                      onDrop={() => {
-                        moveModel(item.model_id);
-                      }}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="grid gap-2">
-                          <span
-                            className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75"
-                            aria-hidden="true"
-                          >
-                            :::
-                          </span>
-                          <span className="text-xs font-semibold text-[color:var(--color-subtle)]">
-                            #{index + 1}
-                          </span>
-                        </div>
-                        <div>
-                          <p className={monoClass}>{item.model_id}</p>
-                          <p className={`${metaClass} mt-2`}>
-                            {index === 0
-                              ? t("models.fallback.primary")
-                              : t("models.fallback.secondary", { index })}
-                            {item.details?.owned_by ? ` · ${item.details.owned_by}` : ""}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className={buttonClass("secondary")}
-                        onClick={() => removeModel(item.model_id)}
+                </div>
+                <p className={`${metaClass} mt-4`}>{t("models.fallback.subtitle")}</p>
+
+                <div className={`${scrollListClass} mt-4`}>
+                  {selectedModelDetails.length === 0 ? (
+                    <div className={emptyStateClass}>
+                      <p>{t("models.fallback.empty")}</p>
+                    </div>
+                  ) : (
+                    selectedModelDetails.map((item, index) => (
+                      <article
+                        key={item.model_id}
+                        className={`${queueItemClass} cursor-grab`}
+                        draggable
+                        onDragStart={() => {
+                          setDraggedModelId(item.model_id);
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                        }}
+                        onDrop={() => {
+                          moveModel(item.model_id);
+                        }}
                       >
-                        {t("models.fallback.remove")}
-                      </button>
-                    </article>
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
+                        <div className="flex items-start gap-4">
+                          <div className="grid gap-2">
+                            <span
+                              className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75"
+                              aria-hidden="true"
+                            >
+                              :::
+                            </span>
+                            <span className="text-xs font-semibold text-[color:var(--color-subtle)]">
+                              #{index + 1}
+                            </span>
+                          </div>
+                          <div>
+                            <p className={monoClass}>{item.model_id}</p>
+                            <p className={`${metaClass} mt-2`}>
+                              {index === 0
+                                ? t("models.fallback.primary")
+                                : t("models.fallback.secondary", { index })}
+                              {item.details?.owned_by ? ` · ${item.details.owned_by}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={buttonClass("secondary")}
+                          onClick={() => removeModel(item.model_id)}
+                        >
+                          {t("models.fallback.remove")}
+                        </button>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+          </>
         )}
       </section>
     </main>

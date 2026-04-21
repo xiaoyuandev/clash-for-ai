@@ -22,6 +22,8 @@ export const heroTitleClass =
   "max-w-4xl text-4xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)] sm:text-5xl xl:text-6xl";
 
 export const heroCopyClass = "max-w-2xl text-sm leading-7 text-[color:var(--color-muted)] sm:text-base";
+export const heroContentClass = "space-y-4";
+export const heroLabelStackClass = "space-y-1";
 
 export const heroPillsClass = "flex flex-wrap items-center gap-3 lg:max-w-sm lg:justify-end";
 
@@ -84,10 +86,13 @@ export const infoCardClass =
 export const emptyStateClass =
   "rounded-3xl border border-dashed [border-color:var(--border-soft)] [background:var(--panel-solid)] px-5 py-8 text-sm leading-7 text-[color:var(--color-muted)]";
 export const gridStatsClass = "grid gap-4 sm:grid-cols-2 xl:grid-cols-4";
+export const compactStatGridClass = "grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
 export const iconBadgeClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--accent)]";
 export const metricValueClass =
   "mt-3 text-lg font-semibold tracking-[-0.02em] text-[color:var(--color-heading)]";
+export const metricNumberClass =
+  "mt-3 text-2xl font-semibold tracking-[-0.03em] text-[color:var(--color-heading)]";
 export function statusDotClass(variant: "default" | "success" | "danger" | "warning" = "default") {
   const variants = {
     default: "bg-[color:var(--color-subtle)]/65",
