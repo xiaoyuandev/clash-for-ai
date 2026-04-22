@@ -1,6 +1,6 @@
 # Clash for AI
 
-Clash for AI 是一个面向多 AI Provider 使用场景的本地桌面网关工具，适合同时在多个编程工具、聊天客户端或脚本里接入不同 AI 服务的用户。
+Clash for AI 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌面网关工具。
 
 [English README](./README.md)
 
@@ -12,29 +12,31 @@ Clash for AI 是一个面向多 AI Provider 使用场景的本地桌面网关工
 
 ## 这个项目解决了什么问题
 
-如果你同时使用多个 AI Provider，日常切换通常会带来这些成本：
+Clash for AI 主要面向经常切换不同 AI Gateway / 中转 API 的用户。
 
-1. 需要反复修改环境变量或工具配置文件
-2. 需要在编辑器、CLI、桌面客户端里重复填写 Base URL 和 API Key
-3. 想测试另一个 Provider 时，要重新改一轮配置
-4. 出现失败时，很难快速判断是鉴权、额度、网络还是上游服务异常
+它主要解决两个问题：
+
+1. 中转 API 服务不稳定，用户需要在不同中转 API 服务商之间频繁切换
+2. 当你同时使用多个编程工具、聊天客户端或脚本时，每次切换服务商都要重复修改配置
 
 Clash for AI 的做法是在你的工具前面放一个本地 Gateway。
 
-你的工具只需要统一接入本地地址一次，之后切换上游 Provider 时，不再需要逐个修改工具配置，只需要在桌面应用里切换即可。
+你的工具只需要统一接入本地地址一次，之后切换上游 Gateway 时，不再需要逐个修改工具配置，只需要在桌面应用里切换即可。
 
 ## 这个项目和 cc-switch 的区别
 
-`cc-switch` 的核心思路是改写环境变量或工具配置，让工具切到另一个服务商。
+两者的差异主要在产品定位和接入方式。
 
-Clash for AI 的思路不同：
+| 维度 | cc-switch | Clash for AI |
+|---|---|---|
+| 公开定位 | 面向 Claude Code、Codex、Gemini CLI、OpenCode、OpenClaw 的一体化桌面管理工具 | 面向多 AI Gateway / 中转 API 的本地桌面网关管理工具 |
+| 主要目标 | 管理特定 AI 编程工具里的 Provider 配置 | 在统一本地入口后面切换上游 Gateway |
+| 切换方式 | 公开文档重点是围绕已支持工具做 Provider 配置管理和切换 | 工具统一连到本地端口，由桌面应用切换上游 Gateway |
+| 对工具配置的影响 | 以特定工具的配置管理流程为中心 | 初次设置 Base URL 后，尽量不再重复改各个工具的配置 |
+| 接入范围 | 公开 README 重点覆盖 5 个编程 CLI 及其 MCP / Skills / Prompt 工作流 | 统一本地端点可复用于编程工具、Cherry Studio 这类聊天客户端，以及 SDK / 脚本接入 |
+| 当前能力重点 | MCP、Skills、Prompts、Sessions、Proxy / Failover、Cloud Sync 等一体化工具管理能力 | Provider 切换、健康检查、请求日志、稳定本地接入等网关能力 |
 
-1. 工具统一指向一个稳定的 localhost 地址，而不是每次切换都改配置
-2. Provider 切换通过桌面 UI 完成，而不是反复编辑配置文件
-3. 内置日志和健康检查，便于定位问题来源
-4. 多个工具可以一起切换，因为它们都依赖同一个本地 Gateway
-
-一句话概括：`cc-switch` 是配置改写工具，Clash for AI 是“本地代理 + 管理面板”。
+一句话概括：cc-switch 更偏向“特定 AI 编程工具管理器”，Clash for AI 更偏向“本地网关 + 中转 API 管理面板”。
 
 ## 它是怎么工作的
 
