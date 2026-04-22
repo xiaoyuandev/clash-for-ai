@@ -75,6 +75,20 @@ Please follow this workflow:
 3. Run relevant validation locally
 4. Open a pull request back to `main`
 
+`main` is a protected branch.
+
+Current repository rules:
+
+1. Do not push directly to `main`
+2. Do not force-push to `main`
+3. Open a pull request for every change
+4. Wait for the required `ci` check to pass
+5. Wait for at least one approval before merge
+6. Code owner review is required
+7. Resolve review conversations before merge
+
+If new commits are pushed to a PR, previous approvals may need to be re-confirmed.
+
 Recommended PR content:
 
 1. What changed
@@ -90,7 +104,7 @@ At minimum for desktop-facing changes:
 
 ```bash
 pnpm --filter desktop typecheck
-pnpm --filter desktop build
+pnpm build
 ```
 
 If your change affects runtime behavior, also test it manually.

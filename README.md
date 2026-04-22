@@ -2,11 +2,39 @@
 
 Clash for AI is a local desktop gateway for people who use multiple AI API providers across different coding tools.
 
+[中文 README](./README.zh-CN.md)
+
 It gives you:
 
 1. One stable local endpoint for your tools
 2. A desktop control plane for switching providers
 3. Local request logs and health checks for debugging provider issues
+
+## What Problem It Solves
+
+If you use more than one AI provider, switching between them usually means touching every tool again:
+
+1. Updating environment variables or provider config files
+2. Re-entering endpoints and API keys in editors, CLIs, and desktop apps
+3. Repeating the same setup when you want to test another provider
+4. Losing time debugging whether a failure came from auth, quota, network, or the upstream service
+
+Clash for AI reduces that operational cost by putting a local gateway in front of your tools.
+
+You configure your tools once against a local endpoint, then switch the upstream provider from the desktop app without rewriting each tool's configuration.
+
+## How It Differs From cc-switch
+
+`cc-switch` is primarily a configuration rewriting tool. It switches providers by changing environment variables or tool configuration files.
+
+Clash for AI takes a different approach:
+
+1. Your tools point to one stable localhost endpoint instead of being rewritten for each switch
+2. Provider switching happens from a desktop UI instead of repeated config edits
+3. Logs and health checks are built in, so you can inspect failures locally
+4. Multiple tools can switch together because they all depend on the same local gateway
+
+In short: `cc-switch` changes tool configuration; Clash for AI keeps tool configuration stable and changes the upstream behind a local gateway.
 
 ## What It Does
 
@@ -42,6 +70,7 @@ This means:
 See the end-user setup guide:
 
 - [User Guide](./docs/user-guide.md)
+- [中文 README](./README.zh-CN.md)
 
 In most supported tools, you configure:
 
