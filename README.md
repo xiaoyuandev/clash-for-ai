@@ -86,11 +86,6 @@ pnpm --filter desktop build:win
 pnpm --filter desktop build:linux
 ```
 
-Release notes and packaging details:
-
-- [Release Guide](./docs/release-guide.md)
-- [Install Guide](./docs/install-guide.md)
-
 ## Project Structure
 
 ```text

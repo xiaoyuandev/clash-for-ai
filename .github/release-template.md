@@ -7,21 +7,22 @@ Choose the package that matches your desktop system:
 ### macOS
 
 1. Apple Silicon:
-   - `Clash for AI-{{VERSION}}-arm64.dmg`
-   - `Clash for AI-{{VERSION}}-mac-arm64.zip`
+   - `Clash-for-AI-{{VERSION}}-arm64.pkg`
+   - `Clash-for-AI-{{VERSION}}-arm64.dmg`
+   - `Clash-for-AI-{{VERSION}}-mac-arm64.zip`
 2. Intel Mac:
    - use the matching `x64` artifact when that build is attached
 
 ### Windows
 
 1. Installer:
-   - `Clash for AI-{{VERSION}}-x64-setup.exe`
+   - `Clash-for-AI-{{VERSION}}-x64-setup.exe`
 2. If an `arm64` installer is attached, prefer that on Windows on ARM devices
 
 ### Linux
 
-1. `Clash for AI-{{VERSION}}-x64.AppImage`
-2. `Clash for AI-{{VERSION}}-linux-x64.tar.gz`
+1. `Clash-for-AI-{{VERSION}}-x64.AppImage`
+2. `Clash-for-AI-{{VERSION}}-linux-x64.tar.gz`
 
 ## Install Notes
 
@@ -33,6 +34,7 @@ If macOS blocks the app on first launch:
 
 1. Right click the app and choose `Open`
 2. Or go to `System Settings -> Privacy & Security` and allow the app to open
+3. Prefer the `.pkg` installer or move the `.app` into `/Applications` before launch
 
 ### Windows
 
@@ -48,8 +50,8 @@ If SmartScreen warns that the publisher is unknown:
 For AppImage:
 
 ```bash
-chmod +x "Clash for AI-{{VERSION}}-x64.AppImage"
-./Clash\ for\ AI-{{VERSION}}-x64.AppImage
+chmod +x "Clash-for-AI-{{VERSION}}-x64.AppImage"
+./Clash-for-AI-{{VERSION}}-x64.AppImage
 ```
 
 ## Notes
