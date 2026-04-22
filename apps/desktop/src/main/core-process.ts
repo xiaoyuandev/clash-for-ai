@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import {
@@ -355,20 +355,49 @@ function buildCoreBinary(
 }
 
 function resolveGoBinary(): string | null {
-  const candidates = [
-    process.env.GO_BINARY,
-    "/tmp/go-toolchain/go/bin/go",
-    "go"
-  ].filter(Boolean) as string[];
+  const candidates = [process.env.GO_BINARY, "go"].filter(Boolean) as string[];
 
   for (const candidate of candidates) {
-    const result = spawnSync(candidate, ["version"], { stdio: "ignore" });
-    if (result.status === 0) {
+    if (isUsableGoBinary(candidate)) {
       return candidate;
     }
   }
 
   return null;
+}
+
+function isUsableGoBinary(candidate: string): boolean {
+  const versionResult = spawnSync(candidate, ["version"], {
+    stdio: "ignore"
+  });
+  if (versionResult.status !== 0) {
+    return false;
+  }
+
+  const gorootResult = spawnSync(candidate, ["env", "GOROOT"], {
+    encoding: "utf8"
+  });
+  if (gorootResult.status !== 0) {
+    return false;
+  }
+
+  const goroot = gorootResult.stdout.trim();
+  if (!goroot) {
+    return false;
+  }
+
+  // Only accept Go binaries that can resolve a usable stdlib from GOROOT.
+  const stdlibFiles = [
+    join(goroot, "src", "context", "context.go"),
+    join(goroot, "src", "fmt", "print.go"),
+    join(goroot, "src", "log", "log.go")
+  ];
+
+  try {
+    return stdlibFiles.every((file) => existsSync(file) && statSync(file).size > 0);
+  } catch {
+    return false;
+  }
 }
 
 function resolveWorkspaceRoot(startDir: string): string {
