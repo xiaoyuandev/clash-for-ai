@@ -1,3 +1,4 @@
+import { app } from "electron";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -48,12 +49,7 @@ export async function startCoreProcess(
     };
   }
 
-  const workspaceRoot =
-    process.env.ELECTRON_WORKSPACE_ROOT ?? resolveWorkspaceRoot(process.cwd());
-  const coreDir = join(workspaceRoot, "core");
-  const binaryName =
-    process.platform === "win32" ? "clash-for-ai-core.exe" : "clash-for-ai-core";
-  const binaryPath = join(coreDir, "bin", binaryName);
+  const runtimePaths = resolveCoreRuntimePaths();
   const port = options.desiredPort;
   const apiBase = `http://127.0.0.1:${port}`;
   console.info(`[core] using fixed port ${port}, api base ${apiBase}`);
@@ -101,19 +97,34 @@ export async function startCoreProcess(
 
   const explicitCoreExecutable = process.env.CORE_EXECUTABLE;
   if (explicitCoreExecutable) {
-    return spawnCoreBinary(explicitCoreExecutable, coreDir, port, apiBase);
+    return spawnCoreBinary(explicitCoreExecutable, runtimePaths.coreDir, port, apiBase);
+  }
+
+  if (existsSync(runtimePaths.binaryPath)) {
+    return spawnCoreBinary(runtimePaths.binaryPath, runtimePaths.coreDir, port, apiBase);
+  }
+
+  if (app.isPackaged) {
+    return {
+      state: {
+        managed: false,
+        running: false,
+        apiBase,
+        port,
+        logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+        logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
+        lastError: `Bundled core executable not found at ${runtimePaths.binaryPath}`
+      },
+      stop() {}
+    };
   }
 
   const goBinary = resolveGoBinary();
   if (goBinary) {
-    const builtBinary = buildCoreBinary(goBinary, coreDir, binaryPath);
+    const builtBinary = buildCoreBinary(goBinary, runtimePaths.coreDir, runtimePaths.binaryPath);
     if (builtBinary) {
-      return spawnCoreBinary(builtBinary, coreDir, port, apiBase);
+      return spawnCoreBinary(builtBinary, runtimePaths.coreDir, port, apiBase);
     }
-  }
-
-  if (existsSync(binaryPath)) {
-    return spawnCoreBinary(binaryPath, coreDir, port, apiBase);
   }
 
   if (!goBinary) {
@@ -131,12 +142,36 @@ export async function startCoreProcess(
     };
   }
 
-  const builtBinary = buildCoreBinary(goBinary, coreDir, binaryPath);
+  const builtBinary = buildCoreBinary(goBinary, runtimePaths.coreDir, runtimePaths.binaryPath);
   if (builtBinary) {
-    return spawnCoreBinary(builtBinary, coreDir, port, apiBase);
+    return spawnCoreBinary(builtBinary, runtimePaths.coreDir, port, apiBase);
   }
 
-  return spawnGoCore(goBinary, coreDir, port, apiBase);
+  return spawnGoCore(goBinary, runtimePaths.coreDir, port, apiBase);
+}
+
+function resolveCoreRuntimePaths() {
+  const binaryName =
+    process.platform === "win32" ? "clash-for-ai-core.exe" : "clash-for-ai-core";
+
+  if (app.isPackaged) {
+    const coreDir = join(process.resourcesPath, "core");
+    const dataDir = join(app.getPath("userData"), "core");
+    return {
+      coreDir,
+      binaryPath: join(coreDir, "bin", binaryName),
+      dataDir
+    };
+  }
+
+  const workspaceRoot =
+    process.env.ELECTRON_WORKSPACE_ROOT ?? resolveWorkspaceRoot(process.cwd());
+  const coreDir = join(workspaceRoot, "core");
+  return {
+    coreDir,
+    binaryPath: join(coreDir, "bin", binaryName),
+    dataDir: join(coreDir, "data")
+  };
 }
 
 function spawnCoreBinary(
@@ -146,12 +181,15 @@ function spawnCoreBinary(
   apiBase: string
 ): CoreRuntimeHandle {
   console.info(`[core] starting binary ${executable} on port ${port}`);
+  const dataDir = resolveCoreRuntimePaths().dataDir;
+  mkdirSync(dataDir, { recursive: true });
   const child = spawn(executable, [], {
     cwd: coreDir,
     stdio: "inherit",
     env: {
       ...process.env,
-      HTTP_PORT: String(port)
+      HTTP_PORT: String(port),
+      CORE_DATA_DIR: dataDir
     }
   });
 
@@ -214,6 +252,8 @@ async function spawnGoCore(
   const modCacheDir = join(workspaceRoot, ".gomodcache");
   mkdirSync(cacheDir, { recursive: true });
   mkdirSync(modCacheDir, { recursive: true });
+  const dataDir = resolveCoreRuntimePaths().dataDir;
+  mkdirSync(dataDir, { recursive: true });
 
   const command = `${goBinary} run cmd/clash-for-ai-core/main.go`;
   console.info(`[core] starting via go run on port ${port}`);
@@ -223,6 +263,7 @@ async function spawnGoCore(
     env: {
       ...process.env,
       HTTP_PORT: String(port),
+      CORE_DATA_DIR: dataDir,
       GOCACHE: cacheDir,
       GOMODCACHE: modCacheDir
     }

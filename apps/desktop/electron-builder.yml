@@ -1,5 +1,6 @@
 appId: com.xiaoyuandev.clash-for-ai
 productName: Clash for AI
+afterAllArtifactBuild: scripts/cleanup-mac-artifacts.cjs
 directories:
   buildResources: build
 files:
@@ -8,16 +9,41 @@ files:
   - "!electron.vite.config.{js,ts,mjs,cjs}"
   - "!{.env,.env.*,README.md}"
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+extraResources:
+  - from: ../../core/bin
+    to: core/bin
+    filter:
+      - "**/*"
 asarUnpack:
   - resources/**
 mac:
+  target:
+    - dmg
+    - pkg
+    - zip
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
   extendInfo:
-    - NSDocumentsFolderUsageDescription: Clash for AI may access files in Documents for local tooling workflows.
-    - NSDownloadsFolderUsageDescription: Clash for AI may access files in Downloads for local tooling workflows.
+    NSDocumentsFolderUsageDescription: Clash for AI may access files in Documents for local tooling workflows.
+    NSDownloadsFolderUsageDescription: Clash for AI may access files in Downloads for local tooling workflows.
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - tar.gz
+  category: Utility
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Clash-for-AI-${version}-${arch}.${ext}
+pkg:
+  artifactName: Clash-for-AI-${version}-${arch}.${ext}
+nsis:
+  artifactName: Clash-for-AI-${version}-${arch}-setup.${ext}
+appImage:
+  artifactName: Clash-for-AI-${version}-${arch}.${ext}
+artifactName: Clash-for-AI-${version}-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: xiaoyuandev

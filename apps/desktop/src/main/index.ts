@@ -1,7 +1,6 @@
 import { app, BrowserWindow, clipboard, ipcMain, nativeImage, shell } from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
-import { autoUpdater } from "electron-updater";
 import { startCoreProcess, type CoreRuntimeHandle } from "./core-process";
 import {
   loadDesktopConfig,
@@ -29,6 +28,8 @@ interface UpdateState {
   message?: string;
 }
 
+type AutoUpdaterType = typeof import("electron-updater").autoUpdater;
+
 let coreRuntime: CoreRuntimeHandle = {
   state: {
     managed: false,
@@ -44,6 +45,7 @@ let desktopConfig: DesktopConfig = { apiPort: 3456 };
 let configuredPortSource: PortSource = "default";
 let isBootstrapped = false;
 let mainWindow: BrowserWindow | null = null;
+let autoUpdater: AutoUpdaterType | null = null;
 let updateState: UpdateState = {
   currentVersion: app.getVersion(),
   status: app.isPackaged ? "idle" : "unsupported",
@@ -142,17 +144,29 @@ function configureAutoUpdater() {
     return;
   }
 
+  try {
+    autoUpdater = require("electron-updater").autoUpdater as AutoUpdaterType;
+  } catch (error) {
+    updateState = {
+      currentVersion: app.getVersion(),
+      status: "unsupported",
+      message: error instanceof Error ? error.message : "Failed to load auto updater."
+    };
+    return;
+  }
+
+  const updater = autoUpdater;
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on("checking-for-update", () => {
+  updater.on("checking-for-update", () => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "checking"
     };
   });
 
-  autoUpdater.on("update-available", (info) => {
+  updater.on("update-available", (info) => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "available",
@@ -161,7 +175,7 @@ function configureAutoUpdater() {
     };
   });
 
-  autoUpdater.on("update-not-available", () => {
+  updater.on("update-not-available", () => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "not-available",
@@ -169,7 +183,7 @@ function configureAutoUpdater() {
     };
   });
 
-  autoUpdater.on("download-progress", (progress) => {
+  updater.on("download-progress", (progress) => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "downloading",
@@ -179,7 +193,7 @@ function configureAutoUpdater() {
     };
   });
 
-  autoUpdater.on("update-downloaded", (info) => {
+  updater.on("update-downloaded", (info) => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "downloaded",
@@ -188,7 +202,7 @@ function configureAutoUpdater() {
     };
   });
 
-  autoUpdater.on("error", (error) => {
+  updater.on("error", (error) => {
     updateState = {
       currentVersion: app.getVersion(),
       status: "error",
@@ -274,6 +288,10 @@ app.whenReady().then(() => {
       return updateState;
     }
 
+    if (!autoUpdater) {
+      return updateState;
+    }
+
     await autoUpdater.checkForUpdates();
     return updateState;
   });
@@ -283,12 +301,20 @@ app.whenReady().then(() => {
       return updateState;
     }
 
+    if (!autoUpdater) {
+      return updateState;
+    }
+
     await autoUpdater.downloadUpdate();
     return updateState;
   });
 
   ipcMain.handle("app:quit-and-install-update", async () => {
     if (!app.isPackaged) {
+      return updateState;
+    }
+
+    if (!autoUpdater) {
       return updateState;
     }
 

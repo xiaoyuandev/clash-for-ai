@@ -78,6 +78,14 @@ Build the desktop app:
 pnpm build
 ```
 
+Build packaged desktop releases:
+
+```bash
+pnpm --filter desktop build:mac
+pnpm --filter desktop build:win
+pnpm --filter desktop build:linux
+```
+
 ## Project Structure
 
 ```text

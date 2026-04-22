@@ -6,21 +6,28 @@
   "main": "./out/main/index.js",
   "author": "xiaoyuandev",
   "scripts": {
+    "clean": "node ./scripts/clean-build-artifacts.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
+    "build:core": "node ./scripts/build-core.mjs",
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
-    "build": "pnpm typecheck && electron-vite build",
+    "build": "pnpm clean && pnpm typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "pnpm build && electron-builder --dir",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "release:mac": "pnpm build && electron-builder --mac --publish always"
+    "build:unpack": "pnpm build && pnpm build:core && electron-builder --dir",
+    "build:mac": "pnpm build && pnpm build:core && electron-builder --mac dmg pkg zip",
+    "build:win": "pnpm build && pnpm build:core && electron-builder --win nsis",
+    "build:linux": "pnpm build && pnpm build:core && electron-builder --linux AppImage tar.gz",
+    "release:mac": "pnpm build && pnpm build:core && electron-builder --mac dmg pkg zip --publish always",
+    "release:win": "pnpm build && pnpm build:core && electron-builder --win nsis --publish always",
+    "release:linux": "pnpm build && pnpm build:core && electron-builder --linux AppImage tar.gz --publish always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "electron-updater": "^6.8.3",
+    "ms": "^2.1.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
