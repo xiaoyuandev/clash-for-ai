@@ -13,7 +13,28 @@ permissions:
   contents: write
 
 jobs:
+  verify-release-source:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify tagged commit is on main
+        run: |
+          git fetch origin main --depth=1
+          if git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
+            echo "Tagged commit belongs to main."
+          else
+            echo "Release tags must point to a commit reachable from origin/main."
+            exit 1
+          fi
+
   release-desktop:
+    needs: verify-release-source
+    if: github.event_name == 'workflow_dispatch' || needs.verify-release-source.result == 'success'
     strategy:
       fail-fast: false
       matrix:
