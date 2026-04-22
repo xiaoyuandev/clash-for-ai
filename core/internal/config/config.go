@@ -36,9 +36,14 @@ func Load() AppConfig {
 		}
 	}
 
+	dataDir := "./data"
+	if value := os.Getenv("CORE_DATA_DIR"); value != "" {
+		dataDir = value
+	}
+
 	return AppConfig{
 		HTTPPort:         port,
-		DataDir:          "./data",
+		DataDir:          dataDir,
 		LogLevel:         "debug",
 		GatewayBind:      "127.0.0.1",
 		LogRetentionDays: logRetentionDays,

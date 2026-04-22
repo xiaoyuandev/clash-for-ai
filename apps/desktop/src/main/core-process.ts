@@ -156,9 +156,11 @@ function resolveCoreRuntimePaths() {
 
   if (app.isPackaged) {
     const coreDir = join(process.resourcesPath, "core");
+    const dataDir = join(app.getPath("userData"), "core");
     return {
       coreDir,
-      binaryPath: join(coreDir, "bin", binaryName)
+      binaryPath: join(coreDir, "bin", binaryName),
+      dataDir
     };
   }
 
@@ -167,7 +169,8 @@ function resolveCoreRuntimePaths() {
   const coreDir = join(workspaceRoot, "core");
   return {
     coreDir,
-    binaryPath: join(coreDir, "bin", binaryName)
+    binaryPath: join(coreDir, "bin", binaryName),
+    dataDir: join(coreDir, "data")
   };
 }
 
@@ -178,12 +181,15 @@ function spawnCoreBinary(
   apiBase: string
 ): CoreRuntimeHandle {
   console.info(`[core] starting binary ${executable} on port ${port}`);
+  const dataDir = resolveCoreRuntimePaths().dataDir;
+  mkdirSync(dataDir, { recursive: true });
   const child = spawn(executable, [], {
     cwd: coreDir,
     stdio: "inherit",
     env: {
       ...process.env,
-      HTTP_PORT: String(port)
+      HTTP_PORT: String(port),
+      CORE_DATA_DIR: dataDir
     }
   });
 
@@ -246,6 +252,8 @@ async function spawnGoCore(
   const modCacheDir = join(workspaceRoot, ".gomodcache");
   mkdirSync(cacheDir, { recursive: true });
   mkdirSync(modCacheDir, { recursive: true });
+  const dataDir = resolveCoreRuntimePaths().dataDir;
+  mkdirSync(dataDir, { recursive: true });
 
   const command = `${goBinary} run cmd/clash-for-ai-core/main.go`;
   console.info(`[core] starting via go run on port ${port}`);
@@ -255,6 +263,7 @@ async function spawnGoCore(
     env: {
       ...process.env,
       HTTP_PORT: String(port),
+      CORE_DATA_DIR: dataDir,
       GOCACHE: cacheDir,
       GOMODCACHE: modCacheDir
     }
