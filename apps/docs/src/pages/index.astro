@@ -1,323 +1,73 @@
 ---
-import logo from "../assets/logo.svg";
+import DocsLanding from "../components/DocsLanding.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clash for AI Docs</title>
-    <meta
-      name="description"
-      content="Documentation for Clash for AI, a local desktop gateway for switching AI relay providers behind one stable endpoint."
-    />
-    <style>
-      :root {
-        --bg: #f6f1e8;
-        --panel: rgba(255, 255, 255, 0.72);
-        --text: #1f1a17;
-        --muted: #66584f;
-        --line: rgba(74, 57, 44, 0.14);
-        --accent: #bb4d2f;
-        --accent-strong: #8b311b;
-        --shadow: 0 24px 60px rgba(60, 32, 15, 0.12);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: var(--text);
-        font-family:
-          "Fraunces",
-          "Iowan Old Style",
-          "Palatino Linotype",
-          Georgia,
-          serif;
-        background:
-          radial-gradient(circle at top left, rgba(255, 210, 178, 0.65), transparent 28%),
-          radial-gradient(circle at bottom right, rgba(221, 137, 96, 0.2), transparent 26%),
-          linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
-      }
-
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .shell {
-        width: min(1120px, calc(100vw - 40px));
-        margin: 0 auto;
-        padding: 32px 0 64px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 48px;
-      }
-
-      .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 14px;
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .brand img {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        box-shadow: 0 10px 24px rgba(92, 44, 25, 0.15);
-      }
-
-      .topbar nav {
-        display: flex;
-        gap: 20px;
-        font-size: 15px;
-        color: var(--muted);
-      }
-
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-        gap: 28px;
-        align-items: stretch;
-      }
-
-      .hero-copy,
-      .hero-card,
-      .section-card {
-        border: 1px solid var(--line);
-        background: var(--panel);
-        backdrop-filter: blur(12px);
-        box-shadow: var(--shadow);
-      }
-
-      .hero-copy {
-        border-radius: 34px;
-        padding: 40px;
-      }
-
-      .eyebrow {
-        margin: 0 0 16px;
-        font-size: 12px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(48px, 8vw, 86px);
-        line-height: 0.95;
-        letter-spacing: -0.05em;
-      }
-
-      .hero-copy p {
-        margin: 18px 0 0;
-        max-width: 52ch;
-        font-size: 18px;
-        line-height: 1.7;
-        color: var(--muted);
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        margin-top: 28px;
-      }
-
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 46px;
-        padding: 0 18px;
-        border-radius: 999px;
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-      }
-
-      .button.primary {
-        background: var(--accent);
-        color: #fff7f2;
-      }
-
-      .button.primary:hover {
-        background: var(--accent-strong);
-      }
-
-      .button.secondary {
-        border: 1px solid var(--line);
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.48);
-      }
-
-      .hero-card {
-        border-radius: 30px;
-        padding: 28px;
-        display: grid;
-        gap: 18px;
-      }
-
-      .hero-card h2 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .hero-card ol {
-        margin: 0;
-        padding-left: 22px;
-        color: var(--muted);
-        line-height: 1.75;
-      }
-
-      .section-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 22px;
-      }
-
-      .section-card {
-        border-radius: 24px;
-        padding: 24px;
-      }
-
-      .section-card h3 {
-        margin: 0 0 10px;
-        font-size: 20px;
-      }
-
-      .section-card p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
-      }
-
-      .section-card a {
-        display: inline-flex;
-        margin-top: 18px;
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--accent-strong);
-      }
-
-      .section-title {
-        margin: 42px 0 0;
-        font-size: 32px;
-      }
-
-      .section-lead {
-        margin: 12px 0 0;
-        max-width: 64ch;
-        color: var(--muted);
-        line-height: 1.8;
-      }
-
-      @media (max-width: 960px) {
-        .hero {
-          grid-template-columns: 1fr;
-        }
-
-        .section-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="shell">
-      <header class="topbar">
-        <a class="brand" href="/">
-          <img src={logo.src} alt="Clash for AI" />
-          <span>Clash for AI Docs</span>
-        </a>
-        <nav>
-          <a href="/introduction/">Introduction</a>
-          <a href="/quick-start/">Quick Start</a>
-          <a href="/tool-integration/">Integration</a>
-          <a href="/providers/">Providers</a>
-          <a href="https://github.com/xiaoyuandev/clash-for-ai">GitHub</a>
-        </nav>
-      </header>
-
-      <section class="hero">
-        <article class="hero-copy">
-          <p class="eyebrow">Local Desktop Gateway</p>
-          <h1>Switch relay providers without rewriting every tool config.</h1>
-          <p>
-            Clash for AI gives coding tools, chat clients, and SDK workflows one stable local
-            endpoint. The desktop app manages upstream providers, health checks, and request logs in
-            one place.
-          </p>
-          <div class="actions">
-            <a class="button primary" href="/quick-start/">Start with Quick Start</a>
-            <a class="button secondary" href="/introduction/">Read the Product Overview</a>
-          </div>
-        </article>
-
-        <aside class="hero-card">
-          <h2>What this docs site covers</h2>
-          <ol>
-            <li>How to launch Clash for AI and connect your first tool</li>
-            <li>How OpenAI-compatible relay providers should be configured</li>
-            <li>Why `/v1`, model discovery, and fallback behavior matter</li>
-            <li>How to avoid common setup mistakes with coding tools and chat clients</li>
-          </ol>
-        </aside>
-      </section>
-
-      <h2 class="section-title">Start here</h2>
-      <p class="section-lead">
-        The first version of the docs is intentionally focused: setup, provider compatibility,
-        practical integration, and operational FAQs. That gives you a clean structure for expanding
-        into screenshots, walkthroughs, and troubleshooting later.
-      </p>
-
-      <section class="section-grid">
-        <article class="section-card">
-          <h3>Introduction</h3>
-          <p>Understand the local gateway model, provider switching workflow, and current scope.</p>
-          <a href="/introduction/">Read overview</a>
-        </article>
-        <article class="section-card">
-          <h3>Quick Start</h3>
-          <p>Launch the app, add a provider, and connect a tool using one stable local endpoint.</p>
-          <a href="/quick-start/">Open quick start</a>
-        </article>
-        <article class="section-card">
-          <h3>Tool Integration</h3>
-          <p>See the setup pattern for coding tools, desktop clients, and OpenAI SDK based scripts.</p>
-          <a href="/tool-integration/">Browse integrations</a>
-        </article>
-        <article class="section-card">
-          <h3>Providers</h3>
-          <p>Read the `/v1` guidance, model list behavior, and compatibility notes for relay APIs.</p>
-          <a href="/providers/">Read provider notes</a>
-        </article>
-        <article class="section-card">
-          <h3>FAQ</h3>
-          <p>Find answers about fallback behavior, model selection responsibility, and protocol limits.</p>
-          <a href="/faq/">Open FAQ</a>
-        </article>
-      </section>
-    </main>
-  </body>
-</html>
+<DocsLanding
+  lang="en"
+  homeHref="/"
+  introHref="/introduction/"
+  quickStartHref="/quick-start/"
+  integrationHref="/tool-integration/"
+  providersHref="/providers/"
+  faqHref="/faq/"
+  githubHref="https://github.com/xiaoyuandev/clash-for-ai"
+  nav={{
+    intro: "Introduction",
+    quickStart: "Quick Start",
+    integration: "Integration",
+    providers: "Providers",
+    github: "GitHub"
+  }}
+  eyebrow="Local Desktop Gateway"
+  title="Switch relay providers without rewriting every tool config."
+  description="Clash for AI gives coding tools, chat clients, and SDK workflows one stable local endpoint. The desktop app manages upstream providers, health checks, and request logs in one place."
+  primaryCta="Start with Quick Start"
+  secondaryCta="Read the Product Overview"
+  coverageTitle="What this docs site covers"
+  coverageItems={[
+    "How to launch Clash for AI and connect your first tool",
+    "How OpenAI-compatible relay providers should be configured",
+    "Why /v1, model discovery, and fallback behavior matter",
+    "How to avoid common setup mistakes with coding tools and chat clients"
+  ]}
+  sectionTitle="Start here"
+  sectionLead="The first version of the docs is intentionally focused: setup, provider compatibility, practical integration, and operational FAQs. That gives you a clean structure for expanding into screenshots, walkthroughs, and troubleshooting later."
+  cards={[
+    {
+      title: "Introduction",
+      body: "Understand the local gateway model, provider switching workflow, and current scope.",
+      href: "/introduction/",
+      cta: "Read overview"
+    },
+    {
+      title: "Quick Start",
+      body: "Launch the app, add a provider, and connect a tool using one stable local endpoint.",
+      href: "/quick-start/",
+      cta: "Open quick start"
+    },
+    {
+      title: "User Guide",
+      body: "Read the fuller setup flow, troubleshooting order, and real behavior of Models fallback.",
+      href: "/user-guide/",
+      cta: "Read guide"
+    },
+    {
+      title: "Tool Integration",
+      body: "See the setup pattern for coding tools, desktop clients, and OpenAI SDK based scripts.",
+      href: "/tool-integration/",
+      cta: "Browse integrations"
+    },
+    {
+      title: "Providers",
+      body: "Read the /v1 guidance, model list behavior, and compatibility notes for relay APIs.",
+      href: "/providers/",
+      cta: "Read provider notes"
+    },
+    {
+      title: "FAQ",
+      body: "Find answers about fallback behavior, model selection responsibility, and protocol limits.",
+      href: "/faq/",
+      cta: "Open FAQ"
+    }
+  ]}
+/>
