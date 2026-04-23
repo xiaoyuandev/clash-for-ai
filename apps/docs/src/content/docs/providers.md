@@ -1,6 +1,7 @@
 ---
 title: Providers
 description: Notes about provider setup, `/v1`, and model list compatibility.
+slug: providers
 ---
 
 ## Base URL recommendations

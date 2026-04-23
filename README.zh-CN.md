@@ -10,6 +10,16 @@ Clash for AI 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌
 2. 一个可视化的 Provider 切换控制台
 3. 本地请求日志和健康检查能力，方便排障
 
+## Screenshot
+
+<p align="center">
+  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="./docs/images/readme/connectatool.png" style="width: 100%; height: auto;">
+</p>
+
 ## 这个项目解决了什么问题
 
 Clash for AI 主要面向经常切换不同 AI Gateway / 中转 API 的用户。
@@ -74,6 +84,22 @@ http://127.0.0.1:3456/v1
 - [使用教程](./docs/user-guide.md)
 - [English README](./README.md)
 
+### 第一步：在 Clash for AI 中添加中转 API 服务
+
+打开桌面应用中的 `Providers` 页面，填写：
+
+1. `Name`
+2. `Base URL`
+3. `API Key`
+
+对于 OpenAI 兼容中转服务，通常推荐填写带 `/v1` 的 Base URL。
+
+<p align="center">
+  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
+</p>
+
+### 第二步：在工具中填写接入参数
+
 大多数支持 OpenAI-compatible 接口的工具都可以这样配置：
 
 ```text
@@ -82,6 +108,55 @@ API Key: dummy
 ```
 
 如果运行时使用的不是 `3456`，请以桌面应用里显示的 `connected api base` 为准。
+
+## 快速接入
+
+如果你暂时不想先看完整使用手册，可以先按下面两种方式快速接入。
+
+### CLI 工具
+
+对于 Codex CLI 这类 OpenAI 兼容 CLI，先在当前 shell 中设置环境变量，再启动工具：
+
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
+export OPENAI_API_KEY="dummy"
+```
+
+然后在同一个终端会话里启动 CLI。
+
+对于 Claude Code 这类 Anthropic 风格工具，请使用不带 `/v1` 的本地根地址：
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
+export ANTHROPIC_AUTH_TOKEN="dummy"
+```
+
+### IDE / 插件 / 桌面客户端
+
+对于 IDE、编辑器插件和桌面聊天客户端，打开它们的 Provider 配置页面并填写：
+
+```text
+Base URL: http://127.0.0.1:3456/v1
+API Key: dummy
+```
+
+在 Clash for AI 里，你也可以进入 `Settings -> Connect a Tool` 查看这些已整理好的接入参数。
+
+<p align="center">
+  <img src="./docs/images/readme/settings.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="./docs/images/readme/connectatool.png" style="width: 100%; height: auto;">
+</p>
+
+如果工具像 Cursor 或 Cherry Studio 一样还要求选择 Provider Type / Protocol，请优先选择 OpenAI-compatible 自定义 Provider 模式，再填写上面的参数。
+
+对于 Cursor，可以进入它的自定义 Provider 配置界面，选择 OpenAI-compatible 模式，然后填写本地 Base URL 和 `dummy` API Key。
+
+<p align="center">
+  <img src="./docs/images/readme/corsor-config.png" style="width: 100%; height: auto;">
+</p>
 
 ## 本地开发
 

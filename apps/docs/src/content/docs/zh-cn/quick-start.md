@@ -1,6 +1,7 @@
 ---
 title: 快速开始
 description: 启动应用、添加 Provider，并接入第一个工具。
+slug: zh-cn/quick-start
 ---
 
 ## 使用前准备
@@ -23,6 +24,8 @@ http://127.0.0.1:3456/v1
 
 如果默认端口被占用，应用会改用其他本地端口。请以应用界面显示的 `connected api base` 为准。
 
+![启动后的桌面首页](/img/quick-start-launch.png)
+
 ## 第二步：添加 Provider
 
 进入 `Providers` 页面，填写：
@@ -32,6 +35,8 @@ http://127.0.0.1:3456/v1
 3. `API Key`
 
 对于 OpenAI 兼容中转服务，通常推荐填写带 `/v1` 的 Base URL。
+
+![Provider 表单](/img/quick-start-provider-form.png)
 
 ## 第三步：激活 Provider
 
@@ -59,3 +64,5 @@ API Key: dummy
 3. 确认请求已经记录下来
 
 如果请求失败，先检查 provider healthcheck，再看请求日志中的详细报错。
+
+![Request Log](/img/quick-start-request-log.png)

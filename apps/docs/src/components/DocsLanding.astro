@@ -34,6 +34,22 @@ interface Props {
 
 const props = Astro.props as Props;
 import logo from "../assets/logo.svg";
+import "../styles/site.css";
+
+const previewMeta =
+  props.lang === "zh-CN"
+    ? {
+        label: "界面预览",
+        title: "桌面端控制面板与本地网关入口",
+        body: "后续这里可以替换成真实的应用截图。当前先保留一个与产品视觉一致的预览占位区，用来承接产品信息密度。",
+        pills: ["Provider 切换", "请求日志", "Health Check"]
+      }
+    : {
+        label: "Interface Preview",
+        title: "Desktop control plane and stable local gateway entry point",
+        body: "This area is ready to be replaced with real application screenshots. For now it acts as a visual preview block that matches the product tone.",
+        pills: ["Provider Switch", "Request Logs", "Health Check"]
+      };
 ---
 
 <!doctype html>
@@ -43,281 +59,98 @@ import logo from "../assets/logo.svg";
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clash for AI Docs</title>
     <meta name="description" content={props.description} />
-    <style>
-      :root {
-        --bg: #f6f1e8;
-        --panel: rgba(255, 255, 255, 0.72);
-        --text: #1f1a17;
-        --muted: #66584f;
-        --line: rgba(74, 57, 44, 0.14);
-        --accent: #bb4d2f;
-        --accent-strong: #8b311b;
-        --shadow: 0 24px 60px rgba(60, 32, 15, 0.12);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: var(--text);
-        font-family:
-          "Fraunces",
-          "Iowan Old Style",
-          "Palatino Linotype",
-          Georgia,
-          serif;
-        background:
-          radial-gradient(circle at top left, rgba(255, 210, 178, 0.65), transparent 28%),
-          radial-gradient(circle at bottom right, rgba(221, 137, 96, 0.2), transparent 26%),
-          linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
-      }
-
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-
-      .shell {
-        width: min(1120px, calc(100vw - 40px));
-        margin: 0 auto;
-        padding: 32px 0 64px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 48px;
-      }
-
-      .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 14px;
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .brand img {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        box-shadow: 0 10px 24px rgba(92, 44, 25, 0.15);
-      }
-
-      .topbar nav {
-        display: flex;
-        gap: 20px;
-        font-size: 15px;
-        color: var(--muted);
-        flex-wrap: wrap;
-      }
-
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-        gap: 28px;
-        align-items: stretch;
-      }
-
-      .hero-copy,
-      .hero-card,
-      .section-card {
-        border: 1px solid var(--line);
-        background: var(--panel);
-        backdrop-filter: blur(12px);
-        box-shadow: var(--shadow);
-      }
-
-      .hero-copy {
-        border-radius: 34px;
-        padding: 40px;
-      }
-
-      .eyebrow {
-        margin: 0 0 16px;
-        font-size: 12px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(48px, 8vw, 86px);
-        line-height: 0.95;
-        letter-spacing: -0.05em;
-      }
-
-      .hero-copy p {
-        margin: 18px 0 0;
-        max-width: 52ch;
-        font-size: 18px;
-        line-height: 1.7;
-        color: var(--muted);
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        margin-top: 28px;
-      }
-
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 46px;
-        padding: 0 18px;
-        border-radius: 999px;
-        font-size: 14px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-      }
-
-      .button.primary {
-        background: var(--accent);
-        color: #fff7f2;
-      }
-
-      .button.primary:hover {
-        background: var(--accent-strong);
-      }
-
-      .button.secondary {
-        border: 1px solid var(--line);
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.48);
-      }
-
-      .hero-card {
-        border-radius: 30px;
-        padding: 28px;
-        display: grid;
-        gap: 18px;
-      }
-
-      .hero-card h2 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .hero-card ol {
-        margin: 0;
-        padding-left: 22px;
-        color: var(--muted);
-        line-height: 1.75;
-      }
-
-      .section-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 22px;
-      }
-
-      .section-card {
-        border-radius: 24px;
-        padding: 24px;
-      }
-
-      .section-card h3 {
-        margin: 0 0 10px;
-        font-size: 20px;
-      }
-
-      .section-card p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
-      }
-
-      .section-card a {
-        display: inline-flex;
-        margin-top: 18px;
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--accent-strong);
-      }
-
-      .section-title {
-        margin: 42px 0 0;
-        font-size: 32px;
-      }
-
-      .section-lead {
-        margin: 12px 0 0;
-        max-width: 64ch;
-        color: var(--muted);
-        line-height: 1.8;
-      }
-
-      @media (max-width: 960px) {
-        .hero {
-          grid-template-columns: 1fr;
-        }
-
-        .section-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .topbar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-      }
-    </style>
   </head>
-  <body>
-    <main class="shell">
-      <header class="topbar">
-        <a class="brand" href={props.homeHref}>
-          <img src={logo.src} alt="Clash for AI" />
+  <body class="min-h-screen bg-transparent text-slate-100 antialiased">
+    <main class="mx-auto w-[min(1040px,calc(100vw-40px))] px-0 pb-14 pt-6">
+      <header class="mb-9 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
+        <a
+          class="inline-flex items-center gap-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-100"
+          href={props.homeHref}
+        >
+          <img
+            class="h-8 w-8 rounded-lg border border-white/10 bg-slate-950/70 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)]"
+            src={logo.src}
+            alt="Clash for AI"
+          />
           <span>Clash for AI Docs</span>
         </a>
-        <nav>
-          <a href={props.introHref}>{props.nav.intro}</a>
-          <a href={props.quickStartHref}>{props.nav.quickStart}</a>
-          <a href={props.integrationHref}>{props.nav.integration}</a>
-          <a href={props.providersHref}>{props.nav.providers}</a>
-          <a href={props.githubHref}>{props.nav.github}</a>
+        <nav class="flex flex-wrap gap-4 text-[13px] text-slate-400">
+          <a class="transition hover:text-slate-100" href={props.introHref}>{props.nav.intro}</a>
+          <a class="transition hover:text-slate-100" href={props.quickStartHref}>{props.nav.quickStart}</a>
+          <a class="transition hover:text-slate-100" href={props.integrationHref}>{props.nav.integration}</a>
+          <a class="transition hover:text-slate-100" href={props.providersHref}>{props.nav.providers}</a>
+          <a class="transition hover:text-teal-300" href={props.githubHref}>{props.nav.github}</a>
         </nav>
       </header>
 
-      <section class="hero">
-        <article class="hero-copy">
-          <p class="eyebrow">{props.eyebrow}</p>
-          <h1>{props.title}</h1>
-          <p>{props.description}</p>
-          <div class="actions">
-            <a class="button primary" href={props.quickStartHref}>{props.primaryCta}</a>
-            <a class="button secondary" href={props.introHref}>{props.secondaryCta}</a>
+      <section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.82fr)]">
+        <article class="content-panel rounded-[1.75rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.78),rgba(15,23,42,0.52))] p-8 shadow-[0_22px_70px_rgba(0,0,0,0.3)] backdrop-blur-xl">
+          <p class="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-teal-300">{props.eyebrow}</p>
+          <h1 class="max-w-[13ch] text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[0.96] tracking-[-0.05em] text-slate-50">
+            {props.title}
+          </h1>
+          <p class="mt-4 max-w-[54ch] text-[15px] leading-7 text-slate-300">{props.description}</p>
+          <div class="mt-6 flex flex-wrap gap-2.5">
+            <a
+              class="inline-flex min-h-10 items-center justify-center rounded-full bg-teal-500 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-950 transition hover:bg-teal-400"
+              href={props.quickStartHref}
+            >
+              {props.primaryCta}
+            </a>
+            <a
+              class="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-100 transition hover:border-slate-300/30 hover:bg-slate-900/45"
+              href={props.introHref}
+            >
+              {props.secondaryCta}
+            </a>
           </div>
         </article>
 
-        <aside class="hero-card">
-          <h2>{props.coverageTitle}</h2>
-          <ol>
-            {props.coverageItems.map((item) => <li>{item}</li>)}
-          </ol>
+        <aside class="content-panel overflow-hidden rounded-[1.6rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.66),rgba(15,23,42,0.44))] p-4 shadow-[0_20px_56px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+          <div class="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-300">{previewMeta.label}</p>
+              <h2 class="mt-2 text-[15px] font-semibold leading-6 text-slate-50">{previewMeta.title}</h2>
+            </div>
+          </div>
+
+          <div class="rounded-[1.1rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.98))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div class="mb-3 flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-rose-400/80"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-amber-300/80"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/80"></span>
+            </div>
+
+            <div class="overflow-hidden rounded-[0.95rem] border border-slate-400/10 bg-slate-950/60">
+              <img
+                src="/img/home-preview.png"
+                alt="Clash for AI preview"
+                class="block aspect-[16/10] w-full object-cover opacity-90"
+              />
+            </div>
+          </div>
+
+          <p class="mt-4 text-[13px] leading-6 text-slate-400">{previewMeta.body}</p>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            {previewMeta.pills.map((pill) => (
+              <span class="inline-flex rounded-full border border-teal-400/15 bg-teal-400/8 px-3 py-1 text-[12px] font-medium text-teal-200">
+                {pill}
+              </span>
+            ))}
+          </div>
         </aside>
       </section>
 
-      <h2 class="section-title">{props.sectionTitle}</h2>
-      <p class="section-lead">{props.sectionLead}</p>
+      <h2 class="mt-9 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{props.sectionTitle}</h2>
+      <p class="mt-2.5 max-w-[64ch] text-[15px] leading-7 text-slate-400">{props.sectionLead}</p>
 
-      <section class="section-grid">
+      <section class="mt-5 grid grid-cols-1 gap-3.5 lg:grid-cols-2 xl:grid-cols-3">
         {props.cards.map((card) => (
-          <article class="section-card">
-            <h3>{card.title}</h3>
-            <p>{card.body}</p>
-            <a href={card.href}>{card.cta}</a>
+          <article class="content-panel rounded-[1.35rem] border border-slate-500/15 bg-[linear-gradient(145deg,rgba(15,23,42,0.54),rgba(15,23,42,0.4))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{card.title}</h3>
+            <p class="mt-2.5 text-[14px] leading-6 text-slate-300">{card.body}</p>
+            <a class="mt-4 inline-flex text-[13px] font-semibold text-teal-300 transition hover:text-teal-200" href={card.href}>{card.cta}</a>
           </article>
         ))}
       </section>

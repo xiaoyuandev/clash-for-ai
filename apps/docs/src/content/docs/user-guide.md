@@ -1,6 +1,7 @@
 ---
 title: User Guide
 description: A fuller guide to the real-world setup flow for Clash for AI.
+slug: user-guide
 ---
 
 ## What this guide is for
@@ -49,6 +50,8 @@ https://api.example.com/v1
 
 If the provider documentation shows only a root domain, test both the documented value and the `/v1` form if model discovery fails.
 
+![Provider overview](/img/quick-start-provider-form.png)
+
 ## Tool setup checklist
 
 For most OpenAI-compatible clients, the simplest setup is:
@@ -59,6 +62,8 @@ API Key: dummy
 ```
 
 Use the actual local port shown in the desktop app if it is not `3456`.
+
+![Connect a tool settings](/img/connectatool.png)
 
 ## What the Models page actually does
 

@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  :root,
+  :root[data-theme="light"],
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --sl-font: var(--font-sans);
+    --sl-font-system: var(--font-sans);
+    --sl-font-system-mono: var(--font-mono);
+    --sl-text-5xl: 3.75rem;
+    --sl-text-4xl: 3rem;
+    --sl-text-3xl: 2.25rem;
+    --sl-text-2xl: 1.75rem;
+    --sl-text-xl: 1.25rem;
+    --sl-text-lg: 1.125rem;
+    --sl-text-base: 1rem;
+    --sl-line-height: 1.75;
+    --sl-hue-accent: 172;
+    --sl-color-accent-low: #042f2e;
+    --sl-color-accent: #14b8a6;
+    --sl-color-accent-high: #5eead4;
+    --sl-color-white: #f8fafc;
+    --sl-color-gray-1: #e5eef5;
+    --sl-color-gray-2: #c6d3df;
+    --sl-color-gray-3: #93a4b8;
+    --sl-color-gray-4: #6c7b90;
+    --sl-color-gray-5: #314155;
+    --sl-color-gray-6: #182235;
+    --sl-color-black: #020617;
+    --sl-color-text: #e5eef5;
+    --sl-color-text-accent: #5eead4;
+    --sl-color-text-invert: #04151b;
+    --sl-color-bg: #020617;
+    --sl-color-bg-nav: rgba(2, 6, 23, 0.92);
+    --sl-color-bg-sidebar: rgba(6, 16, 29, 0.9);
+    --sl-color-bg-inline-code: rgba(15, 23, 42, 0.88);
+    --sl-color-bg-accent: rgba(20, 184, 166, 0.14);
+    --sl-color-hairline-light: rgba(148, 163, 184, 0.12);
+    --sl-color-hairline: rgba(148, 163, 184, 0.18);
+    --sl-color-backdrop-overlay: rgba(2, 6, 23, 0.72);
+    --sl-shadow-sm: 0 12px 30px rgba(0, 0, 0, 0.18);
+    --sl-shadow-md: 0 18px 44px rgba(0, 0, 0, 0.22);
+    --sl-shadow-lg: 0 24px 80px rgba(0, 0, 0, 0.34);
+    --astro-code-foreground: #e5eef5;
+    --astro-code-background: rgba(15, 23, 42, 0.86);
+    --astro-code-token-constant: #67e8f9;
+    --astro-code-token-string: #86efac;
+    --astro-code-token-comment: #6c7b90;
+    --astro-code-token-keyword: #c084fc;
+    --astro-code-token-parameter: #fda4af;
+    --astro-code-token-function: #5eead4;
+    --astro-code-token-string-expression: #86efac;
+    --astro-code-token-punctuation: #cbd5e1;
+    --astro-code-token-link: #7dd3fc;
+    background:
+      radial-gradient(circle at top left, rgba(45, 212, 191, 0.15), transparent 0, transparent 28%),
+      radial-gradient(circle at top right, rgba(20, 184, 166, 0.14), transparent 0, transparent 24%),
+      radial-gradient(circle at bottom, rgba(15, 23, 42, 0.42), transparent 0, transparent 32%),
+      linear-gradient(180deg, #020617 0%, #06101d 44%, #020617 100%);
+  }
+
+  html {
+    @apply bg-slate-950;
+  }
+
+  body {
+    @apply bg-transparent text-slate-100;
+  }
+
+  .content-panel,
+  .sl-markdown-content :is(table, blockquote),
+  .sl-markdown-content pre.astro-code,
+  .sl-markdown-content .expressive-code {
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+  }
+
+  .sl-markdown-content :is(h1, h2, h3, h4) {
+    @apply tracking-tight text-slate-50;
+  }
+
+  .sl-markdown-content p,
+  .sl-markdown-content li {
+    @apply text-slate-300;
+  }
+
+  .sl-markdown-content a {
+    @apply text-teal-300;
+  }
+}

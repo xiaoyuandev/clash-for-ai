@@ -71,9 +71,15 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.36.0
         version: 0.36.3(astro@5.18.1(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.1)(typescript@5.9.3))
+      '@tailwindcss/vite':
+        specifier: ^4.1.12
+        version: 4.2.3(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0))
       astro:
         specifier: ^5.13.5
         version: 5.18.1(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.1)(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4.1.12
+        version: 4.2.3
 
 packages:
 

@@ -1,6 +1,7 @@
 ---
 title: 项目介绍
 description: 了解 Clash for AI 的定位、适用人群和核心思路。
+slug: zh-cn/introduction
 ---
 
 Clash for AI 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌面网关工具。

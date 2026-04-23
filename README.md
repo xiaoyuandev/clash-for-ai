@@ -10,6 +10,17 @@ It gives you:
 2. A desktop control plane for switching providers
 3. Local request logs and health checks for debugging provider issues
 
+## Screenshot
+
+<p align="center">
+  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="./docs/images/readme/connectatool.png" style="width: 100%; height: auto;">
+</p>
+
+
 ## What Problem It Solves
 
 Clash for AI is designed for people who depend on multiple AI gateways in daily use.
@@ -74,6 +85,22 @@ See the end-user setup guide:
 - [User Guide](./docs/user-guide.md)
 - [中文 README](./README.zh-CN.md)
 
+### Step 1: Add a relay provider in Clash for AI
+
+Open the `Providers` page in the desktop app and fill in:
+
+1. `Name`
+2. `Base URL`
+3. `API Key`
+
+For OpenAI-compatible relay providers, the Base URL usually ends with `/v1`.
+
+<p align="center">
+  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
+</p>
+
+### Step 2: Configure your tool
+
 In most supported tools, you configure:
 
 ```text
@@ -82,6 +109,55 @@ API Key: dummy
 ```
 
 If the local app selects another port at runtime, use the actual `connected api base` shown in the desktop UI.
+
+## Quick Connection
+
+If you do not want to read the full guide yet, use one of these quick setup patterns.
+
+### CLI Tools
+
+For OpenAI-compatible CLI tools such as Codex CLI, set environment variables in the current shell before launching the tool:
+
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
+export OPENAI_API_KEY="dummy"
+```
+
+Then start the CLI from the same terminal session.
+
+For Claude Code style tools, use Anthropic-style variables and the local root URL without `/v1`:
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
+export ANTHROPIC_AUTH_TOKEN="dummy"
+```
+
+### IDEs And Plugins
+
+For IDEs, editor plugins, and desktop chat clients, open the provider settings and fill in:
+
+```text
+Base URL: http://127.0.0.1:3456/v1
+API Key: dummy
+```
+
+Inside Clash for AI, you can also open `Settings -> Connect a Tool` to find the recommended connection values for supported tools.
+
+<p align="center">
+  <img src="./docs/images/readme/settings.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="./docs/images/readme/connectatool.png" style="width: 100%; height: auto;">
+</p>
+
+For tools like Cursor or Cherry Studio, if there is a provider type or protocol field, choose an OpenAI-compatible custom provider mode first, then paste the values above.
+
+In Cursor specifically, open its custom provider settings, choose an OpenAI-compatible provider mode, then fill in the local Base URL and `dummy` API key.
+
+<p align="center">
+  <img src="./docs/images/readme/corsor-config.png" style="width: 100%; height: auto;">
+</p>
 
 ## Local Development
 

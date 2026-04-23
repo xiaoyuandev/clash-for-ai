@@ -1,6 +1,7 @@
 ---
 title: Introduction
 description: What Clash for AI is and who it is for.
+slug: introduction
 ---
 
 Clash for AI is a local desktop gateway for people who switch between multiple AI gateways or API relay providers.

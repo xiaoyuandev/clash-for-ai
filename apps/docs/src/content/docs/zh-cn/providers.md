@@ -1,6 +1,7 @@
 ---
 title: Providers
 description: 关于 Base URL、/v1 和模型列表兼容性的说明。
+slug: zh-cn/providers
 ---
 
 ## Base URL 的推荐写法

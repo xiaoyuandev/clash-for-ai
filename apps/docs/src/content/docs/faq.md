@@ -1,6 +1,7 @@
 ---
 title: FAQ
 description: Common questions about configuration, model lists, and fallback behavior.
+slug: faq
 ---
 
 ## Why does my tool use `dummy` as the API key?

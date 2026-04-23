@@ -1,6 +1,7 @@
 ---
 title: FAQ
 description: 关于配置、模型列表和 fallback 的常见问题。
+slug: zh-cn/faq
 ---
 
 ## 为什么工具里可以把 API Key 写成 `dummy`？
