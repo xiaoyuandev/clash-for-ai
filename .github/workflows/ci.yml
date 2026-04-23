@@ -36,6 +36,7 @@ jobs:
 
       - name: Resolve pnpm store path
         id: pnpm-store
+        shell: bash
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
