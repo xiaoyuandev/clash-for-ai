@@ -5,7 +5,10 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "pnpm --filter desktop dev",
-    "build": "pnpm --filter desktop build"
+    "build": "pnpm --filter desktop build",
+    "docs:dev": "pnpm --filter docs dev",
+    "docs:build": "pnpm --filter docs build",
+    "docs:preview": "pnpm --filter docs preview"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

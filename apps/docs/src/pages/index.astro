@@ -1,0 +1,73 @@
+---
+import DocsLanding from "../components/DocsLanding.astro";
+---
+
+<DocsLanding
+  lang="en"
+  homeHref="/"
+  introHref="/introduction/"
+  quickStartHref="/quick-start/"
+  integrationHref="/tool-integration/"
+  providersHref="/providers/"
+  faqHref="/faq/"
+  githubHref="https://github.com/xiaoyuandev/clash-for-ai"
+  nav={{
+    intro: "Introduction",
+    quickStart: "Quick Start",
+    integration: "Integration",
+    providers: "Providers",
+    github: "GitHub"
+  }}
+  eyebrow="Local Desktop Gateway"
+  title="Switch relay providers without rewriting every tool config."
+  description="Clash for AI gives coding tools, chat clients, and SDK workflows one stable local endpoint. The desktop app manages upstream providers, health checks, and request logs in one place."
+  primaryCta="Start with Quick Start"
+  secondaryCta="Read the Product Overview"
+  coverageTitle="What this docs site covers"
+  coverageItems={[
+    "How to launch Clash for AI and connect your first tool",
+    "How OpenAI-compatible relay providers should be configured",
+    "Why /v1, model discovery, and fallback behavior matter",
+    "How to avoid common setup mistakes with coding tools and chat clients"
+  ]}
+  sectionTitle="Start here"
+  sectionLead="The first version of the docs is intentionally focused: setup, provider compatibility, practical integration, and operational FAQs. That gives you a clean structure for expanding into screenshots, walkthroughs, and troubleshooting later."
+  cards={[
+    {
+      title: "Introduction",
+      body: "Understand the local gateway model, provider switching workflow, and current scope.",
+      href: "/introduction/",
+      cta: "Read overview"
+    },
+    {
+      title: "Quick Start",
+      body: "Launch the app, add a provider, and connect a tool using one stable local endpoint.",
+      href: "/quick-start/",
+      cta: "Open quick start"
+    },
+    {
+      title: "User Guide",
+      body: "Read the fuller setup flow, troubleshooting order, and real behavior of Models fallback.",
+      href: "/user-guide/",
+      cta: "Read guide"
+    },
+    {
+      title: "Tool Integration",
+      body: "See the setup pattern for coding tools, desktop clients, and OpenAI SDK based scripts.",
+      href: "/tool-integration/",
+      cta: "Browse integrations"
+    },
+    {
+      title: "Providers",
+      body: "Read the /v1 guidance, model list behavior, and compatibility notes for relay APIs.",
+      href: "/providers/",
+      cta: "Read provider notes"
+    },
+    {
+      title: "FAQ",
+      body: "Find answers about fallback behavior, model selection responsibility, and protocol limits.",
+      href: "/faq/",
+      cta: "Open FAQ"
+    }
+  ]}
+/>

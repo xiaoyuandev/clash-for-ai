@@ -1,0 +1,326 @@
+---
+interface Props {
+  lang: "en" | "zh-CN";
+  homeHref: string;
+  introHref: string;
+  quickStartHref: string;
+  integrationHref: string;
+  providersHref: string;
+  faqHref: string;
+  githubHref: string;
+  nav: {
+    intro: string;
+    quickStart: string;
+    integration: string;
+    providers: string;
+    github: string;
+  };
+  eyebrow: string;
+  title: string;
+  description: string;
+  primaryCta: string;
+  secondaryCta: string;
+  coverageTitle: string;
+  coverageItems: string[];
+  sectionTitle: string;
+  sectionLead: string;
+  cards: Array<{
+    title: string;
+    body: string;
+    href: string;
+    cta: string;
+  }>;
+}
+
+const props = Astro.props as Props;
+import logo from "../assets/logo.svg";
+---
+
+<!doctype html>
+<html lang={props.lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clash for AI Docs</title>
+    <meta name="description" content={props.description} />
+    <style>
+      :root {
+        --bg: #f6f1e8;
+        --panel: rgba(255, 255, 255, 0.72);
+        --text: #1f1a17;
+        --muted: #66584f;
+        --line: rgba(74, 57, 44, 0.14);
+        --accent: #bb4d2f;
+        --accent-strong: #8b311b;
+        --shadow: 0 24px 60px rgba(60, 32, 15, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        font-family:
+          "Fraunces",
+          "Iowan Old Style",
+          "Palatino Linotype",
+          Georgia,
+          serif;
+        background:
+          radial-gradient(circle at top left, rgba(255, 210, 178, 0.65), transparent 28%),
+          radial-gradient(circle at bottom right, rgba(221, 137, 96, 0.2), transparent 26%),
+          linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .shell {
+        width: min(1120px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 32px 0 64px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 48px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brand img {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        box-shadow: 0 10px 24px rgba(92, 44, 25, 0.15);
+      }
+
+      .topbar nav {
+        display: flex;
+        gap: 20px;
+        font-size: 15px;
+        color: var(--muted);
+        flex-wrap: wrap;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        gap: 28px;
+        align-items: stretch;
+      }
+
+      .hero-copy,
+      .hero-card,
+      .section-card {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-copy {
+        border-radius: 34px;
+        padding: 40px;
+      }
+
+      .eyebrow {
+        margin: 0 0 16px;
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(48px, 8vw, 86px);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+      }
+
+      .hero-copy p {
+        margin: 18px 0 0;
+        max-width: 52ch;
+        font-size: 18px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 28px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .button.primary {
+        background: var(--accent);
+        color: #fff7f2;
+      }
+
+      .button.primary:hover {
+        background: var(--accent-strong);
+      }
+
+      .button.secondary {
+        border: 1px solid var(--line);
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .hero-card {
+        border-radius: 30px;
+        padding: 28px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero-card h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .hero-card ol {
+        margin: 0;
+        padding-left: 22px;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 22px;
+      }
+
+      .section-card {
+        border-radius: 24px;
+        padding: 24px;
+      }
+
+      .section-card h3 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      .section-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .section-card a {
+        display: inline-flex;
+        margin-top: 18px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent-strong);
+      }
+
+      .section-title {
+        margin: 42px 0 0;
+        font-size: 32px;
+      }
+
+      .section-lead {
+        margin: 12px 0 0;
+        max-width: 64ch;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      @media (max-width: 960px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .section-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href={props.homeHref}>
+          <img src={logo.src} alt="Clash for AI" />
+          <span>Clash for AI Docs</span>
+        </a>
+        <nav>
+          <a href={props.introHref}>{props.nav.intro}</a>
+          <a href={props.quickStartHref}>{props.nav.quickStart}</a>
+          <a href={props.integrationHref}>{props.nav.integration}</a>
+          <a href={props.providersHref}>{props.nav.providers}</a>
+          <a href={props.githubHref}>{props.nav.github}</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <article class="hero-copy">
+          <p class="eyebrow">{props.eyebrow}</p>
+          <h1>{props.title}</h1>
+          <p>{props.description}</p>
+          <div class="actions">
+            <a class="button primary" href={props.quickStartHref}>{props.primaryCta}</a>
+            <a class="button secondary" href={props.introHref}>{props.secondaryCta}</a>
+          </div>
+        </article>
+
+        <aside class="hero-card">
+          <h2>{props.coverageTitle}</h2>
+          <ol>
+            {props.coverageItems.map((item) => <li>{item}</li>)}
+          </ol>
+        </aside>
+      </section>
+
+      <h2 class="section-title">{props.sectionTitle}</h2>
+      <p class="section-lead">{props.sectionLead}</p>
+
+      <section class="section-grid">
+        {props.cards.map((card) => (
+          <article class="section-card">
+            <h3>{card.title}</h3>
+            <p>{card.body}</p>
+            <a href={card.href}>{card.cta}</a>
+          </article>
+        ))}
+      </section>
+    </main>
+  </body>
+</html>

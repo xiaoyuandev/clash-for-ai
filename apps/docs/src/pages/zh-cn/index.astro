@@ -1,0 +1,73 @@
+---
+import DocsLanding from "../../components/DocsLanding.astro";
+---
+
+<DocsLanding
+  lang="zh-CN"
+  homeHref="/zh-cn/"
+  introHref="/zh-cn/introduction/"
+  quickStartHref="/zh-cn/quick-start/"
+  integrationHref="/zh-cn/tool-integration/"
+  providersHref="/zh-cn/providers/"
+  faqHref="/zh-cn/faq/"
+  githubHref="https://github.com/xiaoyuandev/clash-for-ai"
+  nav={{
+    intro: "项目介绍",
+    quickStart: "快速开始",
+    integration: "工具接入",
+    providers: "Providers",
+    github: "GitHub"
+  }}
+  eyebrow="本地桌面网关"
+  title="在多个 AI 中转服务之间切换，而不必反复改每个工具的配置。"
+  description="Clash for AI 为编程工具、聊天客户端和 SDK 工作流提供一个稳定的本地入口。桌面应用统一管理上游 Provider、健康检查和请求日志。"
+  primaryCta="从快速开始进入"
+  secondaryCta="阅读产品介绍"
+  coverageTitle="这个文档站点当前覆盖什么"
+  coverageItems={[
+    "如何启动 Clash for AI 并接入第一个工具",
+    "如何配置 OpenAI 兼容中转服务",
+    "为什么 /v1、模型发现和 fallback 行为会影响接入体验",
+    "如何避开编程工具和聊天客户端中的常见配置错误"
+  ]}
+  sectionTitle="推荐阅读顺序"
+  sectionLead="这一版文档先聚焦在安装使用、Provider 兼容性、工具接入和常见问题。后续你可以在这个结构上继续补截图、操作手册和排障内容。"
+  cards={[
+    {
+      title: "项目介绍",
+      body: "先了解本地网关模型、Provider 切换方式和当前产品边界。",
+      href: "/zh-cn/introduction/",
+      cta: "阅读介绍"
+    },
+    {
+      title: "快速开始",
+      body: "启动应用、添加 Provider，并把第一个工具接到本地统一入口。",
+      href: "/zh-cn/quick-start/",
+      cta: "查看步骤"
+    },
+    {
+      title: "使用手册",
+      body: "查看更完整的实际使用流程、Models 行为和排查顺序。",
+      href: "/zh-cn/user-guide/",
+      cta: "阅读手册"
+    },
+    {
+      title: "工具接入",
+      body: "查看编程工具、桌面客户端和 OpenAI SDK 脚本的接入方式。",
+      href: "/zh-cn/tool-integration/",
+      cta: "查看接入"
+    },
+    {
+      title: "Providers",
+      body: "了解 /v1、模型列表获取和中转 API 兼容性说明。",
+      href: "/zh-cn/providers/",
+      cta: "阅读说明"
+    },
+    {
+      title: "FAQ",
+      body: "查看 fallback、生效条件、模型列表和协议支持相关问题。",
+      href: "/zh-cn/faq/",
+      cta: "打开 FAQ"
+    }
+  ]}
+/>

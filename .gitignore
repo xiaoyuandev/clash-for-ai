@@ -4,6 +4,7 @@ dist
 apps/desktop/dist
 apps/desktop/out
 apps/desktop/*.tsbuildinfo
+apps/docs/.astro
 apps/gateway/.local
 .gocache
 .gomodcache
