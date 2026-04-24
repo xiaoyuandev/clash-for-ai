@@ -54,6 +54,8 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build docs
+        env:
+          DOCS_SITE_URL: https://www.clashforai.com
         run: pnpm docs:build
 
       - name: Upload Pages artifact

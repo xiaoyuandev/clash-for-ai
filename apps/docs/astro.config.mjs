@@ -3,11 +3,16 @@ import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
 
 const repository = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "clash-for-ai";
-const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
+const site = process.env.DOCS_SITE_URL ?? `https://xiaoyuandev.github.io/${repository}`;
+const siteURL = new URL(site);
+const normalizedBase =
+  siteURL.pathname && siteURL.pathname !== "/"
+    ? siteURL.pathname.replace(/\/$/, "")
+    : undefined;
 
 export default defineConfig({
-  site: "https://xiaoyuandev.github.io",
-  base: isGitHubActions ? `/${repository}` : undefined,
+  site,
+  base: normalizedBase,
   vite: {
     plugins: [tailwindcss()]
   },
