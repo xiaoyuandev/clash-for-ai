@@ -35,6 +35,7 @@ interface Props {
 const props = Astro.props as Props;
 import logo from "../assets/logo.svg";
 import "../styles/site.css";
+const withBase = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 const previewMeta =
   props.lang === "zh-CN"
@@ -65,7 +66,7 @@ const previewMeta =
       <header class="mb-9 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
         <a
           class="inline-flex items-center gap-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-100"
-          href={props.homeHref}
+          href={withBase(props.homeHref)}
         >
           <img
             class="h-8 w-8 rounded-lg border border-white/10 bg-slate-950/70 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)]"
@@ -75,10 +76,10 @@ const previewMeta =
           <span>Clash for AI Docs</span>
         </a>
         <nav class="flex flex-wrap gap-4 text-[13px] text-slate-400">
-          <a class="transition hover:text-slate-100" href={props.introHref}>{props.nav.intro}</a>
-          <a class="transition hover:text-slate-100" href={props.quickStartHref}>{props.nav.quickStart}</a>
-          <a class="transition hover:text-slate-100" href={props.integrationHref}>{props.nav.integration}</a>
-          <a class="transition hover:text-slate-100" href={props.providersHref}>{props.nav.providers}</a>
+          <a class="transition hover:text-slate-100" href={withBase(props.introHref)}>{props.nav.intro}</a>
+          <a class="transition hover:text-slate-100" href={withBase(props.quickStartHref)}>{props.nav.quickStart}</a>
+          <a class="transition hover:text-slate-100" href={withBase(props.integrationHref)}>{props.nav.integration}</a>
+          <a class="transition hover:text-slate-100" href={withBase(props.providersHref)}>{props.nav.providers}</a>
           <a class="transition hover:text-teal-300" href={props.githubHref}>{props.nav.github}</a>
         </nav>
       </header>
@@ -93,13 +94,13 @@ const previewMeta =
           <div class="mt-6 flex flex-wrap gap-2.5">
             <a
               class="inline-flex min-h-10 items-center justify-center rounded-full bg-teal-500 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-950 transition hover:bg-teal-400"
-              href={props.quickStartHref}
+              href={withBase(props.quickStartHref)}
             >
               {props.primaryCta}
             </a>
             <a
               class="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-100 transition hover:border-slate-300/30 hover:bg-slate-900/45"
-              href={props.introHref}
+              href={withBase(props.introHref)}
             >
               {props.secondaryCta}
             </a>
@@ -123,7 +124,7 @@ const previewMeta =
 
             <div class="overflow-hidden rounded-[0.95rem] border border-slate-400/10 bg-slate-950/60">
               <img
-                src="/img/home-preview.png"
+                src={withBase("/img/home-preview.png")}
                 alt="Clash for AI preview"
                 class="block aspect-[16/10] w-full object-cover opacity-90"
               />
@@ -150,7 +151,7 @@ const previewMeta =
           <article class="content-panel rounded-[1.35rem] border border-slate-500/15 bg-[linear-gradient(145deg,rgba(15,23,42,0.54),rgba(15,23,42,0.4))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.22)] backdrop-blur-xl">
             <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{card.title}</h3>
             <p class="mt-2.5 text-[14px] leading-6 text-slate-300">{card.body}</p>
-            <a class="mt-4 inline-flex text-[13px] font-semibold text-teal-300 transition hover:text-teal-200" href={card.href}>{card.cta}</a>
+            <a class="mt-4 inline-flex text-[13px] font-semibold text-teal-300 transition hover:text-teal-200" href={withBase(card.href)}>{card.cta}</a>
           </article>
         ))}
       </section>
