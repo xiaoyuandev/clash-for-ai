@@ -35,6 +35,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [providerFilter, setProviderFilter] = useState("all");
   const [errorFilter, setErrorFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -90,7 +91,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [apiBase, limit, t]);
+  }, [apiBase, limit, refreshTick, t]);
 
   const visibleLogs = useMemo(
     () => logs.filter((log) => log.path !== "/v1/models"),
@@ -160,6 +161,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
               className={buttonClass("secondary")}
               onClick={() => {
                 setLimit(PAGE_SIZE);
+                setRefreshTick((current) => current + 1);
               }}
             >
               {t("common.refresh")}

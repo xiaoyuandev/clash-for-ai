@@ -27,15 +27,22 @@ type Handler struct {
 	credentials credential.Store
 	logs        *logging.Service
 	client      *http.Client
+	streamClient *http.Client
 }
 
 func NewHandler(providers ActiveProviderResolver, credentials credential.Store, logs *logging.Service) *Handler {
+	transport := http.DefaultTransport
+
 	return &Handler{
 		providers:   providers,
 		credentials: credentials,
 		logs:        logs,
 		client: &http.Client{
+			Transport: transport,
 			Timeout: 120 * time.Second,
+		},
+		streamClient: &http.Client{
+			Transport: transport,
 		},
 	}
 }
@@ -120,6 +127,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		method:         r.Method,
 		path:           r.URL.Path,
 		rawQuery:       r.URL.RawQuery,
+		isStream:       isStreamingRequest(r, body),
 		attempts:       attempts,
 	})
 
@@ -137,7 +145,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Path:         r.URL.Path,
 			Model:        result.finalModel,
 			StatusCode:   &statusCode,
-			IsStream:     isStreamRequest(r),
+			IsStream:     isStreamingRequest(r, body),
 			UpstreamHost: baseURL.Host,
 			LatencyMs:    time.Since(startedAt).Milliseconds(),
 			ErrorMessage: &message,
@@ -155,7 +163,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Path:         r.URL.Path,
 		Model:        chooseLogModel(result.finalModel, model),
 		StatusCode:   intPtr(result.statusCode),
-		IsStream:     isStreamRequest(r),
+		IsStream:     isStreamingRequest(r, body),
 		UpstreamHost: baseURL.Host,
 		LatencyMs:    time.Since(startedAt).Milliseconds(),
 		FirstByteMs:  result.firstByteMsPtr(startedAt),
@@ -182,13 +190,6 @@ func joinURLPath(basePath string, requestPath string) string {
 	}
 }
 
-func isStreamRequest(r *http.Request) bool {
-	if r.Body == nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(r.Header.Get("Accept")), "text/event-stream")
-}
-
 func (h *Handler) recordLog(ctx context.Context, entry logging.Entry) {
 	if h.logs == nil {
 		return
@@ -209,6 +210,7 @@ type forwardInput struct {
 	method         string
 	path           string
 	rawQuery       string
+	isStream       bool
 	attempts       []attemptSpec
 }
 
@@ -216,6 +218,7 @@ type forwardResult struct {
 	statusCode   int
 	header       http.Header
 	body         []byte
+	streamBody   io.ReadCloser
 	firstByteAt  time.Time
 	errorMessage *string
 	errorSnippet *string
@@ -293,6 +296,33 @@ func extractModelFromBody(body []byte) (*string, map[string]any) {
 	return &modelValue, payload
 }
 
+func extractStreamFlag(body []byte) *bool {
+	if len(body) == 0 {
+		return nil
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil
+	}
+
+	value, ok := payload["stream"].(bool)
+	if !ok {
+		return nil
+	}
+
+	return &value
+}
+
+func isStreamingRequest(r *http.Request, body []byte) bool {
+	if strings.Contains(strings.ToLower(r.Header.Get("Accept")), "text/event-stream") {
+		return true
+	}
+
+	streamFlag := extractStreamFlag(body)
+	return streamFlag != nil && *streamFlag
+}
+
 func bodyWithModel(payload map[string]any, modelID string, fallback []byte) []byte {
 	clone := make(map[string]any, len(payload))
 	for key, value := range payload {
@@ -331,14 +361,31 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 		}
 		provider.ApplyCredentialHeaders(req, input.activeProvider, input.apiKey, input.originalHeader)
 
-		startedAt := time.Now()
-		resp, err := h.client.Do(req)
+		httpClient := h.client
+		if input.isStream {
+			httpClient = h.streamClient
+		}
+
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			lastResult.finalModel = attempt.model
 			if index < len(input.attempts)-1 {
 				continue
 			}
 			lastResult.networkError = err
+			return lastResult
+		}
+
+		firstByteAt := time.Now()
+
+		if input.isStream && resp.StatusCode < 400 {
+			lastResult = forwardResult{
+				statusCode:  resp.StatusCode,
+				header:      resp.Header.Clone(),
+				streamBody:  resp.Body,
+				firstByteAt: firstByteAt,
+				finalModel:  attempt.model,
+			}
 			return lastResult
 		}
 
@@ -354,7 +401,7 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 			statusCode:  resp.StatusCode,
 			header:      resp.Header.Clone(),
 			body:        responseBody,
-			firstByteAt: startedAt,
+			firstByteAt: firstByteAt,
 			finalModel:  attempt.model,
 		}
 
@@ -379,9 +426,36 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 func writeResponse(w http.ResponseWriter, result forwardResult) {
 	copyHeaders(w.Header(), result.header)
 	w.WriteHeader(result.statusCode)
+
+	if result.streamBody != nil {
+		defer result.streamBody.Close()
+
+		if flusher, ok := w.(http.Flusher); ok {
+			_, _ = io.Copy(flushWriter{writer: w, flusher: flusher}, result.streamBody)
+			flusher.Flush()
+			return
+		}
+
+		_, _ = io.Copy(w, result.streamBody)
+		return
+	}
+
 	if len(result.body) > 0 {
 		_, _ = w.Write(result.body)
 	}
+}
+
+type flushWriter struct {
+	writer  io.Writer
+	flusher http.Flusher
+}
+
+func (w flushWriter) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
+	if err == nil {
+		w.flusher.Flush()
+	}
+	return n, err
 }
 
 func isRetryableStatus(statusCode int) bool {
