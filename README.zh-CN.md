@@ -109,6 +109,20 @@ API Key: dummy
 
 如果运行时使用的不是 `3456`，请以桌面应用里显示的 `connected api base` 为准。
 
+### 第三步：打开 `Tools` 页面完成工具接入
+
+添加好 Provider 以后，打开桌面应用中的 `Tools` 页面。
+
+`Tools` 现在是连接编程工具的主入口，它会提供：
+
+1. 可直接使用的桌面工具 / 编辑器插件接入参数
+2. 对 Codex CLI、Claude Code 这类 CLI 工具的一键配置能力
+3. 对 Cherry Studio、Cursor、SDK 脚本等工具的专用接入引导
+
+对于 CLI 工具，Clash for AI 可以直接写入本地网关配置。
+
+对于桌面工具，`Tools` 会展示需要填写的 Base URL 和 API Key 字段；对于 Cherry Studio，还可以尝试直接通过导入链接唤起应用。
+
 ## 快速接入
 
 如果你暂时不想先看完整使用手册，可以先按下面两种方式快速接入。
@@ -131,6 +145,8 @@ export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
 export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
+在 Clash for AI 中，你也可以直接打开 `Tools` 页面，使用对已支持 CLI 的一键接入流程。
+
 ### IDE / 插件 / 桌面客户端
 
 对于 IDE、编辑器插件和桌面聊天客户端，打开它们的 Provider 配置页面并填写：
@@ -140,7 +156,7 @@ Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-在 Clash for AI 里，你也可以进入 `Settings -> Connect a Tool` 查看这些已整理好的接入参数。
+在 Clash for AI 里，你也可以进入 `Tools` 页面查看这些已整理好的接入参数。
 
 <p align="center">
   <img src="./docs/images/readme/settings.png" style="width: 100%; height: auto;">
@@ -157,6 +173,44 @@ API Key: dummy
 <p align="center">
   <img src="./docs/images/readme/corsor-config.png" style="width: 100%; height: auto;">
 </p>
+
+### SDK 脚本 / 本地应用
+
+如果你希望在自己的脚本里，通过 Clash for AI 和当前激活的 Provider 交互，只需要把 SDK 或 HTTP 请求指向本地网关，而不是直接请求上游中转服务。
+
+使用 OpenAI SDK 的示例：
+
+```ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "dummy",
+  baseURL: "http://127.0.0.1:3456/v1"
+});
+
+const response = await client.responses.create({
+  model: "gpt-4.1",
+  input: "Say hello from Clash for AI."
+});
+
+console.log(response.output_text);
+```
+
+也可以直接使用 HTTP 请求：
+
+```bash
+curl http://127.0.0.1:3456/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer dummy" \
+  -d '{
+    "model": "gpt-4.1",
+    "messages": [
+      { "role": "user", "content": "Say hello from Clash for AI." }
+    ]
+  }'
+```
+
+最终由哪个模型实际响应，仍然取决于你的脚本发送的模型名，以及桌面应用里当前激活的是哪个 Provider。
 
 ## 本地开发
 

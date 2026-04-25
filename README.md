@@ -110,6 +110,20 @@ API Key: dummy
 
 If the local app selects another port at runtime, use the actual `connected api base` shown in the desktop UI.
 
+### Step 3: Open the `Tools` page and finish tool setup
+
+After adding a provider, open the `Tools` page in the desktop app.
+
+`Tools` is now the main place for connecting coding tools. It gives you:
+
+1. Ready-to-use connection values for desktop apps and editor plugins
+2. One-click setup for supported CLI tools such as Codex CLI and Claude Code
+3. Tool-specific guidance for Cherry Studio, Cursor, SDK scripts, and similar integrations
+
+For CLI tools, Clash for AI can write the required local gateway configuration directly.
+
+For desktop tools, `Tools` shows the exact Base URL and API Key fields you need to paste, and for Cherry Studio it can also try to open the app through its import link.
+
 ## Quick Connection
 
 If you do not want to read the full guide yet, use one of these quick setup patterns.
@@ -132,6 +146,8 @@ export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
 export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
+Inside Clash for AI, you can also open the `Tools` page and use the built-in one-click setup flow for supported CLIs.
+
 ### IDEs And Plugins
 
 For IDEs, editor plugins, and desktop chat clients, open the provider settings and fill in:
@@ -141,7 +157,7 @@ Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-Inside Clash for AI, you can also open `Settings -> Connect a Tool` to find the recommended connection values for supported tools.
+Inside Clash for AI, open the `Tools` page to find the recommended connection values for supported tools.
 
 <p align="center">
   <img src="./docs/images/readme/settings.png" style="width: 100%; height: auto;">
@@ -158,6 +174,44 @@ In Cursor specifically, open its custom provider settings, choose an OpenAI-comp
 <p align="center">
   <img src="./docs/images/readme/corsor-config.png" style="width: 100%; height: auto;">
 </p>
+
+### SDK Scripts And Local Apps
+
+If you want to interact with the currently active model provider from your own scripts, point your SDK or HTTP client to the local Clash for AI gateway instead of the upstream relay directly.
+
+Example with the OpenAI SDK:
+
+```ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "dummy",
+  baseURL: "http://127.0.0.1:3456/v1"
+});
+
+const response = await client.responses.create({
+  model: "gpt-4.1",
+  input: "Say hello from Clash for AI."
+});
+
+console.log(response.output_text);
+```
+
+You can do the same thing with plain HTTP requests:
+
+```bash
+curl http://127.0.0.1:3456/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer dummy" \
+  -d '{
+    "model": "gpt-4.1",
+    "messages": [
+      { "role": "user", "content": "Say hello from Clash for AI." }
+    ]
+  }'
+```
+
+The actual model that responds still depends on the model name your script sends and on which provider is currently active in the desktop app.
 
 ## Local Development
 
