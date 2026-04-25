@@ -1,6 +1,26 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
 
 declare global {
+  type DesktopToolIntegrationId =
+    | "codex-cli"
+    | "claude-code"
+    | "cursor"
+    | "cherry-studio"
+    | "open-code"
+    | "openai-sdk";
+
+  interface DesktopToolIntegrationState {
+    id: DesktopToolIntegrationId;
+    detected: boolean;
+    configured: boolean;
+    supportsAdapter: boolean;
+    configPath?: string;
+    secondaryConfigPath?: string;
+    executablePath?: string;
+    backupPath?: string;
+    message?: string;
+  }
+
   interface Window {
     electron: ElectronAPI;
     desktopBridge: {
@@ -110,6 +130,10 @@ declare global {
         };
       }>;
       copyText: (text: string) => Promise<{ ok: boolean }>;
+      listTools: () => Promise<DesktopToolIntegrationState[]>;
+      configureTool: (toolId: DesktopToolIntegrationId) => Promise<DesktopToolIntegrationState>;
+      restoreTool: (toolId: DesktopToolIntegrationId) => Promise<DesktopToolIntegrationState>;
+      openCherryStudioImport: () => Promise<{ ok: boolean; url: string }>;
       checkUpdates: () => Promise<{
         currentVersion: string;
         status:

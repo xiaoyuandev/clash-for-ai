@@ -3,6 +3,13 @@ import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { startCoreProcess, type CoreRuntimeHandle } from "./core-process";
 import {
+  applyToolIntegration,
+  buildCherryStudioImportUrl,
+  listToolIntegrations,
+  restoreToolIntegration,
+  type ToolIntegrationId
+} from "./tool-integrations";
+import {
   loadDesktopConfig,
   normalizePort,
   resolveConfiguredPort,
@@ -290,6 +297,22 @@ app.whenReady().then(() => {
   ipcMain.handle("app:copy-text", async (_, text: string) => {
     clipboard.writeText(text);
     return { ok: true };
+  });
+
+  ipcMain.handle("tools:list", async () => listToolIntegrations(coreRuntime.state.port));
+
+  ipcMain.handle("tools:configure", async (_, toolId: ToolIntegrationId) =>
+    applyToolIntegration(toolId, coreRuntime.state.port)
+  );
+
+  ipcMain.handle("tools:restore", async (_, toolId: ToolIntegrationId) =>
+    restoreToolIntegration(toolId, coreRuntime.state.port)
+  );
+
+  ipcMain.handle("tools:open-cherry-studio-import", async () => {
+    const url = buildCherryStudioImportUrl(coreRuntime.state.port);
+    await shell.openExternal(url);
+    return { ok: true, url };
   });
 
   ipcMain.handle("app:check-updates", async () => {

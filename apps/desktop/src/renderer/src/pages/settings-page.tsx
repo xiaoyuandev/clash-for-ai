@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import { getRuntimeLabel } from "../utils/runtime-label";
 import {
   actionRowClass,
   buttonClass,
-  emptyStateClass,
   eyebrowClass,
   fieldLabelClass,
   heroClass,
   heroCopyClass,
   heroTitleClass,
   iconBadgeClass,
-  iconButtonClass,
-  iconButtonSmallClass,
   infoCardClass,
   inputClass,
   metaClass,
-  modalBackdropClass,
-  modalPanelClass,
   metricValueClass,
   monoClass,
   pageShellClass,
@@ -69,16 +64,6 @@ type DesktopState = {
   };
 } | null;
 
-type ToolPreset =
-  | "codex-cli"
-  | "claude-code"
-  | "cursor"
-  | "cherry-studio"
-  | "open-code"
-  | "openai-sdk";
-type PlatformPreset = "unix" | "windows-cmd" | "powershell";
-type ConnectMode = "command" | "manual";
-
 interface SettingsPageProps {
   desktopState: DesktopState;
   onCheckUpdates: () => Promise<void>;
@@ -87,7 +72,6 @@ interface SettingsPageProps {
   onOpenReleasePage: () => Promise<void>;
   onCoreRestart: () => Promise<void>;
   onUpdateCorePort: (port: number) => Promise<void>;
-  onCopyText: (text: string) => Promise<void>;
 }
 
 function StatCard({
@@ -120,8 +104,7 @@ export function SettingsPage({
   onQuitAndInstallUpdate,
   onOpenReleasePage,
   onCoreRestart,
-  onUpdateCorePort,
-  onCopyText
+  onUpdateCorePort
 }: SettingsPageProps) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -130,12 +113,6 @@ export function SettingsPage({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [portInput, setPortInput] = useState(String(desktopState?.config.apiPort ?? 3456));
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [toolPreset, setToolPreset] = useState<ToolPreset>("codex-cli");
-  const [platformPreset, setPlatformPreset] = useState<PlatformPreset>("unix");
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
-  const [manualCopyFeedback, setManualCopyFeedback] = useState<string | null>(null);
-  const [connectMode, setConnectMode] = useState<ConnectMode>("command");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
     desktopApp: t("settings.value.desktopApp"),
@@ -260,150 +237,6 @@ export function SettingsPage({
     }
   }
 
-  const connectionGuide = useMemo(() => {
-    const port = desktopState?.core.port ?? desktopState?.config.apiPort ?? 3456;
-    const openAIBase = `http://127.0.0.1:${port}/v1`;
-    const anthropicBase = `http://127.0.0.1:${port}`;
-
-    const platformLabel =
-      platformPreset === "unix"
-        ? t("settings.platform.unix")
-        : platformPreset === "windows-cmd"
-          ? t("settings.platform.windowsCmd")
-          : t("settings.platform.powershell");
-
-    const formatEnvCommands = (pairs: Array<[string, string]>) => {
-      switch (platformPreset) {
-        case "windows-cmd":
-          return pairs.map(([key, value]) => `set ${key}=${value}`).join("\n");
-        case "powershell":
-          return pairs.map(([key, value]) => `$env:${key}="${value}"`).join("\n");
-        case "unix":
-        default:
-          return pairs.map(([key, value]) => `export ${key}="${value}"`).join("\n");
-      }
-    };
-
-    const openAICommand = formatEnvCommands([
-      ["OPENAI_BASE_URL", openAIBase],
-      ["OPENAI_API_KEY", "dummy"]
-    ]);
-    const anthropicCommand = formatEnvCommands([
-      ["ANTHROPIC_BASE_URL", anthropicBase],
-      ["ANTHROPIC_AUTH_TOKEN", "dummy"]
-    ]);
-
-    const toolMetadata: Record<
-      ToolPreset,
-      {
-        title: string;
-        summary: string;
-        command: string;
-        note: string;
-        supportsManual: boolean;
-        manualTitle?: string;
-        manualItems?: Array<{ label: string; value: string; hint?: string }>;
-      }
-    > = {
-      "codex-cli": {
-        title: t("settings.guide.codex.title", { platform: platformLabel }),
-        summary: t("settings.guide.codex.summary"),
-        command: openAICommand,
-        note: t("settings.guide.codex.note"),
-        supportsManual: false
-      },
-      "claude-code": {
-        title: t("settings.guide.claude.title", { platform: platformLabel }),
-        summary: t("settings.guide.claude.summary"),
-        command: anthropicCommand,
-        note: t("settings.guide.claude.note"),
-        supportsManual: false
-      },
-      cursor: {
-        title: t("settings.guide.cursor.title", { platform: platformLabel }),
-        summary: t("settings.guide.cursor.summary"),
-        command: openAICommand,
-        note: t("settings.guide.cursor.note"),
-        supportsManual: true,
-        manualTitle: t("settings.guide.cursorManual"),
-        manualItems: [
-          { label: t("settings.guide.field.providerType"), value: t("settings.value.openaiCompatible") },
-          { label: t("settings.guide.field.baseUrl"), value: openAIBase },
-          { label: t("settings.guide.field.apiKey"), value: "dummy", hint: t("settings.guide.field.apiKeyHint") }
-        ]
-      },
-      "cherry-studio": {
-        title: t("settings.guide.cherry.title", { platform: platformLabel }),
-        summary: t("settings.guide.cherry.summary"),
-        command: openAICommand,
-        note: t("settings.guide.cherry.note"),
-        supportsManual: true,
-        manualTitle: t("settings.guide.cherryManual"),
-        manualItems: [
-          { label: t("settings.guide.field.protocol"), value: t("settings.value.openaiCompatible") },
-          { label: t("settings.guide.field.baseUrl"), value: openAIBase },
-          { label: t("settings.guide.field.apiKey"), value: "dummy", hint: t("settings.guide.field.apiKeyHint") }
-        ]
-      },
-      "open-code": {
-        title: t("settings.guide.openCode.title", { platform: platformLabel }),
-        summary: t("settings.guide.openCode.summary"),
-        command: openAICommand,
-        note: t("settings.guide.openCode.note"),
-        supportsManual: false
-      },
-      "openai-sdk": {
-        title: t("settings.guide.openaiSdk.title", { platform: platformLabel }),
-        summary: t("settings.guide.openaiSdk.summary"),
-        command: openAICommand,
-        note: t("settings.guide.openaiSdk.note"),
-        supportsManual: false
-      }
-    };
-
-    return toolMetadata[toolPreset];
-  }, [desktopState?.config.apiPort, desktopState?.core.port, platformPreset, t, toolPreset]);
-
-  async function handleCopyCommand(text: string, title: string) {
-    try {
-      await onCopyText(text);
-      setFeedbackTone("success");
-      setCopyFeedback(t("settings.copy.copied"));
-      setFeedback(t("settings.feedback.commandCopied", { title }));
-      window.setTimeout(() => {
-        setCopyFeedback((current) => (current === t("settings.copy.copied") ? null : current));
-      }, 1500);
-    } catch (error) {
-      setFeedbackTone("error");
-      setCopyFeedback(t("settings.copy.failed"));
-      setFeedback(error instanceof Error ? error.message : t("settings.feedback.copyCommandFailed"));
-      window.setTimeout(() => {
-        setCopyFeedback((current) => (current === t("settings.copy.failed") ? null : current));
-      }, 2000);
-    }
-  }
-
-  useEffect(() => {
-    setConnectMode("command");
-    setCopyFeedback(null);
-    setManualCopyFeedback(null);
-  }, [toolPreset, platformPreset]);
-
-  async function handleCopyValue(text: string, label: string) {
-    try {
-      await onCopyText(text);
-      setFeedbackTone("success");
-      setManualCopyFeedback(label);
-      setFeedback(t("settings.feedback.valueCopied", { label }));
-      window.setTimeout(() => {
-        setManualCopyFeedback((current) => (current === label ? null : current));
-      }, 1500);
-    } catch (error) {
-      setFeedbackTone("error");
-      setFeedback(error instanceof Error ? error.message : t("settings.feedback.copyValueFailed"));
-    }
-  }
-
   const portLocked = desktopState?.config.apiPortSource === "env";
   const isMacPlatform = desktopState?.platform === "darwin";
 
@@ -429,9 +262,7 @@ export function SettingsPage({
         <div className={sectionHeadClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>{t("settings.section.connection")}</h2>
-            <p className={sectionMetaClass}>
-              {desktopState?.config.apiPortSource ?? t("settings.value.default")}
-            </p>
+            <p className={sectionMetaClass}>{desktopState?.config.apiPortSource ?? t("settings.value.default")}</p>
           </div>
         </div>
 
@@ -460,13 +291,7 @@ export function SettingsPage({
         </div>
 
         <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <button
-            type="button"
-            className={buttonClass("primary")}
-            onClick={() => setConnectOpen(true)}
-          >
-            {t("settings.button.connectTool")}
-          </button>
+          <p className={metaClass}>{t("settings.meta.configStored")}</p>
           <div className={actionRowClass}>
             <button
               type="button"
@@ -620,184 +445,8 @@ export function SettingsPage({
               : t("settings.button.installUpdate")}
           </button>
         </div>
-        {isMacPlatform ? (
-          <p className={`${metaClass} mt-4`}>
-            {t("settings.meta.macManualUpdate")}
-          </p>
-        ) : null}
+        {isMacPlatform ? <p className={`${metaClass} mt-4`}>{t("settings.meta.macManualUpdate")}</p> : null}
       </section>
-
-      {connectOpen ? (
-        <div className={modalBackdropClass} role="presentation" onClick={() => setConnectOpen(false)}>
-          <section
-            className={modalPanelClass}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("settings.modal.aria")}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={sectionHeadClass}>
-              <div className="space-y-1">
-                <h2 className={sectionTitleClass}>{t("settings.modal.title")}</h2>
-                <p className={sectionMetaClass}>{connectionGuide.summary}</p>
-              </div>
-              <button
-                type="button"
-                className={buttonClass("secondary")}
-                onClick={() => setConnectOpen(false)}
-              >
-                {t("common.close")}
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-2">
-                <span className={fieldLabelClass}>{t("settings.modal.tool")}</span>
-                <select
-                  className={inputClass}
-                  value={toolPreset}
-                  onChange={(event) => setToolPreset(event.target.value as ToolPreset)}
-                >
-                  <option value="codex-cli">Codex CLI</option>
-                  <option value="claude-code">Claude Code</option>
-                  <option value="cursor">Cursor</option>
-                  <option value="cherry-studio">Cherry Studio</option>
-                  <option value="open-code">Open Code</option>
-                  <option value="openai-sdk">OpenAI SDK</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-2">
-                <span className={fieldLabelClass}>{t("settings.modal.platform")}</span>
-                <select
-                  className={inputClass}
-                  value={platformPreset}
-                  onChange={(event) => setPlatformPreset(event.target.value as PlatformPreset)}
-                >
-                  <option value="unix">{t("settings.platform.unix")}</option>
-                  <option value="windows-cmd">{t("settings.platform.windowsCmd")}</option>
-                  <option value="powershell">{t("settings.platform.powershell")}</option>
-                </select>
-              </label>
-            </div>
-
-            {connectionGuide.supportsManual ? (
-              <div className="mt-6 grid grid-cols-2 rounded-[22px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
-                <button
-                  type="button"
-                  className={
-                    connectMode === "command"
-                      ? buttonClass("primary")
-                      : buttonClass("ghost")
-                  }
-                  onClick={() => setConnectMode("command")}
-                >
-                  {t("settings.modal.mode.command")}
-                </button>
-                <button
-                  type="button"
-                  className={
-                    connectMode === "manual"
-                      ? buttonClass("primary")
-                      : buttonClass("ghost")
-                  }
-                  onClick={() => setConnectMode("manual")}
-                >
-                  {t("settings.modal.mode.manual")}
-                </button>
-              </div>
-            ) : null}
-
-            {connectMode === "command" || !connectionGuide.supportsManual ? (
-              <div className={`${infoCardClass} mt-6 p-5`}>
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <p className={fieldLabelClass}>{connectionGuide.title}</p>
-                    {copyFeedback ? <p className={`${metaClass} mt-2`}>{copyFeedback}</p> : null}
-                  </div>
-                  <button
-                    type="button"
-                    className={
-                      copyFeedback === t("settings.copy.copied")
-                        ? `${iconButtonClass} [border-color:var(--success-border)] [background:var(--success-soft)] text-[color:var(--success-text)]`
-                        : iconButtonClass
-                    }
-                    aria-label={t("settings.copy.command")}
-                    title={t("settings.copy.command")}
-                    onClick={() => {
-                      void handleCopyCommand(connectionGuide.command, connectionGuide.title);
-                    }}
-                  >
-                    {copyFeedback === t("settings.copy.copied") ? (
-                      <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8.5-8.5 1.4 1.4z" />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M9 9h10v10H9z" />
-                        <path d="M5 5h10v2H7v8H5z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
-                  <code>{connectionGuide.command}</code>
-                </pre>
-                <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
-                  <p className={metaClass}>{connectionGuide.note}</p>
-                </div>
-              </div>
-            ) : (
-              <div className={`${infoCardClass} mt-6 p-5`}>
-                <div className="mb-4">
-                  <p className={fieldLabelClass}>{connectionGuide.manualTitle}</p>
-                </div>
-                {connectionGuide.manualItems?.length ? (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {connectionGuide.manualItems.map((item) => (
-                      <div key={item.label} className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className={fieldLabelClass}>{item.label}</p>
-                          <button
-                            type="button"
-                            className={
-                              manualCopyFeedback === item.label
-                                ? `${iconButtonSmallClass} [border-color:var(--success-border)] [background:var(--success-soft)] text-[color:var(--success-text)]`
-                                : iconButtonSmallClass
-                            }
-                            aria-label={t("settings.copy.value", { label: item.label })}
-                            title={t("settings.copy.value", { label: item.label })}
-                            onClick={() => {
-                              void handleCopyValue(item.value, item.label);
-                            }}
-                          >
-                            {manualCopyFeedback === item.label ? (
-                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8.5-8.5 1.4 1.4z" />
-                              </svg>
-                            ) : (
-                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M9 9h10v10H9z" />
-                                <path d="M5 5h10v2H7v8H5z" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                        <p className={`${monoClass} mt-3`}>{item.value}</p>
-                        {item.hint ? <p className={`${metaClass} mt-2`}>{item.hint}</p> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={emptyStateClass}>No manual settings available.</div>
-                )}
-                <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
-                  <p className={metaClass}>{connectionGuide.note}</p>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      ) : null}
     </main>
   );
 }

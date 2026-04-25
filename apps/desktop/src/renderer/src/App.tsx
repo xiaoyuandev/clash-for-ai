@@ -4,6 +4,7 @@ import { LogsPage } from "./pages/logs-page";
 import { ModelsPage } from "./pages/models-page";
 import { ProvidersPage } from "./pages/providers-page";
 import { SettingsPage } from "./pages/settings-page";
+import { ToolsPage } from "./pages/tools-page";
 import { useTheme } from "./theme/theme-provider";
 import type { Provider } from "./types/provider";
 import { getRuntimeLabel } from "./utils/runtime-label";
@@ -68,7 +69,9 @@ export default function App() {
   const { locale, localeLabels, setLocale, t } = useI18n();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
-  const [view, setView] = useState<"providers" | "models" | "logs" | "settings">("providers");
+  const [view, setView] = useState<"providers" | "tools" | "models" | "logs" | "settings">(
+    "providers"
+  );
   const [bootError, setBootError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
@@ -83,6 +86,15 @@ export default function App() {
       icon: (
         <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM6.5 7a.5.5 0 0 0-.5.5V10h12V7.5a.5.5 0 0 0-.5-.5zM18 12H6v4.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
+        </svg>
+      )
+    },
+    {
+      id: "tools",
+      label: t("app.nav.tools"),
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
         </svg>
       )
     },
@@ -295,10 +307,8 @@ export default function App() {
               selectedProvider={selectedProvider}
               onSelectedProviderChange={setSelectedProvider}
             />
-          ) : view === "logs" ? (
-            <LogsPage apiBase={desktopState?.apiBase} />
-          ) : (
-            <SettingsPage
+          ) : view === "tools" ? (
+            <ToolsPage
               desktopState={desktopState}
               onCopyText={async (text) => {
                 if (!window.desktopBridge) {
@@ -307,6 +317,12 @@ export default function App() {
 
                 await window.desktopBridge.copyText(text);
               }}
+            />
+          ) : view === "logs" ? (
+            <LogsPage apiBase={desktopState?.apiBase} />
+          ) : (
+            <SettingsPage
+              desktopState={desktopState}
               onUpdateCorePort={async (port) => {
                 if (!window.desktopBridge) {
                   return;
