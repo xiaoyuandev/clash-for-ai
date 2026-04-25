@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
-  actionRowClass,
   buttonClass,
   emptyStateClass,
   fieldLabelClass,
@@ -13,7 +12,6 @@ import {
   infoCardClass,
   inputClass,
   metaClass,
-  metricValueClass,
   monoClass,
   pageShellClass,
   sectionCardClass,
@@ -78,16 +76,6 @@ interface ToolsPageProps {
   onCopyText: (text: string) => Promise<void>;
 }
 
-function StatCard({ label, value, meta }: { label: string; value: string; meta: string }) {
-  return (
-    <div className={infoCardClass}>
-      <p className={fieldLabelClass}>{label}</p>
-      <p className={metricValueClass}>{value}</p>
-      <p className={`${metaClass} mt-2`}>{meta}</p>
-    </div>
-  );
-}
-
 export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   const { t } = useI18n();
   const [toolPreset, setToolPreset] = useState<ToolPreset>("codex-cli");
@@ -98,7 +86,6 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   const [toolStates, setToolStates] = useState<Record<ToolPreset, DesktopToolIntegrationState>>(
     {} as Record<ToolPreset, DesktopToolIntegrationState>
   );
-  const [toolsBusy, setToolsBusy] = useState(false);
   const [configureBusy, setConfigureBusy] = useState<ToolPreset | null>(null);
   const [restoreBusy, setRestoreBusy] = useState<ToolPreset | null>(null);
   const [cherryBusy, setCherryBusy] = useState(false);
@@ -173,27 +160,20 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
         return;
       }
 
-      setToolsBusy(true);
-      try {
-        const states = await window.desktopBridge.listTools();
-        if (cancelled) {
-          return;
-        }
-
-        setToolStates(
-          states.reduce(
-            (accumulator, item) => {
-              accumulator[item.id] = item;
-              return accumulator;
-            },
-            {} as Record<ToolPreset, DesktopToolIntegrationState>
-          )
-        );
-      } finally {
-        if (!cancelled) {
-          setToolsBusy(false);
-        }
+      const states = await window.desktopBridge.listTools();
+      if (cancelled) {
+        return;
       }
+
+      setToolStates(
+        states.reduce(
+          (accumulator, item) => {
+            accumulator[item.id] = item;
+            return accumulator;
+          },
+          {} as Record<ToolPreset, DesktopToolIntegrationState>
+        )
+      );
     }
 
     void syncToolStates();
@@ -407,10 +387,6 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
 
   const recommendedTools = toolCatalog.filter((tool) => tool.recommended);
   const otherTools = toolCatalog.filter((tool) => !tool.recommended);
-  const detectedCount = Object.values(toolStates).filter((tool) => tool.detected).length;
-  const configuredCount = Object.values(toolStates).filter((tool) => tool.configured).length;
-  const cliCount = toolCatalog.filter((tool) => tool.category === "cli").length;
-  const adapterCount = toolCatalog.filter((tool) => tool.supportsAdapter).length;
 
   function getCategoryLabel(category: ToolCategory) {
     switch (category) {
@@ -479,63 +455,6 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           >
             {t("tools.button.copyGateway")}
           </button>
-        </div>
-      </section>
-
-      <section className={sectionCardClass}>
-        <div className={sectionHeadClass}>
-          <div className="space-y-1">
-            <h2 className={sectionTitleClass}>{t("tools.overview.title")}</h2>
-            <p className={sectionMetaClass}>{t("tools.overview.subtitle")}</p>
-          </div>
-          <div className={actionRowClass}>
-            <div className={infoCardClass}>
-              <p className={fieldLabelClass}>{t("tools.overview.localOpenAI")}</p>
-              <p className={`${monoClass} mt-2`}>{openAIBase}</p>
-            </div>
-            <div className={infoCardClass}>
-              <p className={fieldLabelClass}>{t("tools.overview.localAnthropic")}</p>
-              <p className={`${monoClass} mt-2`}>{anthropicBase}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label={t("tools.stats.supported")}
-            value={String(toolCatalog.length)}
-            meta={t("tools.stats.supportedMeta")}
-          />
-          <StatCard
-            label={t("tools.stats.detected")}
-            value={toolsBusy ? "..." : String(detectedCount)}
-            meta={t("tools.stats.detectedMeta")}
-          />
-          <StatCard
-            label={t("tools.stats.configured")}
-            value={toolsBusy ? "..." : String(configuredCount)}
-            meta={t("tools.stats.configuredMeta")}
-          />
-          <StatCard
-            label={t("tools.stats.oneClick")}
-            value={String(adapterCount)}
-            meta={t("tools.stats.oneClickMeta")}
-          />
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className={infoCardClass}>
-            <p className={fieldLabelClass}>{t("tools.stats.cli")}</p>
-            <p className={metricValueClass}>{cliCount}</p>
-            <p className={`${metaClass} mt-2`}>{t("tools.stats.cliMeta")}</p>
-          </div>
-          <div className={infoCardClass}>
-            <p className={fieldLabelClass}>{t("tools.stats.manual")}</p>
-            <p className={metricValueClass}>
-              {toolCatalog.filter((tool) => tool.supportsManual).length}
-            </p>
-            <p className={`${metaClass} mt-2`}>{t("tools.stats.manualMeta")}</p>
-          </div>
         </div>
       </section>
 
@@ -668,36 +587,6 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                 <option value="powershell">{t("settings.platform.powershell")}</option>
               </select>
             </label>
-          </div>
-
-          <div className={`${infoCardClass} mt-6`}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className={fieldLabelClass}>{t("tools.detail.configPath")}</p>
-                <p className={`${monoClass} mt-2`}>
-                  {selectedState?.configPath ?? t("tools.detail.notAvailable")}
-                </p>
-              </div>
-              <div>
-                <p className={fieldLabelClass}>{t("tools.detail.executable")}</p>
-                <p className={`${monoClass} mt-2`}>
-                  {selectedState?.executablePath ?? t("tools.detail.notDetected")}
-                </p>
-              </div>
-            </div>
-            {selectedState?.secondaryConfigPath ? (
-              <div className="mt-4">
-                <p className={fieldLabelClass}>{t("tools.detail.secondaryConfigPath")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.secondaryConfigPath}</p>
-              </div>
-            ) : null}
-            {selectedState?.backupPath ? (
-              <div className="mt-4">
-                <p className={fieldLabelClass}>{t("tools.detail.lastBackup")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.backupPath}</p>
-              </div>
-            ) : null}
-            {selectedState?.message ? <p className={`${metaClass} mt-4`}>{selectedState.message}</p> : null}
           </div>
 
           {selectedTool.supportsAdapter ? (
@@ -873,6 +762,36 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               )}
             </>
           )}
+
+          <div className={`${infoCardClass} mt-6`}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className={fieldLabelClass}>{t("tools.detail.configPath")}</p>
+                <p className={`${monoClass} mt-2`}>
+                  {selectedState?.configPath ?? t("tools.detail.notAvailable")}
+                </p>
+              </div>
+              <div>
+                <p className={fieldLabelClass}>{t("tools.detail.executable")}</p>
+                <p className={`${monoClass} mt-2`}>
+                  {selectedState?.executablePath ?? t("tools.detail.notDetected")}
+                </p>
+              </div>
+            </div>
+            {selectedState?.secondaryConfigPath ? (
+              <div className="mt-4">
+                <p className={fieldLabelClass}>{t("tools.detail.secondaryConfigPath")}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.secondaryConfigPath}</p>
+              </div>
+            ) : null}
+            {selectedState?.backupPath ? (
+              <div className="mt-4">
+                <p className={fieldLabelClass}>{t("tools.detail.lastBackup")}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.backupPath}</p>
+              </div>
+            ) : null}
+            {selectedState?.message ? <p className={`${metaClass} mt-4`}>{selectedState.message}</p> : null}
+          </div>
         </div>
       </section>
     </main>
