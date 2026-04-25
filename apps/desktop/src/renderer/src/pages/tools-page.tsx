@@ -458,7 +458,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="grid gap-4 xl:grid-cols-[332px_minmax(0,1fr)]">
         <div className={`${sectionCardClass} min-w-0`}>
           <div className={sectionHeadClass}>
             <div className="space-y-1">
@@ -467,10 +467,10 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
             </div>
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div className="mt-4 space-y-4">
             <div>
               <p className={fieldLabelClass}>{t("tools.group.recommended")}</p>
-              <div className="mt-3 grid gap-3">
+              <div className="mt-2.5 grid gap-2.5">
                 {recommendedTools.map((tool) => {
                   const state = toolStates[tool.id];
                   return (
@@ -506,7 +506,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
 
             <div>
               <p className={fieldLabelClass}>{t("tools.group.more")}</p>
-              <div className="mt-3 grid gap-3">
+              <div className="mt-2.5 grid gap-2.5">
                 {otherTools.map((tool) => {
                   const state = toolStates[tool.id];
                   return (
@@ -556,7 +556,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-2">
               <span className={fieldLabelClass}>{t("settings.modal.tool")}</span>
               <select
@@ -590,7 +590,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           </div>
 
           {selectedTool.supportsAdapter ? (
-            <div className={`${infoCardClass} mt-6 p-5`}>
+            <div className={`${infoCardClass} mt-4 p-4`}>
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className={fieldLabelClass}>{t("tools.detail.oneClickTitle")}</p>
@@ -614,7 +614,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                 )}
               </div>
               {selectedState?.backupPath ? (
-                <div className="mb-4 flex items-center justify-end">
+                  <div className="mb-3 flex items-center justify-end">
                   <button
                     type="button"
                     className={buttonClass("secondary")}
@@ -632,11 +632,11 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
                 <code>{connectionGuide.command}</code>
               </pre>
-              <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+              <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
                 <p className={metaClass}>{connectionGuide.note}</p>
               </div>
               {selectedTool.category === "cli" ? (
-                <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+                <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
                   <p className={metaClass}>{t("tools.detail.cliReloadHint")}</p>
                 </div>
               ) : null}
@@ -645,7 +645,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           ) : (
             <>
               {selectedTool.id === "cherry-studio" ? (
-                <div className={`${infoCardClass} mt-6 p-5`}>
+                <div className={`${infoCardClass} mt-4 p-4`}>
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <p className={fieldLabelClass}>{t("tools.detail.cherryImportTitle")}</p>
@@ -667,7 +667,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               ) : null}
 
               {connectionGuide.supportsManual ? (
-                <div className="mt-6 grid grid-cols-2 rounded-[22px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
+                <div className="mt-4 grid grid-cols-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
                   <button
                     type="button"
                     className={connectMode === "command" ? buttonClass("primary") : buttonClass("ghost")}
@@ -686,7 +686,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               ) : null}
 
               {connectMode === "command" || !connectionGuide.supportsManual ? (
-                <div className={`${infoCardClass} mt-6 p-5`}>
+                <div className={`${infoCardClass} mt-4 p-4`}>
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <p className={fieldLabelClass}>{connectionGuide.title}</p>
@@ -710,21 +710,21 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
                     <code>{connectionGuide.command}</code>
                   </pre>
-                  <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+                  <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
                     <p className={metaClass}>{connectionGuide.note}</p>
                   </div>
                 </div>
               ) : (
-                <div className={`${infoCardClass} mt-6 p-5`}>
+                <div className={`${infoCardClass} mt-4 p-4`}>
                   <div className="mb-4">
                     <p className={fieldLabelClass}>{connectionGuide.manualTitle}</p>
                   </div>
                   {connectionGuide.manualItems?.length ? (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                       {connectionGuide.manualItems.map((item) => (
                         <div
                           key={item.label}
-                          className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4"
+                          className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <p className={fieldLabelClass}>{item.label}</p>
@@ -755,7 +755,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   ) : (
                     <div className={emptyStateClass}>{t("tools.empty.manual")}</div>
                   )}
-                  <div className="mt-4 rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-4 py-3">
+                  <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
                     <p className={metaClass}>{connectionGuide.note}</p>
                   </div>
                 </div>
@@ -763,8 +763,8 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
             </>
           )}
 
-          <div className={`${infoCardClass} mt-6`}>
-            <div className="grid gap-3 sm:grid-cols-2">
+          <div className={`${infoCardClass} mt-4`}>
+            <div className="grid gap-2.5 sm:grid-cols-2">
               <div>
                 <p className={fieldLabelClass}>{t("tools.detail.configPath")}</p>
                 <p className={`${monoClass} mt-2`}>

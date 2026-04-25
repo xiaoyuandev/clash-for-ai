@@ -266,7 +266,7 @@ export function SettingsPage({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className={infoCardClass}>
             <p className={fieldLabelClass}>{t("settings.fixedPort")}</p>
             <input
@@ -290,7 +290,7 @@ export function SettingsPage({
           />
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <p className={metaClass}>{t("settings.meta.configStored")}</p>
           <div className={actionRowClass}>
             <button
@@ -327,7 +327,7 @@ export function SettingsPage({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
             label={t("settings.runtime.platform")}
             value={desktopState?.platform ?? "-"}
@@ -382,7 +382,7 @@ export function SettingsPage({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
             label={t("settings.updates.currentVersion")}
             value={desktopState?.updates.currentVersion ?? "-"}
@@ -402,7 +402,7 @@ export function SettingsPage({
           />
         </div>
 
-        <div className={`${actionRowClass} mt-6`}>
+        <div className={`${actionRowClass} mt-4`}>
           <button
             type="button"
             className={buttonClass("secondary")}

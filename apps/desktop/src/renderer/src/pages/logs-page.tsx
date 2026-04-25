@@ -169,7 +169,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_2fr]">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_2fr]">
           <label className="flex flex-col gap-2">
             <span className={fieldLabelClass}>{t("logs.filter.provider")}</span>
             <select
@@ -215,15 +215,15 @@ export function LogsPage({ apiBase }: LogsPageProps) {
         </div>
 
         {filteredLogs.length === 0 ? (
-          <div className="mt-6">
+          <div className="mt-4">
             <div className={emptyStateClass}>
               <p>{t("logs.empty.title")}</p>
               <p className="mt-2">{t("logs.empty.subtitle")}</p>
             </div>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-[28px] border [border-color:var(--border-soft)] [background:var(--panel-solid)]">
-            <div className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] gap-3 border-b [border-color:var(--border-soft)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+          <div className="mt-4 overflow-hidden rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-solid)]">
+            <div className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] gap-2.5 border-b [border-color:var(--border-soft)] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
               <span>{t("logs.columns.time")}</span>
               <span>{t("logs.columns.method")}</span>
               <span>{t("logs.columns.path")}</span>
@@ -242,7 +242,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
                 return (
                   <article
                     key={log.id}
-                    className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] items-center gap-3 px-4 py-3 text-sm"
+                    className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] items-center gap-2.5 px-3 py-2.5 text-sm"
                     title={
                       log.error_message
                         ? `${localTime}\n${log.method} ${log.path}\n${log.provider_name}\n${log.model ?? "-"}\n${log.error_message}`
@@ -253,11 +253,11 @@ export function LogsPage({ apiBase }: LogsPageProps) {
                     <span className="truncate">
                       <span className={statusPillClass("default")}>{log.method}</span>
                     </span>
-                    <span className="truncate font-mono text-[13px] text-[color:var(--color-text)]">
+                    <span className="truncate font-mono text-[12px] text-[color:var(--color-text)]">
                       {log.path}
                     </span>
                     <span className="truncate text-[color:var(--color-text)]">{log.provider_name}</span>
-                    <span className="truncate font-mono text-[13px] text-[color:var(--color-text)]">
+                    <span className="truncate font-mono text-[12px] text-[color:var(--color-text)]">
                       {log.model ?? "-"}
                     </span>
                     <span className="inline-flex items-center gap-2 truncate">
@@ -275,7 +275,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
         )}
 
         {canLoadMore ? (
-          <div className="mt-5 flex justify-center">
+          <div className="mt-4 flex justify-center">
             <button
               type="button"
               className={buttonClass("secondary")}

@@ -178,20 +178,20 @@ export default function App() {
   return (
     <div className={appShellClass}>
       <div className={appBackdropClass} />
-      <div className="relative mx-auto flex h-screen w-full max-w-[1680px] flex-row gap-4 overflow-hidden px-4 py-4 sm:px-5 sm:py-5 xl:gap-6 xl:px-8">
+      <div className="relative mx-auto flex h-screen w-full max-w-[1600px] flex-row gap-3 overflow-hidden px-3 py-3 sm:px-4 sm:py-4 xl:gap-4 xl:px-6">
         <aside
-          className={`${glassPanelClass} flex h-[calc(100vh-2rem)] w-[272px] min-w-[272px] flex-col gap-5 overflow-y-auto px-4 py-5 sm:h-[calc(100vh-2.5rem)] sm:w-[290px] sm:min-w-[290px] sm:px-5 xl:h-[calc(100vh-3rem)]`}
+          className={`${glassPanelClass} flex h-[calc(100vh-1.5rem)] w-[248px] min-w-[248px] flex-col gap-4 overflow-y-auto px-3 py-4 sm:h-[calc(100vh-2rem)] sm:w-[260px] sm:min-w-[260px] sm:px-4 xl:h-[calc(100vh-3rem)]`}
         >
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5">
               <img
                 src={appIcon}
                 alt="Clash for AI"
-                className="h-14 w-14 rounded-2xl shadow-[0_14px_30px_rgba(15,23,42,0.18)]"
+                className="h-11 w-11 rounded-xl shadow-[0_10px_22px_rgba(15,23,42,0.16)]"
               />
               <div className="min-w-0">
                 <p className={`${eyebrowClass} mb-1`}>AI Gateway</p>
-                <h2 className="truncate bg-[linear-gradient(135deg,var(--accent-strong),#a5f3fc)] bg-clip-text text-[30px] font-semibold tracking-[-0.05em] text-transparent">
+                <h2 className="truncate bg-[linear-gradient(135deg,var(--accent-strong),#a5f3fc)] bg-clip-text text-[24px] font-semibold tracking-[-0.05em] text-transparent">
                   Clash for AI
                 </h2>
               </div>
@@ -221,7 +221,7 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="grid gap-2 rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+          <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
             <div className="flex items-center justify-between gap-3">
               <label className="min-w-0 flex-1">
                 <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
@@ -246,7 +246,7 @@ export default function App() {
                 </span>
                 <button
                   type="button"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
+                  className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
                   onClick={() => toggleTheme()}
                   aria-label={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
                   title={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
@@ -276,7 +276,7 @@ export default function App() {
                 port: desktopState?.core.port ?? "-"
               })}
             </span>
-            <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+            <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
               <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
                 <span
                   className={statusDotClass(

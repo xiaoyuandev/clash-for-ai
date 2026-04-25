@@ -287,7 +287,7 @@ export function ProvidersPage({
           </div>
         </div>
 
-        <form className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]" onSubmit={handleCreateProvider}>
+        <form className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]" onSubmit={handleCreateProvider}>
           <label className={labelClass}>
             <span className={fieldLabelClass}>{t("providers.form.name")}</span>
             <input
@@ -318,7 +318,7 @@ export function ProvidersPage({
               type="password"
             />
           </label>
-          <div className="flex flex-wrap items-center gap-3 xl:self-end xl:pb-0.5">
+          <div className="flex flex-wrap items-center gap-2 xl:self-end xl:pb-0.5">
             <button type="submit" className={buttonClass("primary")} disabled={submitting}>
               {submitting
                 ? t("common.saving")
@@ -351,20 +351,20 @@ export function ProvidersPage({
         </div>
 
         {providers.length === 0 ? (
-          <div className="mt-5">
+          <div className="mt-4">
             <div className={emptyStateClass}>
               <p>{t("providers.list.empty")}</p>
             </div>
           </div>
         ) : (
-          <div className={`${listClass} mt-5`}>
+          <div className={`${listClass} mt-4`}>
             {providers.map((provider) => (
               <article
                 key={provider.id}
                 className={selectableItemClass(selectedProvider?.id === provider.id)}
               >
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-start justify-between gap-2.5">
                     <button
                       type="button"
                       className="min-w-0 flex-1 text-left"
@@ -375,14 +375,14 @@ export function ProvidersPage({
                         );
                       }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         <span className={iconBadgeClass}>
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM6.5 7a.5.5 0 0 0-.5.5V10h12V7.5a.5.5 0 0 0-.5-.5zM18 12H6v4.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
                           </svg>
                         </span>
                         <div className="min-w-0">
-                          <strong className="block truncate text-base font-semibold text-[color:var(--color-heading)]">
+                          <strong className="block truncate text-[15px] font-semibold text-[color:var(--color-heading)]">
                             {provider.name}
                           </strong>
                           <p className="mt-1 text-xs text-[color:var(--color-muted)]">
@@ -393,7 +393,7 @@ export function ProvidersPage({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
                       onClick={() => {
                         onSelectedProviderChange(provider);
                         setExpandedProviderId((current) =>
@@ -412,7 +412,7 @@ export function ProvidersPage({
                     </button>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {provider.status.is_active ? (
                       <span className={statusPillClass("success")}>
                         {t("providers.status.active")}
@@ -458,7 +458,7 @@ export function ProvidersPage({
                   </div>
 
                   {expandedProviderId === provider.id ? (
-                    <div className="grid gap-3 rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+                    <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
                       <p className={metaClass}>
                         {t("providers.detail.baseUrl")} <span className={monoClass}>{provider.base_url}</span>
                       </p>

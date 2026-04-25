@@ -313,22 +313,22 @@ export function ModelsPage({
           </div>
         ) : (
           <>
-            <div className={`${compactStatGridClass} mt-6`}>
-              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+            <div className={`${compactStatGridClass} mt-4`}>
+              <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
                 <p className={metaClass}>{activeProvider.name}</p>
                 <p className={metricNumberClass}>{providerModelCount}</p>
                 <p className="text-xs text-[color:var(--color-muted)]">
                   {t("models.stats.providerModels")}
                 </p>
               </div>
-              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+              <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
                 <p className={metaClass}>{t("models.stats.availableToAdd")}</p>
                 <p className={metricNumberClass}>{availableCount}</p>
                 <p className="text-xs text-[color:var(--color-muted)]">
                   {t("models.stats.filteredBySearch")}
                 </p>
               </div>
-              <div className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-4">
+              <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
                 <p className={metaClass}>{t("models.stats.failoverSlots")}</p>
                 <p className={metricNumberClass}>{selectedModels.length}</p>
                 <p className="text-xs text-[color:var(--color-muted)]">
@@ -338,9 +338,9 @@ export function ModelsPage({
             </div>
 
             <div
-              className="mt-4 flex min-h-0 flex-col gap-4 xl:grid xl:h-[min(62vh,720px)] xl:items-stretch"
+              className="mt-3 flex min-h-0 flex-col gap-3 xl:grid xl:h-[min(62vh,720px)] xl:items-stretch"
               style={{
-                gridTemplateColumns: `minmax(0, ${leftPaneWidth}fr) 16px minmax(0, ${
+                gridTemplateColumns: `minmax(0, ${leftPaneWidth}fr) 12px minmax(0, ${
                   100 - leftPaneWidth
                 }fr)`
               }}
@@ -353,7 +353,7 @@ export function ModelsPage({
                   </div>
                 </div>
 
-                <div className={`${stickySearchClass} mt-4`}>
+                <div className={`${stickySearchClass} mt-3`}>
                   <label className="relative block">
                     <input
                       className={`${inputClass} pr-11`}
@@ -371,12 +371,12 @@ export function ModelsPage({
                       </svg>
                     </span>
                   </label>
-                  <p className="px-1 pt-3 text-xs text-[color:var(--color-muted)]">
+                  <p className="px-1 pt-2 text-xs text-[color:var(--color-muted)]">
                     Search by exact model id or provider-assigned alias.
                   </p>
                 </div>
 
-                <div className={`${scrollListClass} mt-4`}>
+                <div className={`${scrollListClass} mt-3`}>
                   {filteredAvailableModels.length === 0 ? (
                     <div className={emptyStateClass}>
                       <p>{loading ? t("common.loading") : t("models.available.empty")}</p>
@@ -386,7 +386,7 @@ export function ModelsPage({
                       <article key={model.id} className={queueItemClass}>
                         <button
                           type="button"
-                          className={`${iconButtonClass} absolute right-3 top-3 min-h-9 min-w-9 rounded-xl`}
+                          className={`${iconButtonClass} absolute right-2.5 top-2.5 min-h-8 min-w-8 rounded-lg`}
                           aria-label={t("models.available.add", { id: model.id })}
                           title={t("models.available.add", { id: model.id })}
                           onClick={() => addModel(model.id)}
@@ -396,7 +396,7 @@ export function ModelsPage({
                             <path d="M5 11h14v2H5z" />
                           </svg>
                         </button>
-                        <div className="flex items-start gap-3 pr-12">
+                        <div className="flex items-start gap-2.5 pr-10">
                           <span className={`${iconBadgeClass} mt-0.5`}>
                             <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                               <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
@@ -404,7 +404,7 @@ export function ModelsPage({
                           </span>
                           <div>
                             <p className={monoClass}>{model.id}</p>
-                            <p className={`${metaClass} mt-2`}>
+                            <p className={`${metaClass} mt-1.5`}>
                               {model.owned_by ?? t("models.available.ownerUnknown")}
                             </p>
                           </div>
@@ -432,9 +432,9 @@ export function ModelsPage({
                     <p className={sectionMetaClass}>{selectedModels.length}</p>
                   </div>
                 </div>
-                <p className={`${metaClass} mt-4`}>{t("models.fallback.subtitle")}</p>
+                <p className={`${metaClass} mt-3`}>{t("models.fallback.subtitle")}</p>
 
-                <div className={`${scrollListClass} mt-4`}>
+                <div className={`${scrollListClass} mt-3`}>
                   {selectedModelDetails.length === 0 ? (
                     <div className={emptyStateClass}>
                       <p>{t("models.fallback.empty")}</p>
@@ -455,8 +455,8 @@ export function ModelsPage({
                           moveModel(item.model_id);
                         }}
                       >
-                        <div className="flex items-start gap-4">
-                          <div className="grid gap-2">
+                        <div className="flex items-start gap-3">
+                          <div className="grid gap-1.5">
                             <span
                               className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75"
                               aria-hidden="true"
@@ -469,7 +469,7 @@ export function ModelsPage({
                           </div>
                           <div>
                             <p className={monoClass}>{item.model_id}</p>
-                            <p className={`${metaClass} mt-2`}>
+                            <p className={`${metaClass} mt-1.5`}>
                               {index === 0
                                 ? t("models.fallback.primary")
                                 : t("models.fallback.secondary", { index })}
