@@ -31,4 +31,6 @@ export interface Provider {
   status: ProviderStatus;
   api_key_masked: string;
   claude_code_model_map: ClaudeCodeModelMap;
+  is_system?: boolean;
+  system_kind?: "local-gateway";
 }

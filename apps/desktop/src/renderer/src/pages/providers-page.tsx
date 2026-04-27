@@ -5,6 +5,8 @@ import {
   activateProvider,
   createProvider,
   deleteProvider,
+  getRuntimeConfig,
+  getRuntimeHealth,
   getHealth,
   getProviderModels,
   getProviders,
@@ -13,6 +15,8 @@ import {
 } from "../services/api";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
+import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
+import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
 import {
   buttonClass,
   columnCardClass,
@@ -48,6 +52,25 @@ interface ProvidersPageProps {
   apiBase?: string;
   selectedProviderId: string | null;
   onSelectedProviderChange: (provider: Provider | null) => void;
+}
+
+function decorateProviders(
+  providers: Provider[],
+  runtimeConfig: RuntimeConfig,
+  runtimeHealth: RuntimeHealth | null
+) {
+  const localGatewayProvider = buildLocalGatewayProvider(runtimeConfig, runtimeHealth);
+  if (!localGatewayProvider) {
+    return providers;
+  }
+
+  return [localGatewayProvider, ...providers.map((provider) => ({
+    ...provider,
+    status: {
+      ...provider.status,
+      is_active: false
+    }
+  }))];
 }
 
 export function ProvidersPage({
@@ -148,21 +171,28 @@ export function ProvidersPage({
 
     async function load() {
       try {
-        const [healthData, providersData] = await Promise.all([
+        const [healthData, providersData, runtimeConfigData, runtimeHealthData] = await Promise.all([
           getHealth(apiBase),
-          getProviders(apiBase)
+          getProviders(apiBase),
+          getRuntimeConfig(apiBase),
+          getRuntimeHealth(apiBase)
         ]);
 
         if (cancelled) {
           return;
         }
 
+        const decoratedProviders = decorateProviders(
+          providersData,
+          runtimeConfigData,
+          runtimeHealthData
+        );
         setHealth(healthData.status);
-        setProviders(providersData);
+        setProviders(decoratedProviders);
         const nextSelected =
-          providersData.find((provider) => provider.id === selectedProviderId) ??
-          providersData.find((provider) => provider.status.is_active) ??
-          providersData[0] ??
+          decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
+          decoratedProviders.find((provider) => provider.status.is_active) ??
+          decoratedProviders[0] ??
           null;
         onSelectedProviderChange(nextSelected);
       } catch (loadError) {
@@ -187,6 +217,11 @@ export function ProvidersPage({
 
     async function loadProviderModels() {
       if (!selectedProvider) {
+        setProviderModels([]);
+        return;
+      }
+
+      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
         setProviderModels([]);
         return;
       }
@@ -232,13 +267,18 @@ export function ProvidersPage({
   }, [selectedProvider?.claude_code_model_map, selectedProvider?.id]);
 
   async function refreshProviders(preferredProviderId?: string) {
-    const providersData = await getProviders(apiBase);
-    setProviders(providersData);
+    const [providersData, runtimeConfigData, runtimeHealthData] = await Promise.all([
+      getProviders(apiBase),
+      getRuntimeConfig(apiBase),
+      getRuntimeHealth(apiBase)
+    ]);
+    const decoratedProviders = decorateProviders(providersData, runtimeConfigData, runtimeHealthData);
+    setProviders(decoratedProviders);
     const nextSelected =
-      providersData.find((provider) => provider.id === preferredProviderId) ??
-      providersData.find((provider) => provider.id === selectedProviderId) ??
-      providersData.find((provider) => provider.status.is_active) ??
-      providersData[0] ??
+      decoratedProviders.find((provider) => provider.id === preferredProviderId) ??
+      decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
+      decoratedProviders.find((provider) => provider.status.is_active) ??
+      decoratedProviders[0] ??
       null;
     onSelectedProviderChange(nextSelected);
   }
@@ -303,6 +343,10 @@ export function ProvidersPage({
   }
 
   async function handleDeleteProvider(id: string) {
+    if (id === LOCAL_GATEWAY_PROVIDER_ID) {
+      setError(t("providers.feedback.systemProviderLocked"));
+      return;
+    }
     setError(null);
     setFeedback(null);
 
@@ -396,6 +440,10 @@ export function ProvidersPage({
   }
 
   function startEditing(provider: Provider) {
+    if (provider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+      setError(t("providers.feedback.systemProviderLocked"));
+      return;
+    }
     setEditingId(provider.id);
     setName(provider.name);
     setBaseUrl(provider.base_url);
@@ -524,14 +572,18 @@ export function ProvidersPage({
                       </div>
                     </button>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {provider.status.is_active ? (
-                        <span className={statusPillClass("success")}>
-                          {t("providers.status.active")}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
+	                    <div className="flex flex-wrap items-center gap-1.5">
+	                      {provider.status.is_active ? (
+	                        <span className={statusPillClass("success")}>
+	                          {t("providers.status.active")}
+	                        </span>
+	                      ) : provider.is_system ? (
+	                        <span className={statusPillClass("default")}>
+	                          {t("providers.status.system")}
+	                        </span>
+	                      ) : (
+	                        <button
+	                          type="button"
                           className={buttonClass("primary")}
                           onClick={() => void handleActivateProvider(provider)}
                         >
@@ -564,6 +616,7 @@ export function ProvidersPage({
                             onSelectedProviderChange(provider);
                             startEditing(provider);
                           }}
+                          disabled={provider.is_system}
                         >
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
@@ -598,6 +651,7 @@ export function ProvidersPage({
                           onClick={() => {
                             void handleDeleteProvider(provider.id);
                           }}
+                          disabled={provider.is_system}
                         >
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
@@ -647,7 +701,9 @@ export function ProvidersPage({
                         <p className={sectionMetaClass}>
                           {loadingModels
                             ? t("common.loading")
-                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                            : selectedProvider.is_system
+                              ? t("providers.detail.localGatewayModelsMeta")
+                              : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
                     </div>
@@ -667,7 +723,13 @@ export function ProvidersPage({
                     {filteredModels.length === 0 ? (
                       <div className="mt-4 min-h-0 flex-1">
                         <div className={emptyStateClass}>
-                          <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
+                          <p>
+                            {loadingModels
+                              ? t("common.loading")
+                              : selectedProvider.is_system
+                                ? t("providers.detail.localGatewayModelsEmpty")
+                                : t("providers.detail.modelsEmpty")}
+                          </p>
                         </div>
                       </div>
                     ) : (

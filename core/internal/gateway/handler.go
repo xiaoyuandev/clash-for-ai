@@ -15,6 +15,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	runtimecfg "github.com/xiaoyuandev/clash-for-ai/core/internal/runtime"
 )
 
 type ActiveProviderResolver interface {
@@ -22,19 +23,25 @@ type ActiveProviderResolver interface {
 	ListSelectedModels(ctx context.Context, id string) ([]provider.SelectedModel, error)
 }
 
+type RuntimeConfigResolver interface {
+	GetConfig(ctx context.Context) (runtimecfg.Config, error)
+}
+
 type Handler struct {
 	providers    ActiveProviderResolver
+	runtime      RuntimeConfigResolver
 	credentials  credential.Store
 	logs         *logging.Service
 	client       *http.Client
 	streamClient *http.Client
 }
 
-func NewHandler(providers ActiveProviderResolver, credentials credential.Store, logs *logging.Service) *Handler {
+func NewHandler(providers ActiveProviderResolver, runtime RuntimeConfigResolver, credentials credential.Store, logs *logging.Service) *Handler {
 	transport := http.DefaultTransport
 
 	return &Handler{
 		providers:   providers,
+		runtime:     runtime,
 		credentials: credentials,
 		logs:        logs,
 		client: &http.Client{
@@ -52,6 +59,55 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path != "/v1" && !strings.HasPrefix(r.URL.Path, "/v1/") {
 		http.NotFound(w, r)
+		return
+	}
+
+	runtimeConfig, err := h.runtime.GetConfig(r.Context())
+	if err != nil {
+		http.Error(w, "failed to load runtime config", http.StatusInternalServerError)
+		return
+	}
+
+	body, bodyErr := readRequestBody(r)
+	if bodyErr != nil {
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	if runtimeConfig.Mode == runtimecfg.ModeExternalPortkey {
+		result := h.forwardToRuntime(r.Context(), runtimeConfig, r, body)
+		if result.networkError != nil {
+			statusCode := http.StatusBadGateway
+			message := result.networkError.Error()
+			snippet := fmt.Sprintf(`{"error":"runtime_request_failed","message":%q}`, message)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+			_, _ = w.Write([]byte(snippet))
+			h.recordLog(r.Context(), logging.Entry{
+				Method:       r.Method,
+				Path:         r.URL.Path,
+				Model:        result.finalModel,
+				StatusCode:   &statusCode,
+				IsStream:     isStreamingRequest(r, body),
+				LatencyMs:    time.Since(startedAt).Milliseconds(),
+				ErrorMessage: &message,
+				ErrorSnippet: &snippet,
+			})
+			return
+		}
+
+		writeResponse(w, result)
+		h.recordLog(r.Context(), logging.Entry{
+			Method:       r.Method,
+			Path:         r.URL.Path,
+			Model:        result.finalModel,
+			StatusCode:   intPtr(result.statusCode),
+			IsStream:     isStreamingRequest(r, body),
+			LatencyMs:    time.Since(startedAt).Milliseconds(),
+			FirstByteMs:  result.firstByteMsPtr(startedAt),
+			ErrorMessage: result.errorMessage,
+			ErrorSnippet: result.errorSnippet,
+		})
 		return
 	}
 
@@ -103,12 +159,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			LatencyMs:    time.Since(startedAt).Milliseconds(),
 			ErrorMessage: &message,
 		})
-		return
-	}
-
-	body, bodyErr := readRequestBody(r)
-	if bodyErr != nil {
-		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
 
@@ -170,6 +220,72 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage: result.errorMessage,
 		ErrorSnippet: result.errorSnippet,
 	})
+}
+
+func (h *Handler) forwardToRuntime(ctx context.Context, cfg runtimecfg.Config, r *http.Request, body []byte) forwardResult {
+	baseURL, err := url.Parse(cfg.BaseURL)
+	if err != nil {
+		return forwardResult{networkError: fmt.Errorf("invalid runtime base_url: %w", err)}
+	}
+
+	reqURL := *baseURL
+	reqURL.Path = joinURLPath(baseURL.Path, r.URL.Path)
+	reqURL.RawPath = reqURL.Path
+	reqURL.RawQuery = r.URL.RawQuery
+
+	req, err := http.NewRequestWithContext(ctx, r.Method, reqURL.String(), bytes.NewReader(body))
+	if err != nil {
+		return forwardResult{networkError: err}
+	}
+
+	req.Header = cloneHeader(r.Header)
+	req.ContentLength = int64(len(body))
+	if len(body) > 0 {
+		req.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	}
+
+	httpClient := h.client
+	if isStreamingRequest(r, body) {
+		httpClient = h.streamClient
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return forwardResult{networkError: err}
+	}
+
+	firstByteAt := time.Now()
+	if isStreamingRequest(r, body) && resp.StatusCode < 400 {
+		return forwardResult{
+			statusCode:  resp.StatusCode,
+			header:      resp.Header.Clone(),
+			streamBody:  resp.Body,
+			firstByteAt: firstByteAt,
+		}
+	}
+
+	responseBody, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		return forwardResult{networkError: readErr}
+	}
+
+	result := forwardResult{
+		statusCode:  resp.StatusCode,
+		header:      resp.Header.Clone(),
+		body:        responseBody,
+		firstByteAt: firstByteAt,
+	}
+
+	if resp.StatusCode >= 400 {
+		message := strings.TrimSpace(string(responseBody))
+		if message != "" {
+			result.errorMessage = &message
+			result.errorSnippet = &message
+		}
+	}
+
+	return result
 }
 
 func joinURLPath(basePath string, requestPath string) string {

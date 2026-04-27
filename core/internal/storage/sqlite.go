@@ -128,6 +128,41 @@ ON provider_selected_models (provider_id, position ASC);`
 		return fmt.Errorf("migrate provider_selected_models index: %w", err)
 	}
 
+	const appSettingsTable = `
+CREATE TABLE IF NOT EXISTS app_settings (
+	key TEXT PRIMARY KEY,
+	value_json TEXT NOT NULL
+);`
+
+	if _, err := s.DB.Exec(appSettingsTable); err != nil {
+		return fmt.Errorf("migrate app_settings table: %w", err)
+	}
+
+	const gatewayModelEntriesTable = `
+CREATE TABLE IF NOT EXISTS gateway_model_entries (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	model_id TEXT NOT NULL,
+	base_url TEXT NOT NULL,
+	api_key TEXT NOT NULL,
+	provider_type TEXT NOT NULL DEFAULT '',
+	protocol TEXT NOT NULL DEFAULT '',
+	enabled INTEGER NOT NULL DEFAULT 1,
+	position INTEGER NOT NULL DEFAULT 0
+);`
+
+	if _, err := s.DB.Exec(gatewayModelEntriesTable); err != nil {
+		return fmt.Errorf("migrate gateway_model_entries table: %w", err)
+	}
+
+	const gatewayModelEntriesIndex = `
+CREATE INDEX IF NOT EXISTS idx_gateway_model_entries_position
+ON gateway_model_entries (position ASC, name ASC);`
+
+	if _, err := s.DB.Exec(gatewayModelEntriesIndex); err != nil {
+		return fmt.Errorf("migrate gateway_model_entries index: %w", err)
+	}
+
 	return nil
 }
 

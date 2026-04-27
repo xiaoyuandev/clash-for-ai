@@ -1,6 +1,8 @@
+import type { GatewayModel, GatewayModelInput } from "../types/gateway-model";
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
+import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
 import type { SelectedModel } from "../types/selected-model";
 
 function getApiBase(apiBase?: string) {
@@ -217,5 +219,108 @@ export async function updateSelectedProviderModels(
       body: JSON.stringify(items)
     },
     "Update selected models failed"
+  );
+}
+
+export async function getRuntimeConfig(apiBase?: string): Promise<RuntimeConfig> {
+  return fetchJson<RuntimeConfig>(
+    `${getApiBase(apiBase)}/api/runtime`,
+    {},
+    "Runtime config request failed"
+  );
+}
+
+export async function updateRuntimeConfig(
+  input: RuntimeConfig,
+  apiBase?: string
+): Promise<RuntimeConfig> {
+  return fetchJson<RuntimeConfig>(
+    `${getApiBase(apiBase)}/api/runtime`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update runtime config failed"
+  );
+}
+
+export async function getRuntimeHealth(apiBase?: string): Promise<RuntimeHealth> {
+  return fetchJson<RuntimeHealth>(
+    `${getApiBase(apiBase)}/api/runtime/health`,
+    {},
+    "Runtime health request failed"
+  );
+}
+
+export async function getGatewayModels(apiBase?: string): Promise<GatewayModel[]> {
+  return fetchJson<GatewayModel[]>(
+    `${getApiBase(apiBase)}/api/gateway-models`,
+    {},
+    "Gateway models request failed"
+  );
+}
+
+export async function createGatewayModel(
+  input: GatewayModelInput,
+  apiBase?: string
+): Promise<GatewayModel> {
+  return fetchJson<GatewayModel>(
+    `${getApiBase(apiBase)}/api/gateway-models`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Create gateway model failed"
+  );
+}
+
+export async function updateGatewayModel(
+  id: string,
+  input: GatewayModelInput,
+  apiBase?: string
+): Promise<GatewayModel> {
+  return fetchJson<GatewayModel>(
+    `${getApiBase(apiBase)}/api/gateway-models/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update gateway model failed"
+  );
+}
+
+export async function deleteGatewayModel(id: string, apiBase?: string): Promise<void> {
+  return fetchVoid(
+    `${getApiBase(apiBase)}/api/gateway-models/${id}`,
+    {
+      method: "DELETE"
+    },
+    "Delete gateway model failed"
+  );
+}
+
+export async function updateGatewayModelOrder(
+  items: GatewayModel[],
+  apiBase?: string
+): Promise<GatewayModel[]> {
+  return fetchJson<GatewayModel[]>(
+    `${getApiBase(apiBase)}/api/gateway-models/order`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(items)
+    },
+    "Update gateway model order failed"
   );
 }

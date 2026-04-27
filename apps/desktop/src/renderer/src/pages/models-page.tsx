@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
+  getGatewayModels,
+  getRuntimeConfig,
+  getRuntimeHealth,
   getProviderModels,
   getProviders,
   getSelectedProviderModels,
@@ -9,7 +12,10 @@ import {
 } from "../services/api";
 import type { Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
+import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
 import type { SelectedModel } from "../types/selected-model";
+import type { GatewayModel } from "../types/gateway-model";
+import { LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
 import {
   buttonClass,
   columnCardClass,
@@ -60,6 +66,9 @@ export function ModelsPage({
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [search, setSearch] = useState("");
   const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
+  const [gatewayModels, setGatewayModels] = useState<GatewayModel[]>([]);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>({ mode: "legacy", base_url: "" });
+  const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
   const activeProvider = providers.find((provider) => provider.status.is_active) ?? null;
   const [leftPaneWidth, setLeftPaneWidth] = useState(48);
 
@@ -68,11 +77,17 @@ export function ModelsPage({
 
     async function loadProviders() {
       try {
-        const items = await getProviders(apiBase);
+        const [items, runtimeConfigData, runtimeHealthData] = await Promise.all([
+          getProviders(apiBase),
+          getRuntimeConfig(apiBase),
+          getRuntimeHealth(apiBase)
+        ]);
         if (cancelled) {
           return;
         }
 
+        setRuntimeConfig(runtimeConfigData);
+        setRuntimeHealth(runtimeHealthData);
         setProviders(items);
         onSelectedProviderChange(
           items.find((provider) => provider.status.is_active) ??
@@ -100,12 +115,41 @@ export function ModelsPage({
       if (!activeProvider) {
         setAvailableModels([]);
         setSelectedModels([]);
+        setGatewayModels([]);
         setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
+        if (activeProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+          const entries = await getGatewayModels(apiBase);
+          if (cancelled) {
+            return;
+          }
+
+          const converted = entries.map<ProviderModel>((item) => ({
+            id: item.model_id,
+            object: "gateway_model_entry",
+            owned_by: item.provider_type || item.protocol || item.name
+          }));
+
+          setGatewayModels(entries);
+          setAvailableModels(converted);
+          setSelectedModels(
+            entries
+              .filter((item) => item.enabled)
+              .sort((a, b) => a.position - b.position)
+              .map((item, index) => ({
+                model_id: item.model_id,
+                position: index
+              }))
+          );
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
         const [available, selected] = await Promise.all([
           getProviderModels(activeProvider.id, apiBase),
           getSelectedProviderModels(activeProvider.id, apiBase)
@@ -117,6 +161,7 @@ export function ModelsPage({
 
         setAvailableModels(available);
         setSelectedModels(selected);
+        setGatewayModels([]);
         setError(null);
       } catch (loadError) {
         if (!cancelled) {
@@ -137,6 +182,7 @@ export function ModelsPage({
   }, [activeProvider, apiBase, t]);
 
   const selectedModelIds = new Set(selectedModels.map((item) => item.model_id));
+  const isLocalGatewayProvider = activeProvider?.id === LOCAL_GATEWAY_PROVIDER_ID;
 
   const filteredAvailableModels = useMemo(() => {
     return availableModels.filter((model) => {
@@ -279,12 +325,23 @@ export function ModelsPage({
               ? t("models.section.title", { name: activeProvider.name })
               : t("models.section.fallbackTitle")}
           </span>
+          <span
+            className={statusPillClass(
+              runtimeHealth?.status === "ok" ? "success" : runtimeConfig.mode === "external-portkey" ? "warning" : "default"
+            )}
+          >
+            {runtimeConfig.mode === "external-portkey"
+              ? t("models.runtime.external", { status: runtimeHealth?.status ?? "pending" })
+              : t("models.runtime.legacy")}
+          </span>
           <span className={statusPillClass(saving ? "warning" : "default")}>
             {saving
               ? t("common.saving")
               : loading
                 ? t("common.loading")
-                : t("models.section.state.selected", { count: selectedModels.length })}
+                : isLocalGatewayProvider
+                  ? t("models.section.state.configured", { count: availableModels.length })
+                  : t("models.section.state.selected", { count: selectedModels.length })}
           </span>
         </div>
       </section>
@@ -299,7 +356,9 @@ export function ModelsPage({
             </h2>
             <p className={sectionMetaClass}>
               {activeProvider
-                ? t("models.subtitle")
+                ? isLocalGatewayProvider
+                  ? t("models.localGateway.subtitle")
+                  : t("models.subtitle")
                 : t("models.empty.noActiveProvider")}
             </p>
           </div>
@@ -318,21 +377,35 @@ export function ModelsPage({
                 <p className={metaClass}>{activeProvider.name}</p>
                 <p className={metricNumberClass}>{providerModelCount}</p>
                 <p className="text-xs text-[color:var(--color-muted)]">
-                  {t("models.stats.providerModels")}
+                  {isLocalGatewayProvider
+                    ? t("models.stats.configuredModels")
+                    : t("models.stats.providerModels")}
                 </p>
               </div>
               <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
-                <p className={metaClass}>{t("models.stats.availableToAdd")}</p>
+                <p className={metaClass}>
+                  {isLocalGatewayProvider
+                    ? t("models.stats.localGatewayStatus")
+                    : t("models.stats.availableToAdd")}
+                </p>
                 <p className={metricNumberClass}>{availableCount}</p>
                 <p className="text-xs text-[color:var(--color-muted)]">
                   {t("models.stats.filteredBySearch")}
                 </p>
               </div>
               <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
-                <p className={metaClass}>{t("models.stats.failoverSlots")}</p>
-                <p className={metricNumberClass}>{selectedModels.length}</p>
+                <p className={metaClass}>
+                  {isLocalGatewayProvider
+                    ? t("models.stats.activeChain")
+                    : t("models.stats.failoverSlots")}
+                </p>
+                <p className={metricNumberClass}>
+                  {isLocalGatewayProvider ? selectedModels.length : selectedModels.length}
+                </p>
                 <p className="text-xs text-[color:var(--color-muted)]">
-                  {t("models.stats.activeChain")}
+                  {isLocalGatewayProvider
+                    ? t("models.localGateway.mappingHint")
+                    : t("models.stats.activeChain")}
                 </p>
               </div>
             </div>
@@ -348,7 +421,11 @@ export function ModelsPage({
               <section className={columnCardClass}>
                 <div className={sectionHeadClass}>
                   <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
+                    <h3 className={sectionTitleClass}>
+                      {isLocalGatewayProvider
+                        ? t("models.available.localGatewayTitle")
+                        : t("models.available.title")}
+                    </h3>
                     <p className={sectionMetaClass}>{filteredAvailableModels.length}</p>
                   </div>
                 </div>
@@ -372,7 +449,9 @@ export function ModelsPage({
                     </span>
                   </label>
                   <p className="px-1 pt-2 text-xs text-[color:var(--color-muted)]">
-                    Search by exact model id or provider-assigned alias.
+                    {isLocalGatewayProvider
+                      ? t("models.localGateway.searchHint")
+                      : t("models.searchHint")}
                   </p>
                 </div>
 
@@ -407,6 +486,13 @@ export function ModelsPage({
                             <p className={`${metaClass} mt-1.5`}>
                               {model.owned_by ?? t("models.available.ownerUnknown")}
                             </p>
+                            {isLocalGatewayProvider ? (
+                              <p className={`${metaClass} mt-1`}>
+                                {
+                                  gatewayModels.find((entry) => entry.model_id === model.id)?.base_url
+                                }
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </article>
@@ -428,11 +514,19 @@ export function ModelsPage({
               <section className={columnCardClass}>
                 <div className={sectionHeadClass}>
                   <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("models.fallback.title")}</h3>
+                    <h3 className={sectionTitleClass}>
+                      {isLocalGatewayProvider
+                        ? t("models.fallback.localGatewayTitle")
+                        : t("models.fallback.title")}
+                    </h3>
                     <p className={sectionMetaClass}>{selectedModels.length}</p>
                   </div>
                 </div>
-                <p className={`${metaClass} mt-3`}>{t("models.fallback.subtitle")}</p>
+                <p className={`${metaClass} mt-3`}>
+                  {isLocalGatewayProvider
+                    ? t("models.fallback.localGatewaySubtitle")
+                    : t("models.fallback.subtitle")}
+                </p>
 
                 <div className={`${scrollListClass} mt-3`}>
                   {selectedModelDetails.length === 0 ? (

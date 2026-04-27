@@ -10,19 +10,25 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelentry"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/runtime"
 )
 
 type Router struct {
 	providers *provider.Service
+	runtime   *runtime.Service
+	models    *modelentry.Service
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, runtimeService *runtime.Service, modelService *modelentry.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
+		runtime:   runtimeService,
+		models:    modelService,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -33,6 +39,10 @@ func NewRouter(providers *provider.Service, healthService *health.Service, loggi
 	mux.HandleFunc("/api/logs", router.handleLogs)
 	mux.HandleFunc("/api/providers", router.handleProviders)
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
+	mux.HandleFunc("/api/runtime", router.handleRuntime)
+	mux.HandleFunc("/api/runtime/health", router.handleRuntimeHealth)
+	mux.HandleFunc("/api/gateway-models", router.handleGatewayModels)
+	mux.HandleFunc("/api/gateway-models/", router.handleGatewayModelActions)
 	mux.Handle("/v1/", router.gateway)
 
 	return withCORS(mux)
@@ -103,6 +113,127 @@ func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleRuntime(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		cfg, err := r.runtime.GetConfig(req.Context())
+		if err != nil {
+			http.Error(w, "failed to load runtime config", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var input runtime.Config
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		cfg, err := r.runtime.UpdateConfig(req.Context(), input)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleRuntimeHealth(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	result, err := r.runtime.Health(req.Context())
+	if err != nil {
+		http.Error(w, "failed to check runtime health", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleGatewayModels(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.models.List(req.Context())
+		if err != nil {
+			http.Error(w, "failed to list gateway models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var input modelentry.CreateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.models.Create(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to create gateway model", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleGatewayModelActions(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimPrefix(req.URL.Path, "/api/gateway-models/")
+	parts := strings.Split(path, "/")
+	switch {
+	case len(parts) == 2 && parts[1] == "order" && req.Method == http.MethodPut:
+		var input []modelentry.Entry
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := r.models.ReplaceOrder(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to update gateway model order", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case len(parts) == 1 && req.Method == http.MethodPut:
+		var input modelentry.UpdateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.models.Update(req.Context(), parts[0], input)
+		if err != nil {
+			if errors.Is(err, modelentry.ErrEntryNotFound) {
+				http.Error(w, "gateway model not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to update gateway model", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 1 && req.Method == http.MethodDelete:
+		if err := r.models.Delete(req.Context(), parts[0]); err != nil {
+			if errors.Is(err, modelentry.ErrEntryNotFound) {
+				http.Error(w, "gateway model not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to delete gateway model", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {

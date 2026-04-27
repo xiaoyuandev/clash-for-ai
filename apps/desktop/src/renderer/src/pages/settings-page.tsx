@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
+import { getRuntimeConfig, getRuntimeHealth, updateRuntimeConfig } from "../services/api";
+import type { RuntimeConfig, RuntimeHealth, RuntimeMode } from "../types/runtime";
 import { getRuntimeLabel } from "../utils/runtime-label";
 import {
   actionRowClass,
@@ -113,6 +115,11 @@ export function SettingsPage({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [portInput, setPortInput] = useState(String(desktopState?.config.apiPort ?? 3456));
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("legacy");
+  const [runtimeBaseURL, setRuntimeBaseURL] = useState("");
+  const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
+  const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [runtimeSaveBusy, setRuntimeSaveBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
     desktopApp: t("settings.value.desktopApp"),
@@ -123,6 +130,37 @@ export function SettingsPage({
   useEffect(() => {
     setPortInput(String(desktopState?.config.apiPort ?? 3456));
   }, [desktopState?.config.apiPort]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRuntimeState() {
+      try {
+        const [config, health] = await Promise.all([
+          getRuntimeConfig(desktopState?.apiBase),
+          getRuntimeHealth(desktopState?.apiBase)
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setRuntimeMode(config.mode);
+        setRuntimeBaseURL(config.base_url);
+        setRuntimeHealth(health);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setFeedbackTone("error");
+        setFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+      }
+    }
+
+    void loadRuntimeState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [desktopState?.apiBase, t]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -234,6 +272,53 @@ export function SettingsPage({
         error instanceof Error ? error.message : t("settings.feedback.updateInstallFailed")
       );
       setUpdateBusy(false);
+    }
+  }
+
+  async function handleCheckRuntime() {
+    setRuntimeBusy(true);
+    setFeedback(null);
+
+    try {
+      const health = await getRuntimeHealth(desktopState?.apiBase);
+      setRuntimeHealth(health);
+      setFeedbackTone(health.status === "ok" ? "success" : "error");
+      setFeedback(
+        t("settings.runtime.feedback.checked", {
+          status: health.status,
+          message: health.message
+        })
+      );
+    } catch (error) {
+      setFeedbackTone("error");
+      setFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+    } finally {
+      setRuntimeBusy(false);
+    }
+  }
+
+  async function handleSaveRuntime() {
+    setRuntimeSaveBusy(true);
+    setFeedback(null);
+
+    const nextConfig: RuntimeConfig = {
+      mode: runtimeMode,
+      base_url: runtimeBaseURL.trim()
+    };
+
+    try {
+      const saved = await updateRuntimeConfig(nextConfig, desktopState?.apiBase);
+      setRuntimeMode(saved.mode);
+      setRuntimeBaseURL(saved.base_url);
+      const health = await getRuntimeHealth(desktopState?.apiBase);
+      setRuntimeHealth(health);
+      setFeedbackTone("success");
+      setFeedback(t("settings.runtime.feedback.saved"));
+    } catch (error) {
+      setFeedbackTone("error");
+      setFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+    } finally {
+      setRuntimeSaveBusy(false);
     }
   }
 
@@ -371,6 +456,78 @@ export function SettingsPage({
             }
             meta={t("settings.meta.logRetention")}
           />
+        </div>
+
+        <div className="mt-5 grid gap-3 xl:grid-cols-[1.1fr_1.4fr]">
+          <div className={infoCardClass}>
+            <p className={fieldLabelClass}>{t("settings.runtime.gatewayMode")}</p>
+            <select
+              className={`${inputClass} mt-3`}
+              value={runtimeMode}
+              onChange={(event) => setRuntimeMode(event.target.value as RuntimeMode)}
+              disabled={runtimeSaveBusy}
+            >
+              <option value="legacy">{t("settings.runtime.mode.legacy")}</option>
+              <option value="external-portkey">{t("settings.runtime.mode.externalPortkey")}</option>
+            </select>
+
+            <p className={`${fieldLabelClass} mt-4`}>{t("settings.runtime.gatewayBaseUrl")}</p>
+            <input
+              className={`${inputClass} mt-3`}
+              value={runtimeBaseURL}
+              onChange={(event) => setRuntimeBaseURL(event.target.value)}
+              placeholder="http://127.0.0.1:8787"
+              disabled={runtimeMode === "legacy" || runtimeSaveBusy}
+            />
+
+            <p className={`${metaClass} mt-2`}>{t("settings.runtime.meta.externalHint")}</p>
+
+            <div className={`${actionRowClass} mt-4`}>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={() => void handleCheckRuntime()}
+                disabled={runtimeBusy}
+              >
+                {runtimeBusy
+                  ? t("settings.runtime.button.checking")
+                  : t("settings.runtime.button.check")}
+              </button>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => void handleSaveRuntime()}
+                disabled={runtimeSaveBusy}
+              >
+                {runtimeSaveBusy ? t("common.saving") : t("settings.runtime.button.save")}
+              </button>
+            </div>
+          </div>
+
+          <div className={infoCardClass}>
+            <p className={fieldLabelClass}>{t("settings.runtime.healthTitle")}</p>
+            <p className={metricValueClass}>
+              {runtimeHealth?.status ?? t("settings.runtime.healthUnknown")}
+            </p>
+            <p className={`${metaClass} mt-2`}>
+              {runtimeHealth?.message ?? t("settings.runtime.healthUnknown")}
+            </p>
+            <div className="mt-4 space-y-2">
+              <p className={metaClass}>
+                {t("settings.runtime.healthMode", { mode: runtimeHealth?.mode ?? runtimeMode })}
+              </p>
+              <p className={metaClass}>
+                {t("settings.runtime.healthBaseUrl", {
+                  baseUrl: runtimeHealth?.base_url || runtimeBaseURL || "-"
+                })}
+              </p>
+              <p className={metaClass}>
+                {t("settings.runtime.healthCheckedAt", {
+                  checkedAt: runtimeHealth?.checked_at ?? "-"
+                })}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
