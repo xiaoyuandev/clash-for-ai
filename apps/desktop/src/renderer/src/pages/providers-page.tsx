@@ -79,6 +79,9 @@ export function ProvidersPage({
     haiku: ""
   });
   const [savingClaudeMap, setSavingClaudeMap] = useState(false);
+  const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
+  const [draggedClaudeSlot, setDraggedClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
+  const [dragOverClaudeSlot, setDragOverClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -330,14 +333,14 @@ export function ProvidersPage({
     }
   }
 
-  async function handleSaveClaudeCodeModelMap() {
+  async function persistClaudeCodeModelMap(nextMap: ClaudeCodeModelMap) {
     if (!selectedProvider) {
       return;
     }
 
+    setClaudeCodeModelMap(nextMap);
     setSavingClaudeMap(true);
     setError(null);
-    setFeedback(null);
 
     try {
       await updateProvider(
@@ -349,9 +352,9 @@ export function ProvidersPage({
           auth_mode: selectedProvider.auth_mode,
           extra_headers: selectedProvider.extra_headers ?? {},
           claude_code_model_map: {
-            opus: claudeCodeModelMap.opus.trim(),
-            sonnet: claudeCodeModelMap.sonnet.trim(),
-            haiku: claudeCodeModelMap.haiku.trim()
+            opus: nextMap.opus.trim(),
+            sonnet: nextMap.sonnet.trim(),
+            haiku: nextMap.haiku.trim()
           }
         },
         apiBase
@@ -360,12 +363,33 @@ export function ProvidersPage({
       if (selectedProvider.status.is_active) {
         await syncClaudeCodeIntegrationIfConfigured();
       }
-      setFeedback(t("providers.feedback.claudeSlotsSaved"));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
     } finally {
       setSavingClaudeMap(false);
     }
+  }
+
+  function assignClaudeSlot(slot: keyof ClaudeCodeModelMap, modelID: string) {
+    const nextMap = {
+      ...claudeCodeModelMap,
+      [slot]: modelID
+    };
+    void persistClaudeCodeModelMap(nextMap);
+  }
+
+  function clearClaudeSlot(slot: keyof ClaudeCodeModelMap) {
+    const nextMap = {
+      ...claudeCodeModelMap,
+      [slot]: ""
+    };
+    void persistClaudeCodeModelMap(nextMap);
+  }
+
+  function resetClaudeDragState() {
+    setDraggedProviderModelId(null);
+    setDraggedClaudeSlot(null);
+    setDragOverClaudeSlot(null);
   }
 
   function startEditing(provider: Provider) {
@@ -646,107 +670,193 @@ export function ProvidersPage({
               </div>
 
               <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className={sectionHeadClass}>
-                  <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("providers.detail.claudeSlotsTitle")}</h3>
-                    <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className={buttonClass("secondary")}
-                    disabled={savingClaudeMap}
-                    onClick={() => {
-                      void handleSaveClaudeCodeModelMap();
-                    }}
-                  >
-                    {savingClaudeMap
-                      ? t("providers.detail.claudeSlotsSaving")
-                      : t("providers.detail.claudeSlotsSave")}
-                  </button>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  {(
-                    [
-                      ["opus", t("providers.detail.claudeSlot.opus")],
-                      ["sonnet", t("providers.detail.claudeSlot.sonnet")],
-                      ["haiku", t("providers.detail.claudeSlot.haiku")]
-                    ] as const
-                  ).map(([slot, label]) => (
-                    <label key={slot} className={labelClass}>
-                      <span className={fieldLabelClass}>{label}</span>
-                      <select
-                        className={inputClass}
-                        value={claudeCodeModelMap[slot]}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setClaudeCodeModelMap((current) => ({
-                            ...current,
-                            [slot]: value
-                          }));
-                        }}
-                      >
-                        <option value="">{t("providers.detail.claudeSlot.unset")}</option>
-                        {providerModels.map((model) => (
-                          <option key={`${slot}-${model.id}`} value={model.id}>
-                            {model.id}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
-                </div>
-
-                <div className={sectionHeadClass}>
-                  <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
-                    <p className={sectionMetaClass}>
-                      {loadingModels
-                        ? t("common.loading")
-                        : t("providers.detail.modelsCount", { count: filteredModels.length })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <label className={labelClass}>
-                    <span className={fieldLabelClass}>{t("logs.filter.search")}</span>
-                    <input
-                      className={inputClass}
-                      value={modelSearch}
-                      onChange={(event) => setModelSearch(event.target.value)}
-                      placeholder={t("models.available.searchPlaceholder")}
-                    />
-                  </label>
-                </div>
-
-                {filteredModels.length === 0 ? (
-                  <div className="mt-4 min-h-0 flex-1">
-                    <div className={emptyStateClass}>
-                      <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
+                <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+                  <section className="flex min-h-0 flex-col overflow-hidden">
+                    <div className={sectionHeadClass}>
+                      <div className="space-y-1">
+                        <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
+                        <p className={sectionMetaClass}>
+                          {loadingModels
+                            ? t("common.loading")
+                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className={`${scrollListClass} mt-4`}>
-                    {filteredModels.map((model) => (
-                      <article key={model.id} className={selectableItemClass(false)}>
-                        <div className="flex items-start gap-2.5">
-                          <span className={iconBadgeClass}>
-                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
-                            </svg>
-                          </span>
-                          <div className="min-w-0">
-                            <p className={monoClass}>{model.id}</p>
-                            <p className={`${metaClass} mt-1.5`}>
-                              {model.owned_by ?? t("models.available.ownerUnknown")}
-                            </p>
-                          </div>
+
+                    <div className="mt-3">
+                      <label className={labelClass}>
+                        <span className={fieldLabelClass}>{t("logs.filter.search")}</span>
+                        <input
+                          className={inputClass}
+                          value={modelSearch}
+                          onChange={(event) => setModelSearch(event.target.value)}
+                          placeholder={t("models.available.searchPlaceholder")}
+                        />
+                      </label>
+                    </div>
+
+                    {filteredModels.length === 0 ? (
+                      <div className="mt-4 min-h-0 flex-1">
+                        <div className={emptyStateClass}>
+                          <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
                         </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
+                      </div>
+                    ) : (
+                      <div className={`${scrollListClass} mt-4`}>
+                        {filteredModels.map((model) => (
+                          <article
+                            key={model.id}
+                            className={`${selectableItemClass(false)} cursor-grab active:cursor-grabbing`}
+                            draggable
+                            onDragStart={() => {
+                              setDraggedProviderModelId(model.id);
+                              setDraggedClaudeSlot(null);
+                            }}
+                            onDragEnd={() => {
+                              resetClaudeDragState();
+                            }}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <span className={iconBadgeClass}>
+                                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                </svg>
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className={monoClass}>{model.id}</p>
+                                <p className={`${metaClass} mt-1.5`}>
+                                  {model.owned_by ?? t("models.available.ownerUnknown")}
+                                </p>
+                              </div>
+                              <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                :::
+                              </span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="flex min-h-0 flex-col overflow-hidden">
+                    <div className={sectionHeadClass}>
+                      <div className="space-y-1">
+                        <h3 className={sectionTitleClass}>{t("providers.detail.claudeSlotsTitle")}</h3>
+                        <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
+                      </div>
+                    </div>
+                    <p className={`${metaClass} mt-3`}>
+                      {savingClaudeMap
+                        ? t("providers.detail.claudeSlotsSaving")
+                        : t("providers.detail.claudeSlotsAuto")}
+                    </p>
+
+                    <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                      {(
+                        [
+                          ["opus", t("providers.detail.claudeSlot.opus")],
+                          ["sonnet", t("providers.detail.claudeSlot.sonnet")],
+                          ["haiku", t("providers.detail.claudeSlot.haiku")]
+                        ] as const
+                      ).map(([slot, label]) => {
+                        const assignedModelID = claudeCodeModelMap[slot];
+                        const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
+                        const isDragOver = dragOverClaudeSlot === slot;
+
+                        return (
+                          <article
+                            key={slot}
+                            className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
+                              isDragOver
+                                ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                            }`}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              setDragOverClaudeSlot(slot);
+                            }}
+                            onDragLeave={() => {
+                              setDragOverClaudeSlot((current) => (current === slot ? null : current));
+                            }}
+                            onDrop={() => {
+                              if (draggedProviderModelId) {
+                                assignClaudeSlot(slot, draggedProviderModelId);
+                              } else if (draggedClaudeSlot) {
+                                const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
+                                if (nextModelID) {
+                                  const nextMap = {
+                                    ...claudeCodeModelMap,
+                                    [slot]: nextModelID
+                                  };
+                                  if (draggedClaudeSlot !== slot) {
+                                    nextMap[draggedClaudeSlot] = "";
+                                  }
+                                  void persistClaudeCodeModelMap(nextMap);
+                                }
+                              }
+                              resetClaudeDragState();
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className={fieldLabelClass}>{label}</p>
+                                <p className={`${metaClass} mt-1.5`}>
+                                  {assignedModelID
+                                    ? t("providers.detail.claudeSlot.ready")
+                                    : t("providers.detail.claudeSlot.dropHint")}
+                                </p>
+                              </div>
+                              {assignedModelID ? (
+                                <button
+                                  type="button"
+                                  className={buttonClass("ghost")}
+                                  onClick={() => clearClaudeSlot(slot)}
+                                >
+                                  {t("providers.detail.claudeSlot.clear")}
+                                </button>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-4 rounded-[18px] border border-dashed p-4">
+                              {assignedModelID ? (
+                                <div
+                                  className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
+                                  draggable
+                                  onDragStart={() => {
+                                    setDraggedProviderModelId(null);
+                                    setDraggedClaudeSlot(slot);
+                                  }}
+                                  onDragEnd={() => {
+                                    resetClaudeDragState();
+                                  }}
+                                >
+                                  <span className={iconBadgeClass}>
+                                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                      <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                    </svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className={monoClass}>{assignedModelID}</p>
+                                    <p className={`${metaClass} mt-1.5`}>
+                                      {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                    </p>
+                                  </div>
+                                  <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                    :::
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="py-3 text-center">
+                                  <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+                                </div>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
           )}
