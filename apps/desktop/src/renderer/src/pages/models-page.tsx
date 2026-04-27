@@ -437,6 +437,38 @@ export function ModelsPage({
     }
   }
 
+  async function handleToggleGatewayModel(item: GatewayModel) {
+    setSaving(true);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      await updateGatewayModel(
+        item.id,
+        {
+          name: item.name,
+          model_id: item.model_id,
+          base_url: item.base_url,
+          api_key: item.api_key,
+          provider_type: item.provider_type,
+          protocol: item.protocol,
+          enabled: !item.enabled
+        },
+        apiBase
+      );
+      await reloadGatewayModels();
+      setFeedback(
+        !item.enabled
+          ? t("models.gateway.feedback.enabled")
+          : t("models.gateway.feedback.disabled")
+      );
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : t("common.unknownError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function moveGatewayModel(targetID: string) {
     if (!draggedGatewayModelId || draggedGatewayModelId === targetID) {
       return;
@@ -707,6 +739,20 @@ export function ModelsPage({
                           />
                         </label>
                       </div>
+                      <label className={`${labelClass} mt-3`}>
+                        <span className={fieldLabelClass}>{t("models.gateway.form.enabled")}</span>
+                        <button
+                          type="button"
+                          className={buttonClass(gatewayForm.enabled ? "primary" : "secondary")}
+                          onClick={() =>
+                            setGatewayForm((current) => ({ ...current, enabled: !current.enabled }))
+                          }
+                        >
+                          {gatewayForm.enabled
+                            ? t("models.gateway.form.enabledOn")
+                            : t("models.gateway.form.enabledOff")}
+                        </button>
+                      </label>
                       <p className={`${metaClass} mt-3`}>{t("models.gateway.form.hint")}</p>
                       <div className={`${actionRowClass} mt-3`}>
                         <button
@@ -770,6 +816,28 @@ export function ModelsPage({
                             <button
                               type="button"
                               className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
+                              aria-label={t("models.gateway.action.toggle")}
+                              title={t("models.gateway.action.toggle")}
+                              onClick={() => {
+                                const target = gatewayModels.find((entry) => entry.model_id === model.id);
+                                if (target) {
+                                  void handleToggleGatewayModel(target);
+                                }
+                              }}
+                            >
+                              {gatewayModels.find((entry) => entry.model_id === model.id)?.enabled ? (
+                                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M3 12a9 9 0 1 0 18 0A9 9 0 0 0 3 12m9-7a7 7 0 1 1 0 14 7 7 0 0 1 0-14m-1 3h2v8h-2zm0 9h2v2h-2z" />
+                                </svg>
+                              ) : (
+                                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 5a7 7 0 0 1 7 7h2a9 9 0 1 0-9 9v-2a7 7 0 0 1 0-14m4 6h-3V8h-2v5h5z" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
                               aria-label={t("common.edit")}
                               title={t("common.edit")}
                               onClick={() => {
@@ -824,6 +892,11 @@ export function ModelsPage({
                             <p className={monoClass}>{model.id}</p>
                             <p className={`${metaClass} mt-1.5`}>
                               {model.owned_by ?? t("models.available.ownerUnknown")}
+                            </p>
+                            <p className={`${metaClass} mt-1`}>
+                              {gatewayModels.find((entry) => entry.model_id === model.id)?.enabled
+                                ? t("models.gateway.status.enabled")
+                                : t("models.gateway.status.disabled")}
                             </p>
                             {isLocalGatewayProvider ? (
                               <p className={`${metaClass} mt-1`}>
@@ -904,6 +977,11 @@ export function ModelsPage({
                             <p className={monoClass}>{item.model_id}</p>
                             <p className={`${metaClass} mt-1.5`}>
                               {item.provider_type || item.protocol || item.name}
+                            </p>
+                            <p className={`${metaClass} mt-1`}>
+                              {item.enabled
+                                ? t("models.gateway.status.enabled")
+                                : t("models.gateway.status.disabled")}
                             </p>
                             <p className={`${metaClass} mt-1`}>{item.base_url}</p>
                           </div>
