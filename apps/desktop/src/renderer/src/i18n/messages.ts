@@ -119,6 +119,7 @@ export const messages = {
     "models.empty.noActiveProvider":
       "Activate a provider first. This page only shows the current enabled provider.",
     "models.available.title": "Supported Models",
+    "models.available.addedTitle": "Added Models",
     "models.available.localGatewayTitle": "Gateway Model Entries",
     "models.available.searchPlaceholder": "model id...",
     "models.available.empty": "No more models to add.",
@@ -148,8 +149,10 @@ export const messages = {
       "Search the local gateway model entries that have already been discovered or configured.",
     "models.searchHint": "Search by exact model id or provider-assigned alias.",
     "models.gateway.form.title": "Add Gateway Model",
+    "models.gateway.form.updateTitle": "Edit Gateway Model",
     "models.gateway.form.subtitle":
       "Register a native model source behind the local gateway. This is the first step before ordering or tool mapping.",
+    "models.gateway.hero.add": "Add Model",
     "models.gateway.form.name": "display name",
     "models.gateway.form.modelId": "model id",
     "models.gateway.form.baseUrl": "base url",
@@ -546,6 +549,7 @@ export const messages = {
     "models.section.state.configured": "已配置 {count} 个",
     "models.empty.noActiveProvider": "请先激活一个供应商。此页面只显示当前启用的供应商。",
     "models.available.title": "支持的模型",
+    "models.available.addedTitle": "已添加模型",
     "models.available.localGatewayTitle": "Gateway 模型条目",
     "models.available.searchPlaceholder": "模型 ID...",
     "models.available.empty": "没有更多可添加的模型了。",
@@ -574,8 +578,10 @@ export const messages = {
       "搜索已经被发现或已配置到本地 gateway 下的模型条目。",
     "models.searchHint": "按精确模型 ID 或 provider 分配的别名搜索。",
     "models.gateway.form.title": "新增 Gateway 模型",
+    "models.gateway.form.updateTitle": "编辑 Gateway 模型",
     "models.gateway.form.subtitle":
       "先把原生模型来源注册到本地 gateway 下，再进行排序或工具映射。",
+    "models.gateway.hero.add": "添加模型",
     "models.gateway.form.name": "显示名称",
     "models.gateway.form.modelId": "模型 ID",
     "models.gateway.form.baseUrl": "base url",

@@ -5,3 +5,8 @@ type ClaudeCodeModelMap struct {
 	Sonnet string `json:"sonnet"`
 	Haiku  string `json:"haiku"`
 }
+
+type SelectedModel struct {
+	ModelID  string `json:"model_id"`
+	Position int    `json:"position"`
+}

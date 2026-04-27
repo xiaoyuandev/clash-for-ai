@@ -6,13 +6,14 @@ import {
   deleteGatewayModel,
   getGatewayModels,
   getLocalGatewayClaudeMap,
+  getLocalGatewaySelectedModels,
   getRuntimeConfig,
   getRuntimeHealth,
   getProviderModels,
   getProviders,
   getSelectedProviderModels,
   updateGatewayModel,
-  updateGatewayModelOrder,
+  updateLocalGatewaySelectedModels,
   updateSelectedProviderModels
 } from "../services/api";
 import type { Provider } from "../types/provider";
@@ -40,6 +41,8 @@ import {
   labelClass,
   metricNumberClass,
   metaClass,
+  modalBackdropClass,
+  modalPanelClass,
   monoClass,
   pageShellClass,
   queueItemClass,
@@ -94,7 +97,6 @@ export function ModelsPage({
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [search, setSearch] = useState("");
   const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
-  const [draggedGatewayModelId, setDraggedGatewayModelId] = useState<string | null>(null);
   const [gatewayModels, setGatewayModels] = useState<GatewayModel[]>([]);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>({ mode: "legacy", base_url: "" });
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
@@ -108,6 +110,7 @@ export function ModelsPage({
     enabled: true
   });
   const [editingGatewayModelId, setEditingGatewayModelId] = useState<string | null>(null);
+  const [gatewayFormOpen, setGatewayFormOpen] = useState(false);
   const activeProvider = providers.find((provider) => provider.status.is_active) ?? null;
   const [leftPaneWidth, setLeftPaneWidth] = useState(48);
   const providerTypeOptions = ["anthropic", "openai", "google", "custom"] as const;
@@ -171,7 +174,10 @@ export function ModelsPage({
       setLoading(true);
       try {
         if (activeProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-          const entries = await getGatewayModels(apiBase);
+          const [entries, selected] = await Promise.all([
+            getGatewayModels(apiBase),
+            getLocalGatewaySelectedModels(apiBase)
+          ]);
           if (cancelled) {
             return;
           }
@@ -184,15 +190,7 @@ export function ModelsPage({
 
           setGatewayModels(entries);
           setAvailableModels(converted);
-          setSelectedModels(
-            entries
-              .filter((item) => item.enabled)
-              .sort((a, b) => a.position - b.position)
-              .map((item, index) => ({
-                model_id: item.model_id,
-                position: index
-              }))
-          );
+          setSelectedModels(selected);
           setError(null);
           setLoading(false);
           return;
@@ -250,9 +248,6 @@ export function ModelsPage({
     ...item,
     details: availableModels.find((model) => model.id === item.model_id)
   }));
-  const orderedGatewayModels = [...gatewayModels]
-    .filter((item) => item.enabled)
-    .sort((a, b) => a.position - b.position);
   const availableCount = filteredAvailableModels.length;
   const providerModelCount = availableModels.length;
 
@@ -304,6 +299,10 @@ export function ModelsPage({
 
   function addModel(modelID: string) {
     if (isLocalGatewayProvider) {
+      void persistLocalGatewaySelectedModels(
+        [...selectedModels, { model_id: modelID, position: selectedModels.length }],
+        t("models.feedback.orderUpdated")
+      );
       return;
     }
     void persistSelectedModels(
@@ -314,6 +313,12 @@ export function ModelsPage({
 
   function removeModel(modelID: string) {
     if (isLocalGatewayProvider) {
+      void persistLocalGatewaySelectedModels(
+        selectedModels
+          .filter((item) => item.model_id !== modelID)
+          .map((item, index) => ({ ...item, position: index })),
+        t("models.feedback.removed")
+      );
       return;
     }
     void persistSelectedModels(
@@ -325,9 +330,6 @@ export function ModelsPage({
   }
 
   function moveModel(targetModelID: string) {
-    if (isLocalGatewayProvider) {
-      return;
-    }
     if (!draggedModelId || draggedModelId === targetModelID) {
       return;
     }
@@ -341,6 +343,13 @@ export function ModelsPage({
 
     const [moved] = current.splice(fromIndex, 1);
     current.splice(toIndex, 0, moved);
+    if (isLocalGatewayProvider) {
+      void persistLocalGatewaySelectedModels(
+        current.map((item, index) => ({ ...item, position: index })),
+        t("models.feedback.orderUpdated")
+      );
+      return;
+    }
     void persistSelectedModels(
       current.map((item, index) => ({ ...item, position: index })),
       t("models.feedback.orderUpdated")
@@ -348,7 +357,10 @@ export function ModelsPage({
   }
 
   async function reloadGatewayModels() {
-    const entries = await getGatewayModels(apiBase);
+    const [entries, selected] = await Promise.all([
+      getGatewayModels(apiBase),
+      getLocalGatewaySelectedModels(apiBase)
+    ]);
     const converted = entries.map<ProviderModel>((item) => ({
       id: item.model_id,
       object: "gateway_model_entry",
@@ -357,15 +369,7 @@ export function ModelsPage({
 
     setGatewayModels(entries);
     setAvailableModels(converted);
-    setSelectedModels(
-      entries
-        .filter((item) => item.enabled)
-        .sort((a, b) => a.position - b.position)
-        .map((item, index) => ({
-          model_id: item.model_id,
-          position: index
-        }))
-    );
+    setSelectedModels(selected);
   }
 
   function resetGatewayForm() {
@@ -379,6 +383,7 @@ export function ModelsPage({
       enabled: true
     });
     setEditingGatewayModelId(null);
+    setGatewayFormOpen(false);
   }
 
   function validateGatewayForm() {
@@ -445,11 +450,12 @@ export function ModelsPage({
 
   function startEditGatewayModel(item: GatewayModel) {
     setEditingGatewayModelId(item.id);
-    setGatewayForm({
-      name: item.name,
-      model_id: item.model_id,
-      base_url: item.base_url,
-      api_key: item.api_key,
+    setGatewayFormOpen(true);
+      setGatewayForm({
+        name: item.name,
+        model_id: item.model_id,
+        base_url: item.base_url,
+        api_key: item.api_key,
       provider_type: item.provider_type,
       protocol: item.protocol,
       enabled: item.enabled
@@ -507,52 +513,22 @@ export function ModelsPage({
     }
   }
 
-  async function moveGatewayModel(targetID: string) {
-    if (!draggedGatewayModelId || draggedGatewayModelId === targetID) {
-      return;
-    }
-
-    const current = [...orderedGatewayModels];
-    const fromIndex = current.findIndex((item) => item.id === draggedGatewayModelId);
-    const toIndex = current.findIndex((item) => item.id === targetID);
-    if (fromIndex < 0 || toIndex < 0) {
-      return;
-    }
-
-    const [moved] = current.splice(fromIndex, 1);
-    current.splice(toIndex, 0, moved);
-
+  async function persistLocalGatewaySelectedModels(
+    nextItems: SelectedModel[],
+    successMessage: string
+  ) {
     setSaving(true);
     setFeedback(null);
     setError(null);
 
     try {
-      const updated = await updateGatewayModelOrder(
-        current.map((item, index) => ({ ...item, position: index })),
-        apiBase
-      );
-      const converted = updated.map<ProviderModel>((item) => ({
-        id: item.model_id,
-        object: "gateway_model_entry",
-        owned_by: item.provider_type || item.protocol || item.name
-      }));
-      setGatewayModels(updated);
-      setAvailableModels(converted);
-      setSelectedModels(
-        updated
-          .filter((item) => item.enabled)
-          .sort((a, b) => a.position - b.position)
-          .map((item, index) => ({
-            model_id: item.model_id,
-            position: index
-          }))
-      );
-      setFeedback(t("models.feedback.orderUpdated"));
-    } catch (moveError) {
-      setError(moveError instanceof Error ? moveError.message : t("common.unknownError"));
+      const saved = await updateLocalGatewaySelectedModels(nextItems, apiBase);
+      setSelectedModels(saved);
+      setFeedback(successMessage);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
     } finally {
       setSaving(false);
-      setDraggedGatewayModelId(null);
     }
   }
 
@@ -589,6 +565,20 @@ export function ModelsPage({
           <p className={heroCopyClass}>{t("models.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {isLocalGatewayProvider ? (
+            <button
+              type="button"
+              className={buttonClass("primary")}
+              onClick={() => {
+                setGatewayFormOpen(true);
+                if (editingGatewayModelId) {
+                  setEditingGatewayModelId(null);
+                }
+              }}
+            >
+              {t("models.gateway.hero.add")}
+            </button>
+          ) : null}
           <span className={statusPillClass(activeProvider ? "success" : "default")}>
             {activeProvider
               ? t("models.section.title", { name: activeProvider.name })
@@ -692,7 +682,7 @@ export function ModelsPage({
                   <div className="space-y-1">
                     <h3 className={sectionTitleClass}>
                       {isLocalGatewayProvider
-                        ? t("models.available.localGatewayTitle")
+                        ? t("models.available.addedTitle")
                         : t("models.available.title")}
                     </h3>
                     <p className={sectionMetaClass}>{filteredAvailableModels.length}</p>
@@ -700,133 +690,6 @@ export function ModelsPage({
                 </div>
 
                 <div className={`${stickySearchClass} mt-3`}>
-                  {isLocalGatewayProvider ? (
-                    <div className="mb-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
-                      <div className="space-y-1">
-                        <p className={sectionTitleClass}>{t("models.gateway.form.title")}</p>
-                        <p className={sectionMetaClass}>{t("models.gateway.form.subtitle")}</p>
-                      </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.name")}</span>
-                          <input
-                            className={inputClass}
-                            value={gatewayForm.name}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({ ...current, name: event.target.value }))
-                            }
-                            placeholder="Claude Sonnet"
-                          />
-                        </label>
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.modelId")}</span>
-                          <input
-                            className={inputClass}
-                            value={gatewayForm.model_id}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({ ...current, model_id: event.target.value }))
-                            }
-                            placeholder="claude-sonnet-4-20250514"
-                          />
-                        </label>
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.baseUrl")}</span>
-                          <input
-                            className={inputClass}
-                            value={gatewayForm.base_url}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({ ...current, base_url: event.target.value }))
-                            }
-                            placeholder="https://api.example.com"
-                          />
-                        </label>
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.apiKey")}</span>
-                          <input
-                            className={inputClass}
-                            value={gatewayForm.api_key}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({ ...current, api_key: event.target.value }))
-                            }
-                            placeholder="sk-example"
-                          />
-                        </label>
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.providerType")}</span>
-                          <select
-                            className={inputClass}
-                            value={gatewayForm.provider_type}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({
-                                ...current,
-                                provider_type: event.target.value
-                              }))
-                            }
-                          >
-                            {providerTypeOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {t(`models.gateway.form.providerTypeOption.${option}` as never)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className={labelClass}>
-                          <span className={fieldLabelClass}>{t("models.gateway.form.protocol")}</span>
-                          <select
-                            className={inputClass}
-                            value={gatewayForm.protocol}
-                            onChange={(event) =>
-                              setGatewayForm((current) => ({ ...current, protocol: event.target.value }))
-                            }
-                          >
-                            {protocolOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {t(`models.gateway.form.protocolOption.${option}` as never)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <label className={`${labelClass} mt-3`}>
-                        <span className={fieldLabelClass}>{t("models.gateway.form.enabled")}</span>
-                        <button
-                          type="button"
-                          className={buttonClass(gatewayForm.enabled ? "primary" : "secondary")}
-                          onClick={() =>
-                            setGatewayForm((current) => ({ ...current, enabled: !current.enabled }))
-                          }
-                        >
-                          {gatewayForm.enabled
-                            ? t("models.gateway.form.enabledOn")
-                            : t("models.gateway.form.enabledOff")}
-                        </button>
-                      </label>
-                      <p className={`${metaClass} mt-3`}>{t("models.gateway.form.hint")}</p>
-                      <div className={`${actionRowClass} mt-3`}>
-                        <button
-                          type="button"
-                          className={buttonClass("primary")}
-                          onClick={() => void handleSaveGatewayModel()}
-                          disabled={saving}
-                        >
-                          {saving
-                            ? t("common.saving")
-                            : editingGatewayModelId
-                              ? t("models.gateway.form.update")
-                              : t("models.gateway.form.create")}
-                        </button>
-                        {editingGatewayModelId ? (
-                          <button
-                            type="button"
-                            className={buttonClass("secondary")}
-                            onClick={resetGatewayForm}
-                          >
-                            {t("common.cancel")}
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
                   <label className="relative block">
                     <input
                       className={`${inputClass} pr-11`}
@@ -851,7 +714,7 @@ export function ModelsPage({
                   </p>
                 </div>
 
-                <div className={`${scrollListClass} mt-3`}>
+                <div className={`${scrollListClass} content-start auto-rows-max mt-3`}>
                   {filteredAvailableModels.length === 0 ? (
                     <div className={emptyStateClass}>
                       <p>{loading ? t("common.loading") : t("models.available.empty")}</p>
@@ -861,60 +724,75 @@ export function ModelsPage({
                       <article key={model.id} className={queueItemClass}>
                         {isLocalGatewayProvider ? (
                           <div className="absolute right-2.5 top-2.5 flex items-center gap-2">
-                            <button
-                              type="button"
-                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
-                              aria-label={t("models.gateway.action.toggle")}
-                              title={t("models.gateway.action.toggle")}
-                              onClick={() => {
-                                const target = gatewayModels.find((entry) => entry.model_id === model.id);
-                                if (target) {
-                                  void handleToggleGatewayModel(target);
-                                }
-                              }}
-                            >
-                              {gatewayModels.find((entry) => entry.model_id === model.id)?.enabled ? (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className={`${iconButtonClass} peer min-h-8 min-w-8 rounded-lg`}
+                                aria-label={t("models.gateway.action.toggle")}
+                                title={t("models.gateway.action.toggle")}
+                                onClick={() => {
+                                  const target = gatewayModels.find((entry) => entry.model_id === model.id);
+                                  if (target) {
+                                    void handleToggleGatewayModel(target);
+                                  }
+                                }}
+                              >
+                                {gatewayModels.find((entry) => entry.model_id === model.id)?.enabled ? (
+                                  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M3 12a9 9 0 1 0 18 0A9 9 0 0 0 3 12m9-7a7 7 0 1 1 0 14 7 7 0 0 1 0-14m-1 3h2v8h-2zm0 9h2v2h-2z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 5a7 7 0 0 1 7 7h2a9 9 0 1 0-9 9v-2a7 7 0 0 1 0-14m4 6h-3V8h-2v5h5z" />
+                                  </svg>
+                                )}
+                              </button>
+                              <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                                {t("models.gateway.action.toggle")}
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className={`${iconButtonClass} peer min-h-8 min-w-8 rounded-lg`}
+                                aria-label={t("common.edit")}
+                                title={t("common.edit")}
+                                onClick={() => {
+                                  const target = gatewayModels.find((entry) => entry.model_id === model.id);
+                                  if (target) {
+                                    startEditGatewayModel(target);
+                                  }
+                                }}
+                              >
                                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                  <path d="M3 12a9 9 0 1 0 18 0A9 9 0 0 0 3 12m9-7a7 7 0 1 1 0 14 7 7 0 0 1 0-14m-1 3h2v8h-2zm0 9h2v2h-2z" />
+                                  <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
                                 </svg>
-                              ) : (
+                              </button>
+                              <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                                {t("common.edit")}
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className={`${iconButtonClass} peer min-h-8 min-w-8 rounded-lg`}
+                                aria-label={t("common.delete")}
+                                title={t("common.delete")}
+                                onClick={() => {
+                                  const target = gatewayModels.find((entry) => entry.model_id === model.id);
+                                  if (target) {
+                                    void handleDeleteGatewayModel(target.id);
+                                  }
+                                }}
+                              >
                                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                  <path d="M12 5a7 7 0 0 1 7 7h2a9 9 0 1 0-9 9v-2a7 7 0 0 1 0-14m4 6h-3V8h-2v5h5z" />
+                                  <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
                                 </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
-                              aria-label={t("common.edit")}
-                              title={t("common.edit")}
-                              onClick={() => {
-                                const target = gatewayModels.find((entry) => entry.model_id === model.id);
-                                if (target) {
-                                  startEditGatewayModel(target);
-                                }
-                              }}
-                            >
-                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
-                              aria-label={t("common.delete")}
-                              title={t("common.delete")}
-                              onClick={() => {
-                                const target = gatewayModels.find((entry) => entry.model_id === model.id);
-                                if (target) {
-                                  void handleDeleteGatewayModel(target.id);
-                                }
-                              }}
-                            >
-                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
-                              </svg>
-                            </button>
+                              </button>
+                              <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                                {t("common.delete")}
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <button
@@ -988,25 +866,25 @@ export function ModelsPage({
                     : t("models.fallback.subtitle")}
                 </p>
 
-                <div className={`${scrollListClass} mt-3`}>
+                <div className={`${scrollListClass} content-start auto-rows-max mt-3`}>
                   {selectedModelDetails.length === 0 ? (
                     <div className={emptyStateClass}>
                       <p>{t("models.fallback.empty")}</p>
                     </div>
                   ) : isLocalGatewayProvider ? (
-                    orderedGatewayModels.map((item, index) => (
+                    selectedModelDetails.map((item, index) => (
                       <article
-                        key={item.id}
+                        key={item.model_id}
                         className={`${queueItemClass} cursor-grab`}
                         draggable
                         onDragStart={() => {
-                          setDraggedGatewayModelId(item.id);
+                          setDraggedModelId(item.model_id);
                         }}
                         onDragOver={(event) => {
                           event.preventDefault();
                         }}
                         onDrop={() => {
-                          void moveGatewayModel(item.id);
+                          moveModel(item.model_id);
                         }}
                       >
                         <div className="flex items-start gap-3">
@@ -1024,20 +902,14 @@ export function ModelsPage({
                           <div>
                             <p className={monoClass}>{item.model_id}</p>
                             <p className={`${metaClass} mt-1.5`}>
-                              {item.provider_type || item.protocol || item.name}
+                              {item.details?.owned_by ?? t("models.available.ownerUnknown")}
                             </p>
-                            <p className={`${metaClass} mt-1`}>
-                              {item.enabled
-                                ? t("models.gateway.status.enabled")
-                                : t("models.gateway.status.disabled")}
-                            </p>
-                            <p className={`${metaClass} mt-1`}>{item.base_url}</p>
                           </div>
                         </div>
                         <button
                           type="button"
                           className={buttonClass("secondary")}
-                          onClick={() => void handleDeleteGatewayModel(item.id)}
+                          onClick={() => removeModel(item.model_id)}
                         >
                           {t("models.fallback.remove")}
                         </button>
@@ -1097,6 +969,154 @@ export function ModelsPage({
           </>
         )}
       </section>
+
+      {isLocalGatewayProvider && gatewayFormOpen ? (
+        <div className={modalBackdropClass} role="presentation" onClick={resetGatewayForm}>
+          <section
+            className={`${modalPanelClass} max-w-3xl`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("models.gateway.form.title")}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={sectionHeadClass}>
+              <div className="space-y-1">
+                <h2 className={sectionTitleClass}>
+                  {editingGatewayModelId
+                    ? t("models.gateway.form.updateTitle")
+                    : t("models.gateway.form.title")}
+                </h2>
+                <p className={sectionMetaClass}>{t("models.gateway.form.subtitle")}</p>
+              </div>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={resetGatewayForm}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.name")}</span>
+                <input
+                  className={inputClass}
+                  value={gatewayForm.name}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({ ...current, name: event.target.value }))
+                  }
+                  placeholder="Claude Sonnet"
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.modelId")}</span>
+                <input
+                  className={inputClass}
+                  value={gatewayForm.model_id}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({ ...current, model_id: event.target.value }))
+                  }
+                  placeholder="claude-sonnet-4-20250514"
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.baseUrl")}</span>
+                <input
+                  className={inputClass}
+                  value={gatewayForm.base_url}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({ ...current, base_url: event.target.value }))
+                  }
+                  placeholder="https://api.example.com"
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.apiKey")}</span>
+                <input
+                  className={inputClass}
+                  value={gatewayForm.api_key}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({ ...current, api_key: event.target.value }))
+                  }
+                  placeholder="sk-example"
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.providerType")}</span>
+                <select
+                  className={inputClass}
+                  value={gatewayForm.provider_type}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({
+                      ...current,
+                      provider_type: event.target.value
+                    }))
+                  }
+                >
+                  {providerTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`models.gateway.form.providerTypeOption.${option}` as never)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.gateway.form.protocol")}</span>
+                <select
+                  className={inputClass}
+                  value={gatewayForm.protocol}
+                  onChange={(event) =>
+                    setGatewayForm((current) => ({ ...current, protocol: event.target.value }))
+                  }
+                >
+                  {protocolOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`models.gateway.form.protocolOption.${option}` as never)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className={`${labelClass} mt-4`}>
+              <span className={fieldLabelClass}>{t("models.gateway.form.enabled")}</span>
+              <button
+                type="button"
+                className={buttonClass(gatewayForm.enabled ? "primary" : "secondary")}
+                onClick={() =>
+                  setGatewayForm((current) => ({ ...current, enabled: !current.enabled }))
+                }
+              >
+                {gatewayForm.enabled
+                  ? t("models.gateway.form.enabledOn")
+                  : t("models.gateway.form.enabledOff")}
+              </button>
+            </label>
+            <p className={`${metaClass} mt-3`}>{t("models.gateway.form.hint")}</p>
+            <div className={`${actionRowClass} mt-4`}>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => void handleSaveGatewayModel()}
+                disabled={saving}
+              >
+                {saving
+                  ? t("common.saving")
+                  : editingGatewayModelId
+                    ? t("models.gateway.form.update")
+                    : t("models.gateway.form.create")}
+              </button>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={resetGatewayForm}
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

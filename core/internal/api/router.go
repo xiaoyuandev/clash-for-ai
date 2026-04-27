@@ -45,6 +45,7 @@ func NewRouter(providers *provider.Service, runtimeService *runtime.Service, mod
 	mux.HandleFunc("/api/runtime", router.handleRuntime)
 	mux.HandleFunc("/api/runtime/health", router.handleRuntimeHealth)
 	mux.HandleFunc("/api/runtime/local-gateway-claude-map", router.handleLocalGatewayClaudeMap)
+	mux.HandleFunc("/api/runtime/local-gateway-selected-models", router.handleLocalGatewaySelectedModels)
 	mux.HandleFunc("/api/runtime/portkey-template", router.handlePortkeyTemplate)
 	mux.HandleFunc("/api/gateway-models", router.handleGatewayModels)
 	mux.HandleFunc("/api/gateway-models/", router.handleGatewayModelActions)
@@ -201,6 +202,33 @@ func (r *Router) handleLocalGatewayClaudeMap(w http.ResponseWriter, req *http.Re
 			return
 		}
 		writeJSON(w, http.StatusOK, cfg)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleLocalGatewaySelectedModels(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.runtime.GetLocalGatewaySelectedModels(req.Context())
+		if err != nil {
+			http.Error(w, "failed to load local gateway selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPut:
+		var input []runtime.SelectedModel
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := r.runtime.UpdateLocalGatewaySelectedModels(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to save local gateway selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

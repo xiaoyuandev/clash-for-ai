@@ -289,6 +289,33 @@ export async function updateLocalGatewayClaudeMap(
   );
 }
 
+export async function getLocalGatewaySelectedModels(
+  apiBase?: string
+): Promise<SelectedModel[]> {
+  return fetchJson<SelectedModel[]>(
+    `${getApiBase(apiBase)}/api/runtime/local-gateway-selected-models`,
+    {},
+    "Local gateway selected models request failed"
+  );
+}
+
+export async function updateLocalGatewaySelectedModels(
+  items: SelectedModel[],
+  apiBase?: string
+): Promise<SelectedModel[]> {
+  return fetchJson<SelectedModel[]>(
+    `${getApiBase(apiBase)}/api/runtime/local-gateway-selected-models`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(items)
+    },
+    "Update local gateway selected models failed"
+  );
+}
+
 export async function getGatewayModels(apiBase?: string): Promise<GatewayModel[]> {
   return fetchJson<GatewayModel[]>(
     `${getApiBase(apiBase)}/api/gateway-models`,

@@ -9,6 +9,7 @@ import (
 
 const runtimeConfigKey = "runtime_config"
 const localGatewayClaudeMapKey = "local_gateway_claude_map"
+const localGatewaySelectedModelsKey = "local_gateway_selected_models"
 
 type SQLiteRepository struct {
 	db *sql.DB
@@ -88,4 +89,40 @@ ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
 	}
 
 	return cfg, nil
+}
+
+func (r *SQLiteRepository) GetLocalGatewaySelectedModels(ctx context.Context) ([]SelectedModel, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT value_json FROM app_settings WHERE key = ?`, localGatewaySelectedModelsKey)
+
+	var raw string
+	if err := row.Scan(&raw); err != nil {
+		if err == sql.ErrNoRows {
+			return []SelectedModel{}, nil
+		}
+		return nil, fmt.Errorf("load local gateway selected models: %w", err)
+	}
+
+	var items []SelectedModel
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return nil, fmt.Errorf("decode local gateway selected models: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *SQLiteRepository) SaveLocalGatewaySelectedModels(ctx context.Context, items []SelectedModel) ([]SelectedModel, error) {
+	encoded, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("encode local gateway selected models: %w", err)
+	}
+
+	if _, err := r.db.ExecContext(ctx, `
+INSERT INTO app_settings (key, value_json)
+VALUES (?, ?)
+ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
+`, localGatewaySelectedModelsKey, string(encoded)); err != nil {
+		return nil, fmt.Errorf("save local gateway selected models: %w", err)
+	}
+
+	return items, nil
 }

@@ -133,3 +133,50 @@ func (s *Service) GetLocalGatewayClaudeMap(ctx context.Context) (ClaudeCodeModel
 func (s *Service) UpdateLocalGatewayClaudeMap(ctx context.Context, cfg ClaudeCodeModelMap) (ClaudeCodeModelMap, error) {
 	return s.repository.SaveLocalGatewayClaudeMap(ctx, normalizeClaudeCodeModelMap(cfg))
 }
+
+func (s *Service) GetLocalGatewaySelectedModels(ctx context.Context) ([]SelectedModel, error) {
+	items, err := s.repository.GetLocalGatewaySelectedModels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := make([]SelectedModel, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		modelID := strings.TrimSpace(item.ModelID)
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+		seen[modelID] = struct{}{}
+		normalized = append(normalized, SelectedModel{
+			ModelID:  modelID,
+			Position: len(normalized),
+		})
+	}
+
+	return normalized, nil
+}
+
+func (s *Service) UpdateLocalGatewaySelectedModels(ctx context.Context, items []SelectedModel) ([]SelectedModel, error) {
+	normalized := make([]SelectedModel, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		modelID := strings.TrimSpace(item.ModelID)
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+		seen[modelID] = struct{}{}
+		normalized = append(normalized, SelectedModel{
+			ModelID:  modelID,
+			Position: len(normalized),
+		})
+	}
+
+	return s.repository.SaveLocalGatewaySelectedModels(ctx, normalized)
+}
