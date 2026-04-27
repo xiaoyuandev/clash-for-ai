@@ -16,6 +16,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelentry"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/runtime"
+	portkeyruntime "github.com/xiaoyuandev/clash-for-ai/core/internal/runtime/portkey"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
 )
 
@@ -41,10 +42,11 @@ func Run() error {
 	providerService := provider.NewService(providerRepository, credentialStore)
 	runtimeService := runtime.NewService(runtimeRepository)
 	modelEntryService := modelentry.NewService(modelEntryRepository)
+	portkeyConfigBuilder := portkeyruntime.NewConfigBuilder(runtimeService, modelEntryService)
 	healthService := health.NewService(providerService, credentialStore)
 	gatewayHandler := gateway.NewHandler(providerService, runtimeService, credentialStore, logService)
 
-	handler := api.NewRouter(providerService, runtimeService, modelEntryService, healthService, logService, gatewayHandler)
+	handler := api.NewRouter(providerService, runtimeService, modelEntryService, portkeyConfigBuilder, healthService, logService, gatewayHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),

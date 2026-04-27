@@ -1,4 +1,5 @@
 import type { GatewayModel, GatewayModelInput } from "../types/gateway-model";
+import type { PortkeyTemplate } from "../types/portkey-template";
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
@@ -252,6 +253,14 @@ export async function getRuntimeHealth(apiBase?: string): Promise<RuntimeHealth>
     `${getApiBase(apiBase)}/api/runtime/health`,
     {},
     "Runtime health request failed"
+  );
+}
+
+export async function getPortkeyTemplate(apiBase?: string): Promise<PortkeyTemplate> {
+  return fetchJson<PortkeyTemplate>(
+    `${getApiBase(apiBase)}/api/runtime/portkey-template`,
+    {},
+    "Portkey template request failed"
   );
 }
 

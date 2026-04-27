@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
-import { getRuntimeConfig, getRuntimeHealth, updateRuntimeConfig } from "../services/api";
+import { getPortkeyTemplate, getRuntimeConfig, getRuntimeHealth, updateRuntimeConfig } from "../services/api";
+import type { PortkeyTemplate } from "../types/portkey-template";
 import type { RuntimeConfig, RuntimeHealth, RuntimeMode } from "../types/runtime";
 import { getRuntimeLabel } from "../utils/runtime-label";
 import {
@@ -120,6 +121,7 @@ export function SettingsPage({
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("legacy");
   const [runtimeBaseURL, setRuntimeBaseURL] = useState("");
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
+  const [portkeyTemplate, setPortkeyTemplate] = useState<PortkeyTemplate | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [runtimeSaveBusy, setRuntimeSaveBusy] = useState(false);
   const [copyBusy, setCopyBusy] = useState(false);
@@ -149,6 +151,15 @@ export function SettingsPage({
         setRuntimeMode(config.mode);
         setRuntimeBaseURL(config.base_url);
         setRuntimeHealth(health);
+        if (config.mode === "external-portkey") {
+          const template = await getPortkeyTemplate(desktopState?.apiBase);
+          if (cancelled) {
+            return;
+          }
+          setPortkeyTemplate(template);
+        } else {
+          setPortkeyTemplate(null);
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -315,6 +326,12 @@ export function SettingsPage({
       setRuntimeBaseURL(saved.base_url);
       const health = await getRuntimeHealth(desktopState?.apiBase);
       setRuntimeHealth(health);
+      if (saved.mode === "external-portkey") {
+        const template = await getPortkeyTemplate(desktopState?.apiBase);
+        setPortkeyTemplate(template);
+      } else {
+        setPortkeyTemplate(null);
+      }
       setFeedbackTone("success");
       setFeedback(t("settings.runtime.feedback.saved"));
     } catch (error) {
@@ -555,6 +572,17 @@ export function SettingsPage({
                       : t("settings.runtime.button.copyCommands")}
                   </button>
                 </div>
+                {portkeyTemplate ? (
+                  <>
+                    <div className="mt-5 space-y-1">
+                      <p className={fieldLabelClass}>{t("settings.runtime.template.title")}</p>
+                      <p className={metaClass}>{t("settings.runtime.template.subtitle")}</p>
+                    </div>
+                    <pre className={`${monoClass} mt-3 overflow-x-auto whitespace-pre-wrap rounded-[12px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3`}>
+                      {JSON.stringify(portkeyTemplate, null, 2)}
+                    </pre>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>

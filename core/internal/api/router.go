@@ -13,22 +13,25 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelentry"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/runtime"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/runtime/portkey"
 )
 
 type Router struct {
 	providers *provider.Service
 	runtime   *runtime.Service
 	models    *modelentry.Service
+	portkey   *portkey.ConfigBuilder
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, runtimeService *runtime.Service, modelService *modelentry.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, runtimeService *runtime.Service, modelService *modelentry.Service, portkeyBuilder *portkey.ConfigBuilder, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
 		runtime:   runtimeService,
 		models:    modelService,
+		portkey:   portkeyBuilder,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -41,6 +44,7 @@ func NewRouter(providers *provider.Service, runtimeService *runtime.Service, mod
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.HandleFunc("/api/runtime", router.handleRuntime)
 	mux.HandleFunc("/api/runtime/health", router.handleRuntimeHealth)
+	mux.HandleFunc("/api/runtime/portkey-template", router.handlePortkeyTemplate)
 	mux.HandleFunc("/api/gateway-models", router.handleGatewayModels)
 	mux.HandleFunc("/api/gateway-models/", router.handleGatewayModelActions)
 	mux.Handle("/v1/", router.gateway)
@@ -157,6 +161,21 @@ func (r *Router) handleRuntimeHealth(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handlePortkeyTemplate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	template, err := r.portkey.BuildTemplate(req.Context())
+	if err != nil {
+		http.Error(w, "failed to build portkey template", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, template)
 }
 
 func (r *Router) handleGatewayModels(w http.ResponseWriter, req *http.Request) {
