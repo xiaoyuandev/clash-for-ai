@@ -27,6 +27,7 @@ import {
   compactStatGridClass,
   emptyStateClass,
   eyebrowClass,
+  fieldLabelClass,
   heroClass,
   heroContentClass,
   heroCopyClass,
@@ -35,6 +36,7 @@ import {
   iconBadgeClass,
   iconButtonClass,
   inputClass,
+  labelClass,
   metricNumberClass,
   metaClass,
   monoClass,
@@ -349,7 +351,36 @@ export function ModelsPage({
     setEditingGatewayModelId(null);
   }
 
+  function validateGatewayForm() {
+    if (!gatewayForm.name.trim() || !gatewayForm.model_id.trim() || !gatewayForm.base_url.trim()) {
+      return t("models.gateway.validation.required");
+    }
+
+    try {
+      new URL(gatewayForm.base_url.trim());
+    } catch {
+      return t("models.gateway.validation.baseUrl");
+    }
+
+    const duplicate = gatewayModels.find(
+      (item) =>
+        item.model_id.toLowerCase() === gatewayForm.model_id.trim().toLowerCase() &&
+        item.id !== editingGatewayModelId
+    );
+    if (duplicate) {
+      return t("models.gateway.validation.duplicateModelId");
+    }
+
+    return null;
+  }
+
   async function handleSaveGatewayModel() {
+    const validationError = validateGatewayForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setSaving(true);
     setFeedback(null);
     setError(null);
@@ -606,58 +637,77 @@ export function ModelsPage({
                         <p className={sectionMetaClass}>{t("models.gateway.form.subtitle")}</p>
                       </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.name}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({ ...current, name: event.target.value }))
-                          }
-                          placeholder={t("models.gateway.form.name")}
-                        />
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.model_id}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({ ...current, model_id: event.target.value }))
-                          }
-                          placeholder={t("models.gateway.form.modelId")}
-                        />
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.base_url}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({ ...current, base_url: event.target.value }))
-                          }
-                          placeholder={t("models.gateway.form.baseUrl")}
-                        />
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.api_key}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({ ...current, api_key: event.target.value }))
-                          }
-                          placeholder={t("models.gateway.form.apiKey")}
-                        />
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.provider_type}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({
-                              ...current,
-                              provider_type: event.target.value
-                            }))
-                          }
-                          placeholder={t("models.gateway.form.providerType")}
-                        />
-                        <input
-                          className={inputClass}
-                          value={gatewayForm.protocol}
-                          onChange={(event) =>
-                            setGatewayForm((current) => ({ ...current, protocol: event.target.value }))
-                          }
-                          placeholder={t("models.gateway.form.protocol")}
-                        />
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.name")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.name}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({ ...current, name: event.target.value }))
+                            }
+                            placeholder="Claude Sonnet"
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.modelId")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.model_id}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({ ...current, model_id: event.target.value }))
+                            }
+                            placeholder="claude-sonnet-4-20250514"
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.baseUrl")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.base_url}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({ ...current, base_url: event.target.value }))
+                            }
+                            placeholder="https://api.example.com"
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.apiKey")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.api_key}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({ ...current, api_key: event.target.value }))
+                            }
+                            placeholder="sk-example"
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.providerType")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.provider_type}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({
+                                ...current,
+                                provider_type: event.target.value
+                              }))
+                            }
+                            placeholder="anthropic"
+                          />
+                        </label>
+                        <label className={labelClass}>
+                          <span className={fieldLabelClass}>{t("models.gateway.form.protocol")}</span>
+                          <input
+                            className={inputClass}
+                            value={gatewayForm.protocol}
+                            onChange={(event) =>
+                              setGatewayForm((current) => ({ ...current, protocol: event.target.value }))
+                            }
+                            placeholder="openai / anthropic"
+                          />
+                        </label>
                       </div>
+                      <p className={`${metaClass} mt-3`}>{t("models.gateway.form.hint")}</p>
                       <div className={`${actionRowClass} mt-3`}>
                         <button
                           type="button"

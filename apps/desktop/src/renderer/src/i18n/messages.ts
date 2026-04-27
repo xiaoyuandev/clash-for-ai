@@ -152,8 +152,14 @@ export const messages = {
     "models.gateway.form.apiKey": "api key",
     "models.gateway.form.providerType": "provider type",
     "models.gateway.form.protocol": "protocol",
+    "models.gateway.form.hint":
+      "At this stage these entries are stored and ordered locally. They will later become the source of runtime configuration and tool mapping.",
     "models.gateway.form.create": "Create Entry",
     "models.gateway.form.update": "Update Entry",
+    "models.gateway.validation.required": "Display name, model id, and base url are required.",
+    "models.gateway.validation.baseUrl": "Base URL must be a valid absolute URL.",
+    "models.gateway.validation.duplicateModelId":
+      "A gateway model entry with the same model id already exists.",
     "models.gateway.feedback.created": "Gateway model entry created.",
     "models.gateway.feedback.updated": "Gateway model entry updated.",
     "models.gateway.feedback.deleted": "Gateway model entry deleted.",
@@ -535,8 +541,14 @@ export const messages = {
     "models.gateway.form.apiKey": "api key",
     "models.gateway.form.providerType": "provider type",
     "models.gateway.form.protocol": "protocol",
+    "models.gateway.form.hint":
+      "当前阶段这些条目会先保存在本地并参与排序；后续会进一步成为 runtime 配置和工具映射的数据来源。",
     "models.gateway.form.create": "创建条目",
     "models.gateway.form.update": "更新条目",
+    "models.gateway.validation.required": "显示名称、模型 ID 和 base url 为必填项。",
+    "models.gateway.validation.baseUrl": "Base URL 必须是合法的绝对地址。",
+    "models.gateway.validation.duplicateModelId":
+      "已存在相同 model id 的 gateway 模型条目。",
     "models.gateway.feedback.created": "Gateway 模型条目已创建。",
     "models.gateway.feedback.updated": "Gateway 模型条目已更新。",
     "models.gateway.feedback.deleted": "Gateway 模型条目已删除。",
