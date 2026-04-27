@@ -5,6 +5,7 @@ import {
   activateProvider,
   createProvider,
   deleteProvider,
+  getGatewayModels,
   getRuntimeConfig,
   getRuntimeHealth,
   getHealth,
@@ -14,6 +15,7 @@ import {
   updateProvider
 } from "../services/api";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
+import type { GatewayModel } from "../types/gateway-model";
 import type { ProviderModel } from "../types/provider-model";
 import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
 import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
@@ -71,6 +73,14 @@ function decorateProviders(
       is_active: false
     }
   }))];
+}
+
+function mapGatewayModelsToProviderModels(entries: GatewayModel[]): ProviderModel[] {
+  return entries.map((item) => ({
+    id: item.model_id,
+    object: "gateway_model_entry",
+    owned_by: item.provider_type || item.protocol || item.name
+  }));
 }
 
 export function ProvidersPage({
@@ -224,7 +234,23 @@ export function ProvidersPage({
       }
 
       if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-        setProviderModels([]);
+        setLoadingModels(true);
+        try {
+          const entries = await getGatewayModels(apiBase);
+          if (cancelled) {
+            return;
+          }
+          setProviderModels(mapGatewayModelsToProviderModels(entries));
+        } catch (loadError) {
+          if (!cancelled) {
+            setProviderModels([]);
+            setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingModels(false);
+          }
+        }
         return;
       }
 
