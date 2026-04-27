@@ -314,6 +314,13 @@ export default function App() {
           ) : (
             <SettingsPage
               desktopState={desktopState}
+              onCopyText={async (text) => {
+                if (!window.desktopBridge) {
+                  return;
+                }
+
+                await window.desktopBridge.copyText(text);
+              }}
               onUpdateCorePort={async (port) => {
                 if (!window.desktopBridge) {
                   return;

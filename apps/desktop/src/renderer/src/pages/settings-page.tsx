@@ -68,6 +68,7 @@ type DesktopState = {
 
 interface SettingsPageProps {
   desktopState: DesktopState;
+  onCopyText: (text: string) => Promise<void>;
   onCheckUpdates: () => Promise<void>;
   onDownloadUpdate: () => Promise<void>;
   onQuitAndInstallUpdate: () => Promise<void>;
@@ -101,6 +102,7 @@ function StatCard({
 
 export function SettingsPage({
   desktopState,
+  onCopyText,
   onCheckUpdates,
   onDownloadUpdate,
   onQuitAndInstallUpdate,
@@ -120,6 +122,7 @@ export function SettingsPage({
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [runtimeSaveBusy, setRuntimeSaveBusy] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
     desktopApp: t("settings.value.desktopApp"),
@@ -324,6 +327,34 @@ export function SettingsPage({
 
   const portLocked = desktopState?.config.apiPortSource === "env";
   const isMacPlatform = desktopState?.platform === "darwin";
+  const runtimeInitCommands =
+    runtimeMode === "external-portkey"
+      ? [
+          "node -v",
+          "npm -v",
+          "npx @portkey-ai/gateway"
+        ].join("\n")
+      : "";
+
+  async function handleCopyRuntimeCommands() {
+    if (!runtimeInitCommands) {
+      return;
+    }
+
+    setCopyBusy(true);
+    setFeedback(null);
+
+    try {
+      await onCopyText(runtimeInitCommands);
+      setFeedbackTone("success");
+      setFeedback(t("settings.runtime.feedback.commandsCopied"));
+    } catch (error) {
+      setFeedbackTone("error");
+      setFeedback(error instanceof Error ? error.message : t("settings.runtime.feedback.commandsCopyFailed"));
+    } finally {
+      setCopyBusy(false);
+    }
+  }
 
   return (
     <main className={pageShellClass}>
@@ -502,6 +533,30 @@ export function SettingsPage({
                 {runtimeSaveBusy ? t("common.saving") : t("settings.runtime.button.save")}
               </button>
             </div>
+
+            {runtimeMode === "external-portkey" ? (
+              <div className="mt-5 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-3.5">
+                <div className="space-y-1">
+                  <p className={fieldLabelClass}>{t("settings.runtime.init.title")}</p>
+                  <p className={metaClass}>{t("settings.runtime.init.subtitle")}</p>
+                </div>
+                <pre className={`${monoClass} mt-3 overflow-x-auto whitespace-pre-wrap rounded-[12px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3`}>
+                  {runtimeInitCommands}
+                </pre>
+                <div className={`${actionRowClass} mt-3`}>
+                  <button
+                    type="button"
+                    className={buttonClass("secondary")}
+                    onClick={() => void handleCopyRuntimeCommands()}
+                    disabled={copyBusy}
+                  >
+                    {copyBusy
+                      ? t("settings.runtime.button.copying")
+                      : t("settings.runtime.button.copyCommands")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className={infoCardClass}>
