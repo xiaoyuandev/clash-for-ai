@@ -87,6 +87,7 @@ export function ProvidersPage({
   const [modelSearch, setModelSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -189,6 +190,7 @@ export function ProvidersPage({
         );
         setHealth(healthData.status);
         setProviders(decoratedProviders);
+        setRuntimeHealth(runtimeHealthData);
         const nextSelected =
           decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
           decoratedProviders.find((provider) => provider.status.is_active) ??
@@ -274,6 +276,7 @@ export function ProvidersPage({
     ]);
     const decoratedProviders = decorateProviders(providersData, runtimeConfigData, runtimeHealthData);
     setProviders(decoratedProviders);
+    setRuntimeHealth(runtimeHealthData);
     const nextSelected =
       decoratedProviders.find((provider) => provider.id === preferredProviderId) ??
       decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
@@ -1026,18 +1029,40 @@ export function ProvidersPage({
                   <div className="flex flex-col gap-2.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={statusPillClass(detailProvider.status.is_active ? "success" : "default")}>
-                        {detailProvider.status.is_active
-                          ? t("providers.status.active")
-                          : t("providers.status.standby")}
+                        {detailProvider.is_system
+                          ? t("providers.status.system")
+                          : detailProvider.status.is_active
+                            ? t("providers.status.active")
+                            : t("providers.status.standby")}
                       </span>
                       <span className={statusPillClass("default")}>
-                        {detailProvider.status.last_health_status}
+                        {detailProvider.is_system
+                          ? t("providers.detail.runtimeStatus", {
+                              status: runtimeHealth?.status ?? detailProvider.status.last_health_status
+                            })
+                          : detailProvider.status.last_health_status}
                       </span>
                     </div>
                     <p className={metaClass}>
                       {t("providers.detail.baseUrl")}{" "}
                       <span className={monoClass}>{detailProvider.base_url}</span>
                     </p>
+                    {detailProvider.is_system ? (
+                      <div className="grid gap-2 rounded-[14px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-3">
+                        <p className={metaClass}>
+                          {t("providers.detail.runtimeHealth")}{" "}
+                          <span className={monoClass}>{runtimeHealth?.status ?? "-"}</span>
+                        </p>
+                        <p className={metaClass}>
+                          {t("providers.detail.runtimeMessage")}{" "}
+                          <span className={monoClass}>{runtimeHealth?.message ?? "-"}</span>
+                        </p>
+                        <p className={metaClass}>
+                          {t("providers.detail.runtimeCheckedAt")}{" "}
+                          <span className={monoClass}>{runtimeHealth?.checked_at ?? "-"}</span>
+                        </p>
+                      </div>
+                    ) : null}
                     <p className={metaClass}>
                       {t("providers.detail.apiKey")}{" "}
                       <span className={monoClass}>

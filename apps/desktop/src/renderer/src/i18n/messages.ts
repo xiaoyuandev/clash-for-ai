@@ -96,6 +96,10 @@ export const messages = {
       "This is the local gateway provider. Native model configuration will be managed from the Models page.",
     "providers.detail.localGatewayModelsEmpty":
       "This local gateway provider does not use the legacy supported-models list. Manage its native models from the Models page.",
+    "providers.detail.runtimeStatus": "runtime: {status}",
+    "providers.detail.runtimeHealth": "Runtime health:",
+    "providers.detail.runtimeMessage": "Runtime message:",
+    "providers.detail.runtimeCheckedAt": "Last runtime check:",
     "providers.detail.capabilities": "Capabilities",
     "providers.detail.capability.models": "models",
     "providers.detail.capability.balance": "balance",
@@ -495,6 +499,10 @@ export const messages = {
       "这是本地 gateway provider。其原生模型配置将从 Models 页面管理。",
     "providers.detail.localGatewayModelsEmpty":
       "本地 gateway provider 不使用旧的 supported models 列表。请到 Models 页面管理其原生模型。",
+    "providers.detail.runtimeStatus": "runtime：{status}",
+    "providers.detail.runtimeHealth": "Runtime 健康状态：",
+    "providers.detail.runtimeMessage": "Runtime 信息：",
+    "providers.detail.runtimeCheckedAt": "Runtime 最近检查时间：",
     "providers.detail.capabilities": "能力",
     "providers.detail.capability.models": "模型",
     "providers.detail.capability.balance": "余额",
