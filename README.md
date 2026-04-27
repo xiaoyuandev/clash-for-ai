@@ -2,13 +2,29 @@
 
 Clash for AI is a local desktop gateway for people who switch between multiple AI gateways or API relay providers.
 
+Its role is:
+
+1. Provide one local API entry point
+2. Switch different upstream gateways behind that local entry point
+3. Manage providers, health checks, and request logs from a desktop UI
+
+It is not primarily a manager for one specific AI tool. It is better understood as a local gateway plus a multi-provider control plane.
+
 [中文 README](./README.zh-CN.md)
 
-It gives you:
+It currently gives you:
 
 1. One stable local endpoint for your tools
 2. A desktop control plane for switching providers
 3. Local request logs and health checks for debugging provider issues
+
+## Core Idea
+
+The model is simple:
+
+1. Your tools all point to one local gateway
+2. Upstream gateway switching happens in the desktop app
+3. Real provider credentials, health status, and request logs stay managed locally
 
 ## Screenshot
 
@@ -34,26 +50,11 @@ Clash for AI puts one local gateway in front of those tools.
 
 You configure a single local endpoint once, then switch the upstream relay provider from the desktop app.
 
-## How It Differs From cc-switch
-
-The difference is mainly in product focus and integration model.
-
-| Aspect | cc-switch | Clash for AI |
-|---|---|---|
-| Public positioning | An all-in-one desktop manager for Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw | A local desktop gateway for managing multiple AI gateways / relay providers |
-| Primary target | Tool-side provider management across specific coding CLIs | Upstream gateway switching behind one shared local endpoint |
-| How switching works | Its public docs focus on managing tool configs and provider presets for supported apps | Tools point to one localhost endpoint, and the desktop app switches the upstream gateway |
-| Effect on tool configuration | Built around per-tool management flows for its supported apps | Avoids repeated per-tool rewrites after the initial Base URL setup |
-| Supported integration style | Publicly documented around five coding CLIs, plus related MCP / Skills / prompt workflows | General local endpoint that can be reused by coding tools, chat clients such as Cherry Studio, and SDK or script-based integrations |
-| Current built-in capabilities | Broad app management features such as MCP, Skills, prompts, sessions, proxy/failover, and cloud sync | Focused local gateway features such as provider switching, health checks, request logs, and stable local access |
-
-In short: cc-switch is centered on managing specific AI coding tools, while Clash for AI is centered on managing upstream relay gateways behind a stable local API entry point.
-
 ## What It Does
 
 Clash for AI runs a local API gateway on your machine.
 
-Your editor, chat client, CLI tool, or custom script connects to the local endpoint:
+Most editors, chat clients, CLI tools, or custom scripts connect to the local endpoint:
 
 ```text
 http://127.0.0.1:3456/v1
@@ -61,31 +62,21 @@ http://127.0.0.1:3456/v1
 
 Then Clash for AI forwards requests to the currently active provider you configured in the desktop app.
 
+In the current version, the local access path is most mature around an OpenAI-compatible local entry point. Anthropic-compatible upstream handling and some Claude-style tool integrations are present, but that part of the stack is still being refined.
+
 This means:
 
 1. You do not need to reconfigure every tool when switching providers
 2. Provider credentials stay managed locally in one place
 3. You can inspect health status and request logs from the desktop UI
 
-## Current Features
 
-1. Local desktop app built with Electron
-2. Local Go gateway for API forwarding
-3. Provider management
-4. Active provider switching
-5. Health checks
-6. Request logging
-7. Automatic local port fallback when the default port is occupied
-8. In-app update flow for packaged builds
 
-## How To Use
+## Quick Start
 
-See the end-user setup guide:
+If you do not want to read the full guide yet, use one of these quick setup patterns.
 
-- [User Guide](./docs/user-guide.md)
-- [中文 README](./README.zh-CN.md)
-
-### Step 1: Add a relay provider in Clash for AI
+### 1. Add a provider in Clash for AI
 
 Open the `Providers` page in the desktop app and fill in:
 
@@ -95,13 +86,15 @@ Open the `Providers` page in the desktop app and fill in:
 
 For OpenAI-compatible relay providers, the Base URL usually ends with `/v1`.
 
+For other compatible APIs, whether `/v1` should be included depends on the upstream implementation. At the moment, OpenAI-compatible upstreams are the clearest and most mature path in Clash for AI.
+
 <p align="center">
   <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
 </p>
 
-### Step 2: Configure your tool
+### 2. Point your tool to the local endpoint
 
-In most supported tools, you configure:
+In most supported tools, configure:
 
 ```text
 Base URL: http://127.0.0.1:3456/v1
@@ -110,23 +103,13 @@ API Key: dummy
 
 If the local app selects another port at runtime, use the actual `connected api base` shown in the desktop UI.
 
-### Step 3: Open the `Tools` page and finish tool setup
+### 3. Use the `Tools` page when you need tool-specific setup
 
-After adding a provider, open the `Tools` page in the desktop app.
+The `Tools` page provides:
 
-`Tools` is now the main place for connecting coding tools. It gives you:
-
-1. Ready-to-use connection values for desktop apps and editor plugins
-2. One-click setup for supported CLI tools such as Codex CLI and Claude Code
-3. Tool-specific guidance for Cherry Studio, Cursor, SDK scripts, and similar integrations
-
-For CLI tools, Clash for AI can write the required local gateway configuration directly.
-
-For desktop tools, `Tools` shows the exact Base URL and API Key fields you need to paste, and for Cherry Studio it can also try to open the app through its import link.
-
-## Quick Connection
-
-If you do not want to read the full guide yet, use one of these quick setup patterns.
+1. Copy-ready connection values
+2. One-click setup for Codex CLI and Claude Code
+3. Setup guidance for tools such as Cursor, Cherry Studio, and SDK scripts
 
 ### CLI Tools
 
@@ -139,7 +122,7 @@ export OPENAI_API_KEY="dummy"
 
 Then start the CLI from the same terminal session.
 
-For Claude Code style tools, use Anthropic-style variables and the local root URL without `/v1`:
+For Claude Code style tools, Clash for AI currently provides an Anthropic-style environment variable setup flow:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
@@ -147,6 +130,8 @@ export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
 Inside Clash for AI, you can also open the `Tools` page and use the built-in one-click setup flow for supported CLIs.
+
+One clarification: the most stable local access path in the current release is still the OpenAI-compatible one. Anthropic-style local access and upstream compatibility are still being improved. If your tool also supports a custom OpenAI-compatible endpoint, prefer `http://127.0.0.1:3456/v1`.
 
 ### IDEs And Plugins
 
@@ -212,6 +197,37 @@ curl http://127.0.0.1:3456/v1/chat/completions \
 ```
 
 The actual model that responds still depends on the model name your script sends and on which provider is currently active in the desktop app.
+
+## Documentation
+
+If you want fuller step-by-step guidance, tool-specific examples, and troubleshooting notes, continue with:
+
+- [User Guide](./docs/user-guide.md)
+- [中文 README](./README.zh-CN.md)
+
+## How To Read Protocol Support Today
+
+In practice, many upstream gateways expose both OpenAI-compatible and Anthropic-compatible APIs.
+
+Clash for AI is designed around those two compatibility families, but the current implementation is not equally mature in both directions:
+
+1. OpenAI-compatible local access is the clearest and most stable primary path
+2. Anthropic-compatible upstream auth handling and some tool integrations are already covered
+3. Full Anthropic-style local protocol coverage is still being improved
+
+Because of that, for tools that let you choose a custom OpenAI-compatible endpoint, that path is currently the safest default.
+
+## About Model Lists
+
+Provider model list fetching exists, but it should be understood as a compatibility feature rather than a guaranteed capability of every upstream.
+
+Common reasons include:
+
+1. Different gateways expose model list endpoints differently
+2. Some upstreams do not expose a standard model list endpoint at all
+3. Returned JSON payloads may vary
+
+So a provider can still be usable for request forwarding even if its model list is incomplete or unavailable.
 
 ## Local Development
 

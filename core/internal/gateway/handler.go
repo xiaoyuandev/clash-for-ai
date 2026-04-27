@@ -23,10 +23,10 @@ type ActiveProviderResolver interface {
 }
 
 type Handler struct {
-	providers   ActiveProviderResolver
-	credentials credential.Store
-	logs        *logging.Service
-	client      *http.Client
+	providers    ActiveProviderResolver
+	credentials  credential.Store
+	logs         *logging.Service
+	client       *http.Client
 	streamClient *http.Client
 }
 
@@ -39,7 +39,7 @@ func NewHandler(providers ActiveProviderResolver, credentials credential.Store, 
 		logs:        logs,
 		client: &http.Client{
 			Transport: transport,
-			Timeout: 120 * time.Second,
+			Timeout:   120 * time.Second,
 		},
 		streamClient: &http.Client{
 			Transport: transport,
@@ -118,7 +118,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attempts, model := buildModelAttempts(r, body, selectedModels)
+	attempts, model := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
 	result := h.forwardWithFallback(r.Context(), forwardInput{
 		baseURL:        baseURL,
 		activeProvider: *activeProvider,
@@ -239,8 +239,17 @@ func readRequestBody(r *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-func buildModelAttempts(r *http.Request, body []byte, selected []provider.SelectedModel) ([]attemptSpec, *string) {
+func buildModelAttempts(
+	r *http.Request,
+	body []byte,
+	selected []provider.SelectedModel,
+	claudeCodeModels provider.ClaudeCodeModelMap,
+) ([]attemptSpec, *string) {
 	currentModel, payload := extractModelFromBody(body)
+	if rewritten := buildClaudeCodeModelAttempt(r, currentModel, payload, body, claudeCodeModels); rewritten != nil {
+		return rewritten, currentModel
+	}
+
 	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
 		return []attemptSpec{{model: currentModel, body: body}}, currentModel
 	}
@@ -276,6 +285,66 @@ func buildModelAttempts(r *http.Request, body []byte, selected []provider.Select
 	}
 
 	return attempts, currentModel
+}
+
+func buildClaudeCodeModelAttempt(
+	r *http.Request,
+	currentModel *string,
+	payload map[string]any,
+	fallback []byte,
+	claudeCodeModels provider.ClaudeCodeModelMap,
+) []attemptSpec {
+	if currentModel == nil || payload == nil || r.Method != http.MethodPost {
+		return nil
+	}
+
+	targetModel := resolveClaudeCodeTargetModel(r, *currentModel, claudeCodeModels)
+	if targetModel == "" || targetModel == *currentModel {
+		return nil
+	}
+
+	updatedBody := bodyWithModel(payload, targetModel, fallback)
+	return []attemptSpec{
+		{
+			model: stringPtr(targetModel),
+			body:  updatedBody,
+		},
+	}
+}
+
+func resolveClaudeCodeTargetModel(
+	r *http.Request,
+	requestModel string,
+	claudeCodeModels provider.ClaudeCodeModelMap,
+) string {
+	if !isAnthropicModelRequest(r) {
+		return ""
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(requestModel))
+	switch {
+	case strings.Contains(normalized, "haiku"):
+		return strings.TrimSpace(claudeCodeModels.Haiku)
+	case strings.Contains(normalized, "sonnet"):
+		return strings.TrimSpace(claudeCodeModels.Sonnet)
+	case strings.Contains(normalized, "opus"):
+		return strings.TrimSpace(claudeCodeModels.Opus)
+	default:
+		return ""
+	}
+}
+
+func isAnthropicModelRequest(r *http.Request) bool {
+	if strings.TrimSpace(r.Header.Get("anthropic-version")) != "" {
+		return true
+	}
+
+	switch r.URL.Path {
+	case "/v1/messages", "/v1/complete", "/v1/complete/stream":
+		return true
+	default:
+		return false
+	}
 }
 
 func extractModelFromBody(body []byte) (*string, map[string]any) {
@@ -498,6 +567,11 @@ func intPtr(value int) *int {
 	if value == 0 {
 		return nil
 	}
+	next := value
+	return &next
+}
+
+func stringPtr(value string) *string {
 	next := value
 	return &next
 }

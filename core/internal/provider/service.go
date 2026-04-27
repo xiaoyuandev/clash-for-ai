@@ -14,19 +14,21 @@ import (
 )
 
 type CreateInput struct {
-	Name         string            `json:"name"`
-	BaseURL      string            `json:"base_url"`
-	AuthMode     AuthMode          `json:"auth_mode"`
-	ExtraHeaders map[string]string `json:"extra_headers"`
-	APIKey       string            `json:"api_key"`
+	Name               string             `json:"name"`
+	BaseURL            string             `json:"base_url"`
+	AuthMode           AuthMode           `json:"auth_mode"`
+	ExtraHeaders       map[string]string  `json:"extra_headers"`
+	APIKey             string             `json:"api_key"`
+	ClaudeCodeModelMap ClaudeCodeModelMap `json:"claude_code_model_map"`
 }
 
 type UpdateInput struct {
-	Name         string            `json:"name"`
-	BaseURL      string            `json:"base_url"`
-	AuthMode     AuthMode          `json:"auth_mode"`
-	ExtraHeaders map[string]string `json:"extra_headers"`
-	APIKey       string            `json:"api_key"`
+	Name               string             `json:"name"`
+	BaseURL            string             `json:"base_url"`
+	AuthMode           AuthMode           `json:"auth_mode"`
+	ExtraHeaders       map[string]string  `json:"extra_headers"`
+	APIKey             string             `json:"api_key"`
+	ClaudeCodeModelMap ClaudeCodeModelMap `json:"claude_code_model_map"`
 }
 
 type ModelInfo struct {
@@ -185,7 +187,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, erro
 			IsActive:         false,
 			LastHealthStatus: "pending",
 		},
-		APIKeyMasked: maskAPIKey(input.APIKey),
+		APIKeyMasked:       maskAPIKey(input.APIKey),
+		ClaudeCodeModelMap: normalizeClaudeCodeModelMap(input.ClaudeCodeModelMap),
 	}
 
 	item.Status.LastHealthcheckAt = now
@@ -211,6 +214,7 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	item.BaseURL = strings.TrimSpace(input.BaseURL)
 	item.AuthMode = input.AuthMode
 	item.ExtraHeaders = input.ExtraHeaders
+	item.ClaudeCodeModelMap = normalizeClaudeCodeModelMap(input.ClaudeCodeModelMap)
 	if item.ExtraHeaders == nil {
 		item.ExtraHeaders = map[string]string{}
 	}
@@ -231,6 +235,14 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	}
 
 	return s.repository.Update(ctx, *item)
+}
+
+func normalizeClaudeCodeModelMap(input ClaudeCodeModelMap) ClaudeCodeModelMap {
+	return ClaudeCodeModelMap{
+		Opus:   strings.TrimSpace(input.Opus),
+		Sonnet: strings.TrimSpace(input.Sonnet),
+		Haiku:  strings.TrimSpace(input.Haiku),
+	}
 }
 
 func (s *Service) ListSelectedModels(ctx context.Context, id string) ([]SelectedModel, error) {

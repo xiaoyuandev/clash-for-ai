@@ -150,13 +150,17 @@ async function applyClaudeIntegration(apiPort: number): Promise<ToolIntegrationS
   const backupPath = await backupIfExists("claude-code", claudeConfigPath);
   const currentRaw = await readOptionalText(claudeConfigPath);
   const parsed = currentRaw ? parseJsonObject(currentRaw) : {};
+  const activeProviderModelMap = await fetchActiveClaudeCodeModelMap(apiPort);
+  const nextEnv = {
+    ...(isPlainObject(parsed.env) ? parsed.env : {}),
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${apiPort}`,
+    ANTHROPIC_AUTH_TOKEN: "dummy"
+  };
+
+  syncClaudeCodeModelEnv(nextEnv, activeProviderModelMap);
   const next = {
     ...parsed,
-    env: {
-      ...(isPlainObject(parsed.env) ? parsed.env : {}),
-      ANTHROPIC_BASE_URL: `http://127.0.0.1:${apiPort}`,
-      ANTHROPIC_AUTH_TOKEN: "dummy"
-    }
+    env: nextEnv
   };
 
   await mkdir(dirname(claudeConfigPath), { recursive: true });
@@ -166,8 +170,47 @@ async function applyClaudeIntegration(apiPort: number): Promise<ToolIntegrationS
   return {
     ...state,
     backupPath,
-    message: "Configured Claude Code to use the local Clash for AI gateway."
+    message: "Configured Claude Code to use the local Clash for AI gateway and synced the active provider model slots."
   };
+}
+
+async function fetchActiveClaudeCodeModelMap(apiPort: number) {
+  const response = await fetch(`http://127.0.0.1:${apiPort}/api/providers`);
+  if (!response.ok) {
+    throw new Error(`Failed to load providers from local core with ${response.status}.`);
+  }
+
+  const providers = (await response.json()) as Array<{
+    status?: { is_active?: boolean };
+    claude_code_model_map?: { opus?: string; sonnet?: string; haiku?: string };
+  }>;
+  const activeProvider = providers.find((item) => item.status?.is_active);
+  const modelMap = activeProvider?.claude_code_model_map;
+
+  return {
+    opus: typeof modelMap?.opus === "string" ? modelMap.opus.trim() : "",
+    sonnet: typeof modelMap?.sonnet === "string" ? modelMap.sonnet.trim() : "",
+    haiku: typeof modelMap?.haiku === "string" ? modelMap.haiku.trim() : ""
+  };
+}
+
+function syncClaudeCodeModelEnv(
+  env: Record<string, any>,
+  modelMap: { opus: string; sonnet: string; haiku: string }
+) {
+  assignOrDelete(env, "ANTHROPIC_MODEL", modelMap.sonnet);
+  assignOrDelete(env, "ANTHROPIC_DEFAULT_OPUS_MODEL", modelMap.opus);
+  assignOrDelete(env, "ANTHROPIC_DEFAULT_SONNET_MODEL", modelMap.sonnet);
+  assignOrDelete(env, "ANTHROPIC_DEFAULT_HAIKU_MODEL", modelMap.haiku);
+}
+
+function assignOrDelete(env: Record<string, any>, key: string, value: string) {
+  if (value) {
+    env[key] = value;
+    return;
+  }
+
+  delete env[key];
 }
 
 function buildCodexConfig(existingContent: string, apiPort: number) {

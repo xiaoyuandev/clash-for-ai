@@ -87,6 +87,11 @@ export interface CreateProviderInput {
   api_key: string;
   auth_mode?: "bearer" | "x-api-key" | "both";
   extra_headers: Record<string, string>;
+  claude_code_model_map: {
+    opus: string;
+    sonnet: string;
+    haiku: string;
+  };
 }
 
 export async function createProvider(

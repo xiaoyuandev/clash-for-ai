@@ -14,6 +14,12 @@ export interface ProviderStatus {
   last_healthcheck_at?: string;
 }
 
+export interface ClaudeCodeModelMap {
+  opus: string;
+  sonnet: string;
+  haiku: string;
+}
+
 export interface Provider {
   id: string;
   name: string;
@@ -24,4 +30,5 @@ export interface Provider {
   capabilities: ProviderCapabilities;
   status: ProviderStatus;
   api_key_masked: string;
+  claude_code_model_map: ClaudeCodeModelMap;
 }

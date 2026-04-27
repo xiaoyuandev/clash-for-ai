@@ -2,9 +2,11 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -65,6 +67,15 @@ CREATE TABLE IF NOT EXISTS providers (
 		return fmt.Errorf("migrate providers table: %w", err)
 	}
 
+	if err := addColumnIfMissing(
+		s.DB,
+		"providers",
+		"claude_code_model_map_json",
+		"TEXT NOT NULL DEFAULT '{}'",
+	); err != nil {
+		return fmt.Errorf("migrate providers claude_code_model_map_json column: %w", err)
+	}
+
 	const requestLogsTable = `
 CREATE TABLE IF NOT EXISTS request_logs (
 	id TEXT PRIMARY KEY,
@@ -115,6 +126,46 @@ ON provider_selected_models (provider_id, position ASC);`
 
 	if _, err := s.DB.Exec(providerSelectedModelsIndex); err != nil {
 		return fmt.Errorf("migrate provider_selected_models index: %w", err)
+	}
+
+	return nil
+}
+
+func addColumnIfMissing(db *sql.DB, table string, column string, definition string) error {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			dataType   string
+			notNull    int
+			defaultV   sql.NullString
+			primaryKey int
+		)
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultV, &primaryKey); err != nil {
+			return err
+		}
+		if strings.EqualFold(name, column) {
+			return nil
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition))
+	if err != nil {
+		var sqliteErr interface{ Error() string }
+		if errors.As(err, &sqliteErr) && strings.Contains(strings.ToLower(sqliteErr.Error()), "duplicate column name") {
+			return nil
+		}
+		return err
 	}
 
 	return nil

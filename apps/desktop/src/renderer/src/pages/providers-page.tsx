@@ -11,7 +11,7 @@ import {
   runProviderHealthcheck,
   updateProvider
 } from "../services/api";
-import type { Provider } from "../types/provider";
+import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
 import {
   buttonClass,
@@ -72,13 +72,25 @@ export function ProvidersPage({
   const [showSelectedProviderApiKey, setShowSelectedProviderApiKey] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [detailProviderID, setDetailProviderID] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [claudeCodeModelMap, setClaudeCodeModelMap] = useState<ClaudeCodeModelMap>({
+    opus: "",
+    sonnet: "",
+    haiku: ""
+  });
+  const [savingClaudeMap, setSavingClaudeMap] = useState(false);
+  const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
+  const [draggedClaudeSlot, setDraggedClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
+  const [dragOverClaudeSlot, setDragOverClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
     providers.find((provider) => provider.status.is_active) ??
     providers[0] ??
     null;
+  const detailProvider =
+    providers.find((provider) => provider.id === detailProviderID) ?? null;
 
   const filteredModels = useMemo(() => {
     const keyword = modelSearch.trim().toLowerCase();
@@ -209,6 +221,16 @@ export function ProvidersPage({
     setShowSelectedProviderApiKey(false);
   }, [selectedProvider?.id]);
 
+  useEffect(() => {
+    setClaudeCodeModelMap(
+      selectedProvider?.claude_code_model_map ?? {
+        opus: "",
+        sonnet: "",
+        haiku: ""
+      }
+    );
+  }, [selectedProvider?.claude_code_model_map, selectedProvider?.id]);
+
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
     setProviders(providersData);
@@ -231,13 +253,24 @@ export function ProvidersPage({
       return;
     }
 
+    const existingProvider = editingId
+      ? providers.find((provider) => provider.id === editingId) ?? null
+      : null;
+
     try {
       setSubmitting(true);
       const payload = {
         name: name.trim(),
         base_url: baseUrl.trim(),
         api_key: apiKey.trim(),
-        extra_headers: {}
+        auth_mode: existingProvider?.auth_mode,
+        extra_headers: {},
+        claude_code_model_map:
+          existingProvider?.claude_code_model_map ?? {
+            opus: "",
+            sonnet: "",
+            haiku: ""
+          }
       };
 
       const provider = editingId
@@ -262,6 +295,7 @@ export function ProvidersPage({
     try {
       await activateProvider(provider.id, apiBase);
       await refreshProviders(provider.id);
+      await syncClaudeCodeIntegrationIfConfigured();
       setFeedback(t("providers.feedback.activated", { name: provider.name }));
     } catch (activateError) {
       setError(activateError instanceof Error ? activateError.message : t("common.unknownError"));
@@ -302,6 +336,65 @@ export function ProvidersPage({
     }
   }
 
+  async function persistClaudeCodeModelMap(nextMap: ClaudeCodeModelMap) {
+    if (!selectedProvider) {
+      return;
+    }
+
+    setClaudeCodeModelMap(nextMap);
+    setSavingClaudeMap(true);
+    setError(null);
+
+    try {
+      await updateProvider(
+        selectedProvider.id,
+        {
+          name: selectedProvider.name,
+          base_url: selectedProvider.base_url,
+          api_key: selectedProvider.api_key,
+          auth_mode: selectedProvider.auth_mode,
+          extra_headers: selectedProvider.extra_headers ?? {},
+          claude_code_model_map: {
+            opus: nextMap.opus.trim(),
+            sonnet: nextMap.sonnet.trim(),
+            haiku: nextMap.haiku.trim()
+          }
+        },
+        apiBase
+      );
+      await refreshProviders(selectedProvider.id);
+      if (selectedProvider.status.is_active) {
+        await syncClaudeCodeIntegrationIfConfigured();
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
+    } finally {
+      setSavingClaudeMap(false);
+    }
+  }
+
+  function assignClaudeSlot(slot: keyof ClaudeCodeModelMap, modelID: string) {
+    const nextMap = {
+      ...claudeCodeModelMap,
+      [slot]: modelID
+    };
+    void persistClaudeCodeModelMap(nextMap);
+  }
+
+  function clearClaudeSlot(slot: keyof ClaudeCodeModelMap) {
+    const nextMap = {
+      ...claudeCodeModelMap,
+      [slot]: ""
+    };
+    void persistClaudeCodeModelMap(nextMap);
+  }
+
+  function resetClaudeDragState() {
+    setDraggedProviderModelId(null);
+    setDraggedClaudeSlot(null);
+    setDragOverClaudeSlot(null);
+  }
+
   function startEditing(provider: Provider) {
     setEditingId(provider.id);
     setName(provider.name);
@@ -326,6 +419,24 @@ export function ProvidersPage({
     setFeedback(null);
     setError(null);
     setFormOpen(true);
+  }
+
+  async function syncClaudeCodeIntegrationIfConfigured() {
+    if (!window.desktopBridge) {
+      return;
+    }
+
+    const tools = await window.desktopBridge.listTools();
+    const claudeTool = tools.find((item) => item.id === "claude-code");
+    if (!claudeTool?.configured) {
+      return;
+    }
+
+    await window.desktopBridge.configureTool("claude-code");
+  }
+
+  function openProviderDetail(provider: Provider) {
+    setDetailProviderID(provider.id);
   }
 
   return (
@@ -431,6 +542,23 @@ export function ProvidersPage({
                         <button
                           type="button"
                           className={`${iconButtonSmallClass} peer`}
+                          aria-label={t("providers.action.view")}
+                          onClick={() => {
+                            openProviderDetail(provider);
+                          }}
+                        >
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                          </svg>
+                        </button>
+                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                          {t("providers.action.view")}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`${iconButtonSmallClass} peer`}
                           aria-label={t("common.edit")}
                           onClick={() => {
                             onSelectedProviderChange(provider);
@@ -511,111 +639,192 @@ export function ProvidersPage({
             </div>
           ) : (
             <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden pr-1">
-              <div className={listClass}>
-                <div className={selectableItemClass(true)}>
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={statusPillClass(selectedProvider.status.is_active ? "success" : "default")}>
-                        {selectedProvider.status.is_active
-                          ? t("providers.status.active")
-                          : t("providers.status.standby")}
-                      </span>
-                      <span className={statusPillClass("default")}>
-                        {selectedProvider.status.last_health_status}
-                      </span>
+              <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+                  <section className="flex min-h-0 flex-col overflow-hidden">
+                    <div className={sectionHeadClass}>
+                      <div className="space-y-1">
+                        <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
+                        <p className={sectionMetaClass}>
+                          {loadingModels
+                            ? t("common.loading")
+                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                        </p>
+                      </div>
                     </div>
-                    <p className={metaClass}>
-                      {t("providers.detail.baseUrl")}{" "}
-                      <span className={monoClass}>{selectedProvider.base_url}</span>
-                    </p>
-                    <p className={metaClass}>
-                      {t("providers.detail.apiKey")}{" "}
-                      <span className={monoClass}>
-                        {showSelectedProviderApiKey
-                          ? selectedProvider.api_key
-                          : maskApiKey(selectedProvider.api_key ?? "")}
-                      </span>
-                      <button
-                        type="button"
-                        className={`${iconButtonSmallClass} ml-2 align-middle`}
-                        aria-label={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        title={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        onClick={() => setShowSelectedProviderApiKey((current) => !current)}
-                      >
-                        {showSelectedProviderApiKey ? (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
-                          </svg>
-                        ) : (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
-                          </svg>
-                        )}
-                      </button>
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className={sectionHeadClass}>
-                  <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
-                    <p className={sectionMetaClass}>
-                      {loadingModels
-                        ? t("common.loading")
-                        : t("providers.detail.modelsCount", { count: filteredModels.length })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <label className={labelClass}>
-                    <span className={fieldLabelClass}>{t("logs.filter.search")}</span>
-                    <input
-                      className={inputClass}
-                      value={modelSearch}
-                      onChange={(event) => setModelSearch(event.target.value)}
-                      placeholder={t("models.available.searchPlaceholder")}
-                    />
-                  </label>
-                </div>
-
-                {filteredModels.length === 0 ? (
-                  <div className="mt-4 min-h-0 flex-1">
-                    <div className={emptyStateClass}>
-                      <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
+                    <div className="mt-3">
+                      <label className={labelClass}>
+                        <span className={fieldLabelClass}>{t("logs.filter.search")}</span>
+                        <input
+                          className={inputClass}
+                          value={modelSearch}
+                          onChange={(event) => setModelSearch(event.target.value)}
+                          placeholder={t("models.available.searchPlaceholder")}
+                        />
+                      </label>
                     </div>
-                  </div>
-                ) : (
-                  <div className={`${scrollListClass} mt-4`}>
-                    {filteredModels.map((model) => (
-                      <article key={model.id} className={selectableItemClass(false)}>
-                        <div className="flex items-start gap-2.5">
-                          <span className={iconBadgeClass}>
-                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
-                            </svg>
-                          </span>
-                          <div className="min-w-0">
-                            <p className={monoClass}>{model.id}</p>
-                            <p className={`${metaClass} mt-1.5`}>
-                              {model.owned_by ?? t("models.available.ownerUnknown")}
-                            </p>
-                          </div>
+
+                    {filteredModels.length === 0 ? (
+                      <div className="mt-4 min-h-0 flex-1">
+                        <div className={emptyStateClass}>
+                          <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
                         </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
+                      </div>
+                    ) : (
+                      <div className={`${scrollListClass} mt-4`}>
+                        {filteredModels.map((model) => (
+                          <article
+                            key={model.id}
+                            className={`${selectableItemClass(false)} cursor-grab active:cursor-grabbing`}
+                            draggable
+                            onDragStart={() => {
+                              setDraggedProviderModelId(model.id);
+                              setDraggedClaudeSlot(null);
+                            }}
+                            onDragEnd={() => {
+                              resetClaudeDragState();
+                            }}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <span className={iconBadgeClass}>
+                                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                </svg>
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className={monoClass}>{model.id}</p>
+                                <p className={`${metaClass} mt-1.5`}>
+                                  {model.owned_by ?? t("models.available.ownerUnknown")}
+                                </p>
+                              </div>
+                              <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                :::
+                              </span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="flex min-h-0 flex-col overflow-hidden">
+                    <div className={sectionHeadClass}>
+                      <div className="space-y-1">
+                        <h3 className={sectionTitleClass}>{t("providers.detail.claudeSlotsTitle")}</h3>
+                        <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
+                      </div>
+                    </div>
+                    <p className={`${metaClass} mt-3`}>
+                      {savingClaudeMap
+                        ? t("providers.detail.claudeSlotsSaving")
+                        : t("providers.detail.claudeSlotsAuto")}
+                    </p>
+
+                    <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                      {(
+                        [
+                          ["opus", t("providers.detail.claudeSlot.opus")],
+                          ["sonnet", t("providers.detail.claudeSlot.sonnet")],
+                          ["haiku", t("providers.detail.claudeSlot.haiku")]
+                        ] as const
+                      ).map(([slot, label]) => {
+                        const assignedModelID = claudeCodeModelMap[slot];
+                        const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
+                        const isDragOver = dragOverClaudeSlot === slot;
+
+                        return (
+                          <article
+                            key={slot}
+                            className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
+                              isDragOver
+                                ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                            }`}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              setDragOverClaudeSlot(slot);
+                            }}
+                            onDragLeave={() => {
+                              setDragOverClaudeSlot((current) => (current === slot ? null : current));
+                            }}
+                            onDrop={() => {
+                              if (draggedProviderModelId) {
+                                assignClaudeSlot(slot, draggedProviderModelId);
+                              } else if (draggedClaudeSlot) {
+                                const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
+                                if (nextModelID) {
+                                  const nextMap = {
+                                    ...claudeCodeModelMap,
+                                    [slot]: nextModelID
+                                  };
+                                  if (draggedClaudeSlot !== slot) {
+                                    nextMap[draggedClaudeSlot] = "";
+                                  }
+                                  void persistClaudeCodeModelMap(nextMap);
+                                }
+                              }
+                              resetClaudeDragState();
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className={fieldLabelClass}>{label}</p>
+                                <p className={`${metaClass} mt-1.5`}>
+                                  {assignedModelID
+                                    ? t("providers.detail.claudeSlot.ready")
+                                    : t("providers.detail.claudeSlot.dropHint")}
+                                </p>
+                              </div>
+                              {assignedModelID ? (
+                                <button
+                                  type="button"
+                                  className={buttonClass("ghost")}
+                                  onClick={() => clearClaudeSlot(slot)}
+                                >
+                                  {t("providers.detail.claudeSlot.clear")}
+                                </button>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-4 rounded-[18px] border border-dashed p-4">
+                              {assignedModelID ? (
+                                <div
+                                  className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
+                                  draggable
+                                  onDragStart={() => {
+                                    setDraggedProviderModelId(null);
+                                    setDraggedClaudeSlot(slot);
+                                  }}
+                                  onDragEnd={() => {
+                                    resetClaudeDragState();
+                                  }}
+                                >
+                                  <span className={iconBadgeClass}>
+                                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                      <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                    </svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className={monoClass}>{assignedModelID}</p>
+                                    <p className={`${metaClass} mt-1.5`}>
+                                      {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                    </p>
+                                  </div>
+                                  <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                    :::
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="py-3 text-center">
+                                  <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+                                </div>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
               </div>
             </div>
           )}
@@ -720,6 +929,90 @@ export function ProvidersPage({
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      ) : null}
+
+      {detailProvider ? (
+        <div className={modalBackdropClass} role="presentation" onClick={() => setDetailProviderID(null)}>
+          <section
+            className={`${modalPanelClass} max-w-3xl`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("providers.detail.title", { name: detailProvider.name })}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={sectionHeadClass}>
+              <div className="space-y-1">
+                <h2 className={sectionTitleClass}>
+                  {t("providers.detail.title", { name: detailProvider.name })}
+                </h2>
+                <p className={sectionMetaClass}>{t("providers.detail.inspectHint")}</p>
+              </div>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={() => setDetailProviderID(null)}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <div className={listClass}>
+                <div className={selectableItemClass(true)}>
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={statusPillClass(detailProvider.status.is_active ? "success" : "default")}>
+                        {detailProvider.status.is_active
+                          ? t("providers.status.active")
+                          : t("providers.status.standby")}
+                      </span>
+                      <span className={statusPillClass("default")}>
+                        {detailProvider.status.last_health_status}
+                      </span>
+                    </div>
+                    <p className={metaClass}>
+                      {t("providers.detail.baseUrl")}{" "}
+                      <span className={monoClass}>{detailProvider.base_url}</span>
+                    </p>
+                    <p className={metaClass}>
+                      {t("providers.detail.apiKey")}{" "}
+                      <span className={monoClass}>
+                        {showSelectedProviderApiKey
+                          ? detailProvider.api_key
+                          : maskApiKey(detailProvider.api_key ?? "")}
+                      </span>
+                      <button
+                        type="button"
+                        className={`${iconButtonSmallClass} ml-2 align-middle`}
+                        aria-label={
+                          showSelectedProviderApiKey
+                            ? t("providers.form.hideApiKey")
+                            : t("providers.form.showApiKey")
+                        }
+                        title={
+                          showSelectedProviderApiKey
+                            ? t("providers.form.hideApiKey")
+                            : t("providers.form.showApiKey")
+                        }
+                        onClick={() => setShowSelectedProviderApiKey((current) => !current)}
+                      >
+                        {showSelectedProviderApiKey ? (
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                          </svg>
+                        )}
+                      </button>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       ) : null}

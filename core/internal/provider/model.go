@@ -22,17 +22,24 @@ type Status struct {
 	LastHealthcheckAt string `json:"last_healthcheck_at,omitempty"`
 }
 
+type ClaudeCodeModelMap struct {
+	Opus   string `json:"opus"`
+	Sonnet string `json:"sonnet"`
+	Haiku  string `json:"haiku"`
+}
+
 type Provider struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	BaseURL      string            `json:"base_url"`
-	APIKeyRef    string            `json:"-"`
-	APIKey       string            `json:"api_key"`
-	AuthMode     AuthMode          `json:"auth_mode"`
-	ExtraHeaders map[string]string `json:"extra_headers"`
-	Capabilities Capabilities      `json:"capabilities"`
-	Status       Status            `json:"status"`
-	APIKeyMasked string            `json:"api_key_masked"`
+	ID                 string             `json:"id"`
+	Name               string             `json:"name"`
+	BaseURL            string             `json:"base_url"`
+	APIKeyRef          string             `json:"-"`
+	APIKey             string             `json:"api_key"`
+	AuthMode           AuthMode           `json:"auth_mode"`
+	ExtraHeaders       map[string]string  `json:"extra_headers"`
+	Capabilities       Capabilities       `json:"capabilities"`
+	Status             Status             `json:"status"`
+	APIKeyMasked       string             `json:"api_key_masked"`
+	ClaudeCodeModelMap ClaudeCodeModelMap `json:"claude_code_model_map"`
 }
 
 type SelectedModel struct {
