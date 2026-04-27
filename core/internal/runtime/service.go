@@ -113,3 +113,23 @@ func (s *Service) Health(ctx context.Context) (Health, error) {
 		CheckedAt: checkedAt,
 	}, nil
 }
+
+func normalizeClaudeCodeModelMap(input ClaudeCodeModelMap) ClaudeCodeModelMap {
+	return ClaudeCodeModelMap{
+		Opus:   strings.TrimSpace(input.Opus),
+		Sonnet: strings.TrimSpace(input.Sonnet),
+		Haiku:  strings.TrimSpace(input.Haiku),
+	}
+}
+
+func (s *Service) GetLocalGatewayClaudeMap(ctx context.Context) (ClaudeCodeModelMap, error) {
+	cfg, err := s.repository.GetLocalGatewayClaudeMap(ctx)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+	return normalizeClaudeCodeModelMap(cfg), nil
+}
+
+func (s *Service) UpdateLocalGatewayClaudeMap(ctx context.Context, cfg ClaudeCodeModelMap) (ClaudeCodeModelMap, error) {
+	return s.repository.SaveLocalGatewayClaudeMap(ctx, normalizeClaudeCodeModelMap(cfg))
+}

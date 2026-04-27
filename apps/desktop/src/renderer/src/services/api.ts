@@ -1,6 +1,6 @@
 import type { GatewayModel, GatewayModelInput } from "../types/gateway-model";
 import type { PortkeyTemplate } from "../types/portkey-template";
-import type { Provider } from "../types/provider";
+import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
 import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
@@ -261,6 +261,31 @@ export async function getPortkeyTemplate(apiBase?: string): Promise<PortkeyTempl
     `${getApiBase(apiBase)}/api/runtime/portkey-template`,
     {},
     "Portkey template request failed"
+  );
+}
+
+export async function getLocalGatewayClaudeMap(apiBase?: string): Promise<ClaudeCodeModelMap> {
+  return fetchJson<ClaudeCodeModelMap>(
+    `${getApiBase(apiBase)}/api/runtime/local-gateway-claude-map`,
+    {},
+    "Local gateway Claude map request failed"
+  );
+}
+
+export async function updateLocalGatewayClaudeMap(
+  input: ClaudeCodeModelMap,
+  apiBase?: string
+): Promise<ClaudeCodeModelMap> {
+  return fetchJson<ClaudeCodeModelMap>(
+    `${getApiBase(apiBase)}/api/runtime/local-gateway-claude-map`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update local gateway Claude map failed"
   );
 }
 

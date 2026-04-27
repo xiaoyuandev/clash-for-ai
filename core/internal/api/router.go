@@ -44,6 +44,7 @@ func NewRouter(providers *provider.Service, runtimeService *runtime.Service, mod
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.HandleFunc("/api/runtime", router.handleRuntime)
 	mux.HandleFunc("/api/runtime/health", router.handleRuntimeHealth)
+	mux.HandleFunc("/api/runtime/local-gateway-claude-map", router.handleLocalGatewayClaudeMap)
 	mux.HandleFunc("/api/runtime/portkey-template", router.handlePortkeyTemplate)
 	mux.HandleFunc("/api/gateway-models", router.handleGatewayModels)
 	mux.HandleFunc("/api/gateway-models/", router.handleGatewayModelActions)
@@ -176,6 +177,33 @@ func (r *Router) handlePortkeyTemplate(w http.ResponseWriter, req *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, template)
+}
+
+func (r *Router) handleLocalGatewayClaudeMap(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		cfg, err := r.runtime.GetLocalGatewayClaudeMap(req.Context())
+		if err != nil {
+			http.Error(w, "failed to load local gateway claude map", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var input runtime.ClaudeCodeModelMap
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		cfg, err := r.runtime.UpdateLocalGatewayClaudeMap(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to save local gateway claude map", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleGatewayModels(w http.ResponseWriter, req *http.Request) {

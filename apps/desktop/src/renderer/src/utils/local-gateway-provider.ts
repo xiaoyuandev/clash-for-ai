@@ -1,11 +1,13 @@
 import type { Provider } from "../types/provider";
 import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
+import type { ClaudeCodeModelMap } from "../types/provider";
 
 export const LOCAL_GATEWAY_PROVIDER_ID = "system-local-gateway";
 
 export function buildLocalGatewayProvider(
   runtimeConfig: RuntimeConfig,
-  runtimeHealth: RuntimeHealth | null
+  runtimeHealth: RuntimeHealth | null,
+  claudeCodeModelMap: ClaudeCodeModelMap
 ): Provider | null {
   if (runtimeConfig.mode !== "external-portkey") {
     return null;
@@ -36,13 +38,8 @@ export function buildLocalGatewayProvider(
       last_healthcheck_at: runtimeHealth?.checked_at
     },
     api_key_masked: "system-managed",
-    claude_code_model_map: {
-      opus: "",
-      sonnet: "",
-      haiku: ""
-    },
+    claude_code_model_map: claudeCodeModelMap,
     is_system: true,
     system_kind: "local-gateway"
   };
 }
-

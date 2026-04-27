@@ -6,12 +6,14 @@ import {
   createProvider,
   deleteProvider,
   getGatewayModels,
+  getLocalGatewayClaudeMap,
   getRuntimeConfig,
   getRuntimeHealth,
   getHealth,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
+  updateLocalGatewayClaudeMap,
   updateProvider
 } from "../services/api";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
@@ -59,9 +61,10 @@ interface ProvidersPageProps {
 function decorateProviders(
   providers: Provider[],
   runtimeConfig: RuntimeConfig,
-  runtimeHealth: RuntimeHealth | null
+  runtimeHealth: RuntimeHealth | null,
+  claudeCodeModelMap: ClaudeCodeModelMap
 ) {
-  const localGatewayProvider = buildLocalGatewayProvider(runtimeConfig, runtimeHealth);
+  const localGatewayProvider = buildLocalGatewayProvider(runtimeConfig, runtimeHealth, claudeCodeModelMap);
   if (!localGatewayProvider) {
     return providers;
   }
@@ -182,11 +185,12 @@ export function ProvidersPage({
 
     async function load() {
       try {
-        const [healthData, providersData, runtimeConfigData, runtimeHealthData] = await Promise.all([
+        const [healthData, providersData, runtimeConfigData, runtimeHealthData, localGatewayClaudeMap] = await Promise.all([
           getHealth(apiBase),
           getProviders(apiBase),
           getRuntimeConfig(apiBase),
-          getRuntimeHealth(apiBase)
+          getRuntimeHealth(apiBase),
+          getLocalGatewayClaudeMap(apiBase)
         ]);
 
         if (cancelled) {
@@ -196,7 +200,8 @@ export function ProvidersPage({
         const decoratedProviders = decorateProviders(
           providersData,
           runtimeConfigData,
-          runtimeHealthData
+          runtimeHealthData,
+          localGatewayClaudeMap
         );
         setHealth(healthData.status);
         setProviders(decoratedProviders);
@@ -295,12 +300,18 @@ export function ProvidersPage({
   }, [selectedProvider?.claude_code_model_map, selectedProvider?.id]);
 
   async function refreshProviders(preferredProviderId?: string) {
-    const [providersData, runtimeConfigData, runtimeHealthData] = await Promise.all([
+    const [providersData, runtimeConfigData, runtimeHealthData, localGatewayClaudeMap] = await Promise.all([
       getProviders(apiBase),
       getRuntimeConfig(apiBase),
-      getRuntimeHealth(apiBase)
+      getRuntimeHealth(apiBase),
+      getLocalGatewayClaudeMap(apiBase)
     ]);
-    const decoratedProviders = decorateProviders(providersData, runtimeConfigData, runtimeHealthData);
+    const decoratedProviders = decorateProviders(
+      providersData,
+      runtimeConfigData,
+      runtimeHealthData,
+      localGatewayClaudeMap
+    );
     setProviders(decoratedProviders);
     setRuntimeHealth(runtimeHealthData);
     const nextSelected =
@@ -419,22 +430,33 @@ export function ProvidersPage({
     setError(null);
 
     try {
-      await updateProvider(
-        selectedProvider.id,
-        {
-          name: selectedProvider.name,
-          base_url: selectedProvider.base_url,
-          api_key: selectedProvider.api_key,
-          auth_mode: selectedProvider.auth_mode,
-          extra_headers: selectedProvider.extra_headers ?? {},
-          claude_code_model_map: {
+      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+        await updateLocalGatewayClaudeMap(
+          {
             opus: nextMap.opus.trim(),
             sonnet: nextMap.sonnet.trim(),
             haiku: nextMap.haiku.trim()
-          }
-        },
-        apiBase
-      );
+          },
+          apiBase
+        );
+      } else {
+        await updateProvider(
+          selectedProvider.id,
+          {
+            name: selectedProvider.name,
+            base_url: selectedProvider.base_url,
+            api_key: selectedProvider.api_key,
+            auth_mode: selectedProvider.auth_mode,
+            extra_headers: selectedProvider.extra_headers ?? {},
+            claude_code_model_map: {
+              opus: nextMap.opus.trim(),
+              sonnet: nextMap.sonnet.trim(),
+              haiku: nextMap.haiku.trim()
+            }
+          },
+          apiBase
+        );
+      }
       await refreshProviders(selectedProvider.id);
       if (selectedProvider.status.is_active) {
         await syncClaudeCodeIntegrationIfConfigured();
