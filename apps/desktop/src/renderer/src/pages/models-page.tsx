@@ -89,6 +89,8 @@ export function ModelsPage({
   const [editingGatewayModelId, setEditingGatewayModelId] = useState<string | null>(null);
   const activeProvider = providers.find((provider) => provider.status.is_active) ?? null;
   const [leftPaneWidth, setLeftPaneWidth] = useState(48);
+  const providerTypeOptions = ["anthropic", "openai", "google", "custom"] as const;
+  const protocolOptions = ["anthropic", "openai", "gemini", "custom"] as const;
 
   useEffect(() => {
     let cancelled = false;
@@ -369,6 +371,14 @@ export function ModelsPage({
     );
     if (duplicate) {
       return t("models.gateway.validation.duplicateModelId");
+    }
+
+    if (!providerTypeOptions.includes(gatewayForm.provider_type as (typeof providerTypeOptions)[number])) {
+      return t("models.gateway.validation.providerType");
+    }
+
+    if (!protocolOptions.includes(gatewayForm.protocol as (typeof protocolOptions)[number])) {
+      return t("models.gateway.validation.protocol");
     }
 
     return null;
@@ -715,7 +725,7 @@ export function ModelsPage({
                         </label>
                         <label className={labelClass}>
                           <span className={fieldLabelClass}>{t("models.gateway.form.providerType")}</span>
-                          <input
+                          <select
                             className={inputClass}
                             value={gatewayForm.provider_type}
                             onChange={(event) =>
@@ -724,19 +734,29 @@ export function ModelsPage({
                                 provider_type: event.target.value
                               }))
                             }
-                            placeholder="anthropic"
-                          />
+                          >
+                            {providerTypeOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {t(`models.gateway.form.providerTypeOption.${option}` as never)}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                         <label className={labelClass}>
                           <span className={fieldLabelClass}>{t("models.gateway.form.protocol")}</span>
-                          <input
+                          <select
                             className={inputClass}
                             value={gatewayForm.protocol}
                             onChange={(event) =>
                               setGatewayForm((current) => ({ ...current, protocol: event.target.value }))
                             }
-                            placeholder="openai / anthropic"
-                          />
+                          >
+                            {protocolOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {t(`models.gateway.form.protocolOption.${option}` as never)}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                       </div>
                       <label className={`${labelClass} mt-3`}>

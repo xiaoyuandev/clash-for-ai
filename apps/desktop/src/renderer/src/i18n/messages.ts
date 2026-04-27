@@ -156,6 +156,14 @@ export const messages = {
     "models.gateway.form.apiKey": "api key",
     "models.gateway.form.providerType": "provider type",
     "models.gateway.form.protocol": "protocol",
+    "models.gateway.form.providerTypeOption.anthropic": "anthropic",
+    "models.gateway.form.providerTypeOption.openai": "openai",
+    "models.gateway.form.providerTypeOption.google": "google",
+    "models.gateway.form.providerTypeOption.custom": "custom",
+    "models.gateway.form.protocolOption.anthropic": "anthropic",
+    "models.gateway.form.protocolOption.openai": "openai",
+    "models.gateway.form.protocolOption.gemini": "gemini",
+    "models.gateway.form.protocolOption.custom": "custom",
     "models.gateway.form.enabled": "enabled",
     "models.gateway.form.enabledOn": "Enabled",
     "models.gateway.form.enabledOff": "Disabled",
@@ -167,6 +175,10 @@ export const messages = {
     "models.gateway.validation.baseUrl": "Base URL must be a valid absolute URL.",
     "models.gateway.validation.duplicateModelId":
       "A gateway model entry with the same model id already exists.",
+    "models.gateway.validation.providerType":
+      "Provider type must be chosen from the supported options.",
+    "models.gateway.validation.protocol":
+      "Protocol must be chosen from the supported options.",
     "models.gateway.feedback.created": "Gateway model entry created.",
     "models.gateway.feedback.updated": "Gateway model entry updated.",
     "models.gateway.feedback.deleted": "Gateway model entry deleted.",
@@ -567,6 +579,14 @@ export const messages = {
     "models.gateway.form.apiKey": "api key",
     "models.gateway.form.providerType": "provider type",
     "models.gateway.form.protocol": "protocol",
+    "models.gateway.form.providerTypeOption.anthropic": "anthropic",
+    "models.gateway.form.providerTypeOption.openai": "openai",
+    "models.gateway.form.providerTypeOption.google": "google",
+    "models.gateway.form.providerTypeOption.custom": "custom",
+    "models.gateway.form.protocolOption.anthropic": "anthropic",
+    "models.gateway.form.protocolOption.openai": "openai",
+    "models.gateway.form.protocolOption.gemini": "gemini",
+    "models.gateway.form.protocolOption.custom": "custom",
     "models.gateway.form.enabled": "是否启用",
     "models.gateway.form.enabledOn": "已启用",
     "models.gateway.form.enabledOff": "已停用",
@@ -578,6 +598,10 @@ export const messages = {
     "models.gateway.validation.baseUrl": "Base URL 必须是合法的绝对地址。",
     "models.gateway.validation.duplicateModelId":
       "已存在相同 model id 的 gateway 模型条目。",
+    "models.gateway.validation.providerType":
+      "provider type 必须从支持的选项中选择。",
+    "models.gateway.validation.protocol":
+      "protocol 必须从支持的选项中选择。",
     "models.gateway.feedback.created": "Gateway 模型条目已创建。",
     "models.gateway.feedback.updated": "Gateway 模型条目已更新。",
     "models.gateway.feedback.deleted": "Gateway 模型条目已删除。",
