@@ -2,6 +2,7 @@ package portkey
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelentry"
@@ -9,10 +10,13 @@ import (
 )
 
 type Template struct {
-	RuntimeMode string          `json:"runtime_mode"`
-	RuntimeURL  string          `json:"runtime_url"`
-	GeneratedAt time.Time       `json:"generated_at"`
-	Entries     []TemplateEntry `json:"entries"`
+	RuntimeMode   string          `json:"runtime_mode"`
+	RuntimeURL    string          `json:"runtime_url"`
+	GeneratedAt   time.Time       `json:"generated_at"`
+	TotalEntries  int             `json:"total_entries"`
+	EnabledCount  int             `json:"enabled_count"`
+	DisabledCount int             `json:"disabled_count"`
+	Entries       []TemplateEntry `json:"entries"`
 }
 
 type TemplateEntry struct {
@@ -48,8 +52,22 @@ func (b *ConfigBuilder) BuildTemplate(ctx context.Context) (Template, error) {
 		return Template{}, err
 	}
 
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Enabled != entries[j].Enabled {
+			return entries[i].Enabled && !entries[j].Enabled
+		}
+		if entries[i].Position != entries[j].Position {
+			return entries[i].Position < entries[j].Position
+		}
+		return entries[i].Name < entries[j].Name
+	})
+
 	items := make([]TemplateEntry, 0, len(entries))
+	enabledCount := 0
 	for _, entry := range entries {
+		if entry.Enabled {
+			enabledCount += 1
+		}
 		items = append(items, TemplateEntry{
 			Name:         entry.Name,
 			ModelID:      entry.ModelID,
@@ -62,9 +80,12 @@ func (b *ConfigBuilder) BuildTemplate(ctx context.Context) (Template, error) {
 	}
 
 	return Template{
-		RuntimeMode: string(runtimeConfig.Mode),
-		RuntimeURL:  runtimeConfig.BaseURL,
-		GeneratedAt: time.Now().UTC(),
-		Entries:     items,
+		RuntimeMode:   string(runtimeConfig.Mode),
+		RuntimeURL:    runtimeConfig.BaseURL,
+		GeneratedAt:   time.Now().UTC(),
+		TotalEntries:  len(entries),
+		EnabledCount:  enabledCount,
+		DisabledCount: len(entries) - enabledCount,
+		Entries:       items,
 	}, nil
 }

@@ -578,6 +578,20 @@ export function SettingsPage({
                       <p className={fieldLabelClass}>{t("settings.runtime.template.title")}</p>
                       <p className={metaClass}>{t("settings.runtime.template.subtitle")}</p>
                     </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div className={infoCardClass}>
+                        <p className={fieldLabelClass}>{t("settings.runtime.template.totalEntries")}</p>
+                        <p className={metricValueClass}>{String(portkeyTemplate.total_entries)}</p>
+                      </div>
+                      <div className={infoCardClass}>
+                        <p className={fieldLabelClass}>{t("settings.runtime.template.enabledEntries")}</p>
+                        <p className={metricValueClass}>{String(portkeyTemplate.enabled_count)}</p>
+                      </div>
+                      <div className={infoCardClass}>
+                        <p className={fieldLabelClass}>{t("settings.runtime.template.disabledEntries")}</p>
+                        <p className={metricValueClass}>{String(portkeyTemplate.disabled_count)}</p>
+                      </div>
+                    </div>
                     <pre className={`${monoClass} mt-3 overflow-x-auto whitespace-pre-wrap rounded-[12px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3`}>
                       {JSON.stringify(portkeyTemplate, null, 2)}
                     </pre>

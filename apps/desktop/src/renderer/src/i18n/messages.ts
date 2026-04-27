@@ -353,6 +353,9 @@ export const messages = {
     "settings.runtime.template.title": "Generated Portkey Template",
     "settings.runtime.template.subtitle":
       "This preview is generated from the gateway model entries currently configured in Clash for AI. It is the first step toward runtime config generation.",
+    "settings.runtime.template.totalEntries": "Total Entries",
+    "settings.runtime.template.enabledEntries": "Enabled Entries",
+    "settings.runtime.template.disabledEntries": "Disabled Entries",
     "settings.runtime.feedback.checked": "Runtime check: {status} - {message}",
     "settings.runtime.feedback.saved": "Runtime configuration saved.",
     "settings.runtime.feedback.commandsCopied": "Portkey init commands copied.",
@@ -764,6 +767,9 @@ export const messages = {
     "settings.runtime.template.title": "生成的 Portkey 模板",
     "settings.runtime.template.subtitle":
       "这个预览由 Clash for AI 当前配置的 gateway model 条目生成，是后续 runtime 配置生成的第一步。",
+    "settings.runtime.template.totalEntries": "总条目数",
+    "settings.runtime.template.enabledEntries": "启用条目数",
+    "settings.runtime.template.disabledEntries": "停用条目数",
     "settings.runtime.feedback.checked": "Runtime 检查：{status} - {message}",
     "settings.runtime.feedback.saved": "Runtime 配置已保存。",
     "settings.runtime.feedback.commandsCopied": "Portkey 初始化命令已复制。",
