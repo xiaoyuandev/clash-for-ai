@@ -5,6 +5,7 @@ import {
   createGatewayModel,
   deleteGatewayModel,
   getGatewayModels,
+  getLocalGatewayClaudeMap,
   getRuntimeConfig,
   getRuntimeHealth,
   getProviderModels,
@@ -19,7 +20,7 @@ import type { ProviderModel } from "../types/provider-model";
 import type { RuntimeConfig, RuntimeHealth } from "../types/runtime";
 import type { SelectedModel } from "../types/selected-model";
 import type { GatewayModel, GatewayModelInput } from "../types/gateway-model";
-import { LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
+import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
 import {
   actionRowClass,
   buttonClass,
@@ -55,6 +56,26 @@ interface ModelsPageProps {
   apiBase?: string;
   selectedProvider: Provider | null;
   onSelectedProviderChange: (provider: Provider | null) => void;
+}
+
+function decorateProviders(
+  providers: Provider[],
+  runtimeConfig: RuntimeConfig,
+  runtimeHealth: RuntimeHealth | null,
+  claudeCodeModelMap: Provider["claude_code_model_map"]
+) {
+  const localGatewayProvider = buildLocalGatewayProvider(runtimeConfig, runtimeHealth, claudeCodeModelMap);
+  if (!localGatewayProvider) {
+    return providers;
+  }
+
+  return [localGatewayProvider, ...providers.map((provider) => ({
+    ...provider,
+    status: {
+      ...provider.status,
+      is_active: false
+    }
+  }))];
 }
 
 export function ModelsPage({
@@ -97,21 +118,28 @@ export function ModelsPage({
 
     async function loadProviders() {
       try {
-        const [items, runtimeConfigData, runtimeHealthData] = await Promise.all([
+        const [items, runtimeConfigData, runtimeHealthData, localGatewayClaudeMap] = await Promise.all([
           getProviders(apiBase),
           getRuntimeConfig(apiBase),
-          getRuntimeHealth(apiBase)
+          getRuntimeHealth(apiBase),
+          getLocalGatewayClaudeMap(apiBase)
         ]);
         if (cancelled) {
           return;
         }
 
+        const decoratedProviders = decorateProviders(
+          items,
+          runtimeConfigData,
+          runtimeHealthData,
+          localGatewayClaudeMap
+        );
         setRuntimeConfig(runtimeConfigData);
         setRuntimeHealth(runtimeHealthData);
-        setProviders(items);
+        setProviders(decoratedProviders);
         onSelectedProviderChange(
-          items.find((provider) => provider.status.is_active) ??
-            items.find((provider) => provider.id === selectedProvider?.id) ??
+          decoratedProviders.find((provider) => provider.status.is_active) ??
+            decoratedProviders.find((provider) => provider.id === selectedProvider?.id) ??
             null
         );
       } catch (loadError) {
