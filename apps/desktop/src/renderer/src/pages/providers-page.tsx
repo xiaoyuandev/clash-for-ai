@@ -72,6 +72,7 @@ export function ProvidersPage({
   const [showSelectedProviderApiKey, setShowSelectedProviderApiKey] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [claudeCodeModelMap, setClaudeCodeModelMap] = useState<ClaudeCodeModelMap>({
     opus: "",
@@ -432,6 +433,13 @@ export function ProvidersPage({
     await window.desktopBridge.configureTool("claude-code");
   }
 
+  function openProviderDetail(provider: Provider) {
+    onSelectedProviderChange(provider);
+    setFeedback(null);
+    setError(null);
+    setDetailOpen(true);
+  }
+
   return (
     <main className={`${pageShellClass} h-full overflow-hidden`}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
@@ -535,6 +543,23 @@ export function ProvidersPage({
                         <button
                           type="button"
                           className={`${iconButtonSmallClass} peer`}
+                          aria-label={t("providers.action.view")}
+                          onClick={() => {
+                            openProviderDetail(provider);
+                          }}
+                        >
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                          </svg>
+                        </button>
+                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                          {t("providers.action.view")}
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className={`${iconButtonSmallClass} peer`}
                           aria-label={t("common.edit")}
                           onClick={() => {
                             onSelectedProviderChange(provider);
@@ -615,62 +640,7 @@ export function ProvidersPage({
             </div>
           ) : (
             <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden pr-1">
-              <div className={listClass}>
-                <div className={selectableItemClass(true)}>
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={statusPillClass(selectedProvider.status.is_active ? "success" : "default")}>
-                        {selectedProvider.status.is_active
-                          ? t("providers.status.active")
-                          : t("providers.status.standby")}
-                      </span>
-                      <span className={statusPillClass("default")}>
-                        {selectedProvider.status.last_health_status}
-                      </span>
-                    </div>
-                    <p className={metaClass}>
-                      {t("providers.detail.baseUrl")}{" "}
-                      <span className={monoClass}>{selectedProvider.base_url}</span>
-                    </p>
-                    <p className={metaClass}>
-                      {t("providers.detail.apiKey")}{" "}
-                      <span className={monoClass}>
-                        {showSelectedProviderApiKey
-                          ? selectedProvider.api_key
-                          : maskApiKey(selectedProvider.api_key ?? "")}
-                      </span>
-                      <button
-                        type="button"
-                        className={`${iconButtonSmallClass} ml-2 align-middle`}
-                        aria-label={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        title={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        onClick={() => setShowSelectedProviderApiKey((current) => !current)}
-                      >
-                        {showSelectedProviderApiKey ? (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
-                          </svg>
-                        ) : (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
-                          </svg>
-                        )}
-                      </button>
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+              <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
                   <section className="flex min-h-0 flex-col overflow-hidden">
                     <div className={sectionHeadClass}>
                       <div className="space-y-1">
@@ -856,7 +826,6 @@ export function ProvidersPage({
                       })}
                     </div>
                   </section>
-                </div>
               </div>
             </div>
           )}
@@ -961,6 +930,90 @@ export function ProvidersPage({
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      ) : null}
+
+      {detailOpen && selectedProvider ? (
+        <div className={modalBackdropClass} role="presentation" onClick={() => setDetailOpen(false)}>
+          <section
+            className={`${modalPanelClass} max-w-3xl`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("providers.detail.title", { name: selectedProvider.name })}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={sectionHeadClass}>
+              <div className="space-y-1">
+                <h2 className={sectionTitleClass}>
+                  {t("providers.detail.title", { name: selectedProvider.name })}
+                </h2>
+                <p className={sectionMetaClass}>{t("providers.detail.inspectHint")}</p>
+              </div>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={() => setDetailOpen(false)}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <div className={listClass}>
+                <div className={selectableItemClass(true)}>
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={statusPillClass(selectedProvider.status.is_active ? "success" : "default")}>
+                        {selectedProvider.status.is_active
+                          ? t("providers.status.active")
+                          : t("providers.status.standby")}
+                      </span>
+                      <span className={statusPillClass("default")}>
+                        {selectedProvider.status.last_health_status}
+                      </span>
+                    </div>
+                    <p className={metaClass}>
+                      {t("providers.detail.baseUrl")}{" "}
+                      <span className={monoClass}>{selectedProvider.base_url}</span>
+                    </p>
+                    <p className={metaClass}>
+                      {t("providers.detail.apiKey")}{" "}
+                      <span className={monoClass}>
+                        {showSelectedProviderApiKey
+                          ? selectedProvider.api_key
+                          : maskApiKey(selectedProvider.api_key ?? "")}
+                      </span>
+                      <button
+                        type="button"
+                        className={`${iconButtonSmallClass} ml-2 align-middle`}
+                        aria-label={
+                          showSelectedProviderApiKey
+                            ? t("providers.form.hideApiKey")
+                            : t("providers.form.showApiKey")
+                        }
+                        title={
+                          showSelectedProviderApiKey
+                            ? t("providers.form.hideApiKey")
+                            : t("providers.form.showApiKey")
+                        }
+                        onClick={() => setShowSelectedProviderApiKey((current) => !current)}
+                      >
+                        {showSelectedProviderApiKey ? (
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                          </svg>
+                        )}
+                      </button>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       ) : null}

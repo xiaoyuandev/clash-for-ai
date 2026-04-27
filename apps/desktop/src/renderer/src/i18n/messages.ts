@@ -94,6 +94,7 @@ export const messages = {
     "providers.detail.capability.balance": "balance",
     "providers.detail.capability.stream": "stream",
     "providers.action.activate": "Enable",
+    "providers.action.view": "View",
     "providers.action.test": "Test",
     "models.title": "Models",
     "models.subtitle":
@@ -427,6 +428,7 @@ export const messages = {
     "providers.detail.capability.balance": "余额",
     "providers.detail.capability.stream": "流式",
     "providers.action.activate": "启用",
+    "providers.action.view": "查看",
     "providers.action.test": "测试",
     "models.title": "模型",
     "models.subtitle": "左侧显示当前激活供应商支持的模型。你可以把常用模型加入右侧的有序降级列表。",
