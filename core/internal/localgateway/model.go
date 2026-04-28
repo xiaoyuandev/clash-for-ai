@@ -1,5 +1,7 @@
 package localgateway
 
+import "net/http"
+
 type InboundProtocol string
 
 const (
@@ -45,6 +47,13 @@ type UpstreamTarget struct {
 	APIKey         string
 	ProviderType   string
 	DefaultModelID string
+}
+
+type UpstreamRequest struct {
+	Method  string
+	URL     string
+	Headers http.Header
+	Body    []byte
 }
 
 type Response struct {
