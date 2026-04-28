@@ -6,10 +6,12 @@ import {
   createProvider,
   deleteProvider,
   getHealth,
+  getLocalGatewayClaudeMap,
   getModelSources,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
+  updateLocalGatewayClaudeMap,
   updateProvider
 } from "../services/api";
 import type { ModelSource } from "../types/model-source";
@@ -275,14 +277,51 @@ export function ProvidersPage({
   }, [selectedProvider?.id]);
 
   useEffect(() => {
-    setClaudeCodeModelMap(
-      selectedProvider?.claude_code_model_map ?? {
-        opus: "",
-        sonnet: "",
-        haiku: ""
+    let cancelled = false;
+
+    async function syncClaudeMap() {
+      if (!selectedProvider) {
+        setClaudeCodeModelMap({
+          opus: "",
+          sonnet: "",
+          haiku: ""
+        });
+        return;
       }
-    );
-  }, [selectedProvider?.claude_code_model_map, selectedProvider?.id]);
+
+      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+        try {
+          const map = await getLocalGatewayClaudeMap(apiBase);
+          if (!cancelled) {
+            setClaudeCodeModelMap(map);
+          }
+        } catch {
+          if (!cancelled) {
+            setClaudeCodeModelMap({
+              opus: "",
+              sonnet: "",
+              haiku: ""
+            });
+          }
+        }
+        return;
+      }
+
+      setClaudeCodeModelMap(
+        selectedProvider.claude_code_model_map ?? {
+          opus: "",
+          sonnet: "",
+          haiku: ""
+        }
+      );
+    }
+
+    void syncClaudeMap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, selectedProvider]);
 
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
@@ -399,32 +438,38 @@ export function ProvidersPage({
       return;
     }
 
-    if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-      setError(t("providers.feedback.systemProviderLocked"));
-      return;
-    }
-
     setClaudeCodeModelMap(nextMap);
     setSavingClaudeMap(true);
     setError(null);
 
     try {
-      await updateProvider(
-        selectedProvider.id,
-        {
-          name: selectedProvider.name,
-          base_url: selectedProvider.base_url,
-          api_key: selectedProvider.api_key,
-          auth_mode: selectedProvider.auth_mode,
-          extra_headers: selectedProvider.extra_headers ?? {},
-          claude_code_model_map: {
+      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+        await updateLocalGatewayClaudeMap(
+          {
             opus: nextMap.opus.trim(),
             sonnet: nextMap.sonnet.trim(),
             haiku: nextMap.haiku.trim()
-          }
-        },
-        apiBase
-      );
+          },
+          apiBase
+        );
+      } else {
+        await updateProvider(
+          selectedProvider.id,
+          {
+            name: selectedProvider.name,
+            base_url: selectedProvider.base_url,
+            api_key: selectedProvider.api_key,
+            auth_mode: selectedProvider.auth_mode,
+            extra_headers: selectedProvider.extra_headers ?? {},
+            claude_code_model_map: {
+              opus: nextMap.opus.trim(),
+              sonnet: nextMap.sonnet.trim(),
+              haiku: nextMap.haiku.trim()
+            }
+          },
+          apiBase
+        );
+      }
       await refreshProviders(selectedProvider.id);
       if (selectedProvider.status.is_active) {
         await syncClaudeCodeIntegrationIfConfigured();

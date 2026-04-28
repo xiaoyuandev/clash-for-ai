@@ -112,6 +112,33 @@ export async function createProvider(
   );
 }
 
+export async function getLocalGatewayClaudeMap(
+  apiBase?: string
+): Promise<Provider["claude_code_model_map"]> {
+  return fetchJson<Provider["claude_code_model_map"]>(
+    `${getApiBase(apiBase)}/api/settings/local-gateway-claude-map`,
+    {},
+    "Local gateway Claude map request failed"
+  );
+}
+
+export async function updateLocalGatewayClaudeMap(
+  input: Provider["claude_code_model_map"],
+  apiBase?: string
+): Promise<Provider["claude_code_model_map"]> {
+  return fetchJson<Provider["claude_code_model_map"]>(
+    `${getApiBase(apiBase)}/api/settings/local-gateway-claude-map`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update local gateway Claude map failed"
+  );
+}
+
 export async function activateProvider(id: string, apiBase?: string): Promise<Provider> {
   return fetchJson<Provider>(
     `${getApiBase(apiBase)}/api/providers/${id}/activate`,

@@ -21,6 +21,7 @@ func DefaultSettings() AppSettings {
 			ListenPort: 8788,
 		},
 		LocalGatewaySelected: []SelectedModel{},
+		LocalGatewayClaude:   ClaudeCodeModelMap{},
 	}
 }
 
@@ -93,4 +94,33 @@ func (s *Service) UpdateLocalGatewaySelectedModels(ctx context.Context, items []
 		return nil, err
 	}
 	return saved.LocalGatewaySelected, nil
+}
+
+func normalizeClaudeCodeModelMap(input ClaudeCodeModelMap) ClaudeCodeModelMap {
+	return ClaudeCodeModelMap{
+		Opus:   strings.TrimSpace(input.Opus),
+		Sonnet: strings.TrimSpace(input.Sonnet),
+		Haiku:  strings.TrimSpace(input.Haiku),
+	}
+}
+
+func (s *Service) GetLocalGatewayClaudeMap(ctx context.Context) (ClaudeCodeModelMap, error) {
+	settings, err := s.Get(ctx)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+	return normalizeClaudeCodeModelMap(settings.LocalGatewayClaude), nil
+}
+
+func (s *Service) UpdateLocalGatewayClaudeMap(ctx context.Context, input ClaudeCodeModelMap) (ClaudeCodeModelMap, error) {
+	settings, err := s.Get(ctx)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+	settings.LocalGatewayClaude = normalizeClaudeCodeModelMap(input)
+	saved, err := s.Save(ctx, settings)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+	return saved.LocalGatewayClaude, nil
 }
