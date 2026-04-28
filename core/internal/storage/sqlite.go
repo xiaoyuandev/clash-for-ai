@@ -128,6 +128,16 @@ ON provider_selected_models (provider_id, position ASC);`
 		return fmt.Errorf("migrate provider_selected_models index: %w", err)
 	}
 
+	const appSettingsTable = `
+CREATE TABLE IF NOT EXISTS app_settings (
+	key TEXT PRIMARY KEY,
+	value_json TEXT NOT NULL
+);`
+
+	if _, err := s.DB.Exec(appSettingsTable); err != nil {
+		return fmt.Errorf("migrate app_settings table: %w", err)
+	}
+
 	return nil
 }
 
