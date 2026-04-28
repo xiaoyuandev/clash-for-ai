@@ -14,6 +14,7 @@ const (
 	OperationChatCompletions Operation = "chat.completions"
 	OperationResponses       Operation = "responses"
 	OperationMessages        Operation = "messages"
+	OperationCountTokens     Operation = "messages.count_tokens"
 	OperationModels          Operation = "models"
 )
 
