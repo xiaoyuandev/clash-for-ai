@@ -357,6 +357,10 @@ export function ProvidersPage({
   }
 
   async function handleDeleteProvider(id: string) {
+    if (id === LOCAL_GATEWAY_PROVIDER_ID) {
+      setError(t("providers.feedback.systemProviderLocked"));
+      return;
+    }
     setError(null);
     setFeedback(null);
 
@@ -392,6 +396,11 @@ export function ProvidersPage({
 
   async function persistClaudeCodeModelMap(nextMap: ClaudeCodeModelMap) {
     if (!selectedProvider) {
+      return;
+    }
+
+    if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+      setError(t("providers.feedback.systemProviderLocked"));
       return;
     }
 
@@ -450,6 +459,10 @@ export function ProvidersPage({
   }
 
   function startEditing(provider: Provider) {
+    if (provider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+      setError(t("providers.feedback.systemProviderLocked"));
+      return;
+    }
     setEditingId(provider.id);
     setName(provider.name);
     setBaseUrl(provider.base_url);
@@ -792,116 +805,126 @@ export function ProvidersPage({
                         <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
                       </div>
                     </div>
-                    <p className={`${metaClass} mt-3`}>
-                      {savingClaudeMap
-                        ? t("providers.detail.claudeSlotsSaving")
-                        : t("providers.detail.claudeSlotsAuto")}
-                    </p>
+                    {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
+                      <div className="mt-3">
+                        <div className={emptyStateClass}>
+                          <p>{t("providers.detail.localGatewayClaudeHint")}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className={`${metaClass} mt-3`}>
+                          {savingClaudeMap
+                            ? t("providers.detail.claudeSlotsSaving")
+                            : t("providers.detail.claudeSlotsAuto")}
+                        </p>
 
-                    <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                      {(
-                        [
-                          ["opus", t("providers.detail.claudeSlot.opus")],
-                          ["sonnet", t("providers.detail.claudeSlot.sonnet")],
-                          ["haiku", t("providers.detail.claudeSlot.haiku")]
-                        ] as const
-                      ).map(([slot, label]) => {
-                        const assignedModelID = claudeCodeModelMap[slot];
-                        const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
-                        const isDragOver = dragOverClaudeSlot === slot;
+                        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                          {(
+                            [
+                              ["opus", t("providers.detail.claudeSlot.opus")],
+                              ["sonnet", t("providers.detail.claudeSlot.sonnet")],
+                              ["haiku", t("providers.detail.claudeSlot.haiku")]
+                            ] as const
+                          ).map(([slot, label]) => {
+                            const assignedModelID = claudeCodeModelMap[slot];
+                            const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
+                            const isDragOver = dragOverClaudeSlot === slot;
 
-                        return (
-                          <article
-                            key={slot}
-                            className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
-                              isDragOver
-                                ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
-                                : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
-                            }`}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                              setDragOverClaudeSlot(slot);
-                            }}
-                            onDragLeave={() => {
-                              setDragOverClaudeSlot((current) => (current === slot ? null : current));
-                            }}
-                            onDrop={() => {
-                              if (draggedProviderModelId) {
-                                assignClaudeSlot(slot, draggedProviderModelId);
-                              } else if (draggedClaudeSlot) {
-                                const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
-                                if (nextModelID) {
-                                  const nextMap = {
-                                    ...claudeCodeModelMap,
-                                    [slot]: nextModelID
-                                  };
-                                  if (draggedClaudeSlot !== slot) {
-                                    nextMap[draggedClaudeSlot] = "";
+                            return (
+                              <article
+                                key={slot}
+                                className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
+                                  isDragOver
+                                    ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                    : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                                }`}
+                                onDragOver={(event) => {
+                                  event.preventDefault();
+                                  setDragOverClaudeSlot(slot);
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverClaudeSlot((current) => (current === slot ? null : current));
+                                }}
+                                onDrop={() => {
+                                  if (draggedProviderModelId) {
+                                    assignClaudeSlot(slot, draggedProviderModelId);
+                                  } else if (draggedClaudeSlot) {
+                                    const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
+                                    if (nextModelID) {
+                                      const nextMap = {
+                                        ...claudeCodeModelMap,
+                                        [slot]: nextModelID
+                                      };
+                                      if (draggedClaudeSlot !== slot) {
+                                        nextMap[draggedClaudeSlot] = "";
+                                      }
+                                      void persistClaudeCodeModelMap(nextMap);
+                                    }
                                   }
-                                  void persistClaudeCodeModelMap(nextMap);
-                                }
-                              }
-                              resetClaudeDragState();
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className={fieldLabelClass}>{label}</p>
-                                <p className={`${metaClass} mt-1.5`}>
-                                  {assignedModelID
-                                    ? t("providers.detail.claudeSlot.ready")
-                                    : t("providers.detail.claudeSlot.dropHint")}
-                                </p>
-                              </div>
-                              {assignedModelID ? (
-                                <button
-                                  type="button"
-                                  className={buttonClass("ghost")}
-                                  onClick={() => clearClaudeSlot(slot)}
-                                >
-                                  {t("providers.detail.claudeSlot.clear")}
-                                </button>
-                              ) : null}
-                            </div>
-
-                            <div className="mt-4 rounded-[18px] border border-dashed p-4">
-                              {assignedModelID ? (
-                                <div
-                                  className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
-                                  draggable
-                                  onDragStart={() => {
-                                    setDraggedProviderModelId(null);
-                                    setDraggedClaudeSlot(slot);
-                                  }}
-                                  onDragEnd={() => {
-                                    resetClaudeDragState();
-                                  }}
-                                >
-                                  <span className={iconBadgeClass}>
-                                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                      <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
-                                    </svg>
-                                  </span>
-                                  <div className="min-w-0">
-                                    <p className={monoClass}>{assignedModelID}</p>
+                                  resetClaudeDragState();
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className={fieldLabelClass}>{label}</p>
                                     <p className={`${metaClass} mt-1.5`}>
-                                      {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                      {assignedModelID
+                                        ? t("providers.detail.claudeSlot.ready")
+                                        : t("providers.detail.claudeSlot.dropHint")}
                                     </p>
                                   </div>
-                                  <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
-                                    :::
-                                  </span>
+                                  {assignedModelID ? (
+                                    <button
+                                      type="button"
+                                      className={buttonClass("ghost")}
+                                      onClick={() => clearClaudeSlot(slot)}
+                                    >
+                                      {t("providers.detail.claudeSlot.clear")}
+                                    </button>
+                                  ) : null}
                                 </div>
-                              ) : (
-                                <div className="py-3 text-center">
-                                  <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+
+                                <div className="mt-4 rounded-[18px] border border-dashed p-4">
+                                  {assignedModelID ? (
+                                    <div
+                                      className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
+                                      draggable
+                                      onDragStart={() => {
+                                        setDraggedProviderModelId(null);
+                                        setDraggedClaudeSlot(slot);
+                                      }}
+                                      onDragEnd={() => {
+                                        resetClaudeDragState();
+                                      }}
+                                    >
+                                      <span className={iconBadgeClass}>
+                                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                          <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                        </svg>
+                                      </span>
+                                      <div className="min-w-0">
+                                        <p className={monoClass}>{assignedModelID}</p>
+                                        <p className={`${metaClass} mt-1.5`}>
+                                          {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                        </p>
+                                      </div>
+                                      <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                        :::
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="py-3 text-center">
+                                      <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </section>
               </div>
             </div>

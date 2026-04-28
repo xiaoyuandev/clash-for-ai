@@ -64,6 +64,8 @@ export const messages = {
     "providers.feedback.activated": "{name} activated.",
     "providers.feedback.healthcheck": "{status} {code} in {latency}ms",
     "providers.feedback.claudeSlotsSaved": "Claude Code model slots saved for this provider.",
+    "providers.feedback.systemProviderLocked":
+      "This local gateway provider is system-managed and cannot be edited or deleted here.",
     "providers.list.title": "Provider List",
     "providers.list.configured": "{count} configured",
     "providers.list.empty": "No providers configured yet.",
@@ -94,6 +96,8 @@ export const messages = {
       "This is the local gateway provider. The models shown here come from the self-managed model source list.",
     "providers.detail.localGatewayModelsEmpty":
       "No model sources have been added to the local gateway yet.",
+    "providers.detail.localGatewayClaudeHint":
+      "Claude model slot mapping for the local gateway will be reconnected after the self-hosted gateway data flow fully replaces the old provider model flow.",
     "providers.detail.capabilities": "Capabilities",
     "providers.detail.capability.models": "models",
     "providers.detail.capability.balance": "balance",
@@ -404,6 +408,8 @@ export const messages = {
     "providers.feedback.activated": "{name} 已激活。",
     "providers.feedback.healthcheck": "{status} {code}，耗时 {latency}ms",
     "providers.feedback.claudeSlotsSaved": "当前供应商的 Claude Code 模型槽位已保存。",
+    "providers.feedback.systemProviderLocked":
+      "本地 gateway provider 由系统管理，不能在这里编辑或删除。",
     "providers.list.title": "供应商列表",
     "providers.list.configured": "已配置 {count} 个",
     "providers.list.empty": "还没有配置任何供应商。",
@@ -434,6 +440,8 @@ export const messages = {
       "这是本地 gateway provider。这里展示的模型来自自维护的模型来源列表。",
     "providers.detail.localGatewayModelsEmpty":
       "本地 gateway 还没有添加任何模型来源。",
+    "providers.detail.localGatewayClaudeHint":
+      "等自研 gateway 的数据流完全替换旧 provider model 流程后，这里的 Claude 槽位映射会重新接回。",
     "providers.detail.capabilities": "能力",
     "providers.detail.capability.models": "模型",
     "providers.detail.capability.balance": "余额",
