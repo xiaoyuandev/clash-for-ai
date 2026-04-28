@@ -6,13 +6,16 @@ import {
   createProvider,
   deleteProvider,
   getHealth,
+  getModelSources,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
   updateProvider
 } from "../services/api";
+import type { ModelSource } from "../types/model-source";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
+import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
 import {
   buttonClass,
   columnCardClass,
@@ -50,6 +53,21 @@ interface ProvidersPageProps {
   onSelectedProviderChange: (provider: Provider | null) => void;
 }
 
+function decorateProviders(items: Provider[], apiBase?: string): Provider[] {
+  const localProvider = buildLocalGatewayProvider(apiBase);
+  if (!localProvider) {
+    return items;
+  }
+
+  return [localProvider, ...items.map((provider) => ({
+    ...provider,
+    status: {
+      ...provider.status,
+      is_active: false
+    }
+  }))];
+}
+
 export function ProvidersPage({
   desktopState,
   apiBase,
@@ -59,6 +77,7 @@ export function ProvidersPage({
   const { t } = useI18n();
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [modelSources, setModelSources] = useState<ModelSource[]>([]);
   const [providerModels, setProviderModels] = useState<ProviderModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
@@ -158,11 +177,12 @@ export function ProvidersPage({
         }
 
         setHealth(healthData.status);
-        setProviders(providersData);
+        const decoratedProviders = decorateProviders(providersData, apiBase);
+        setProviders(decoratedProviders);
         const nextSelected =
-          providersData.find((provider) => provider.id === selectedProviderId) ??
-          providersData.find((provider) => provider.status.is_active) ??
-          providersData[0] ??
+          decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
+          decoratedProviders.find((provider) => provider.status.is_active) ??
+          decoratedProviders[0] ??
           null;
         onSelectedProviderChange(nextSelected);
       } catch (loadError) {
@@ -187,7 +207,39 @@ export function ProvidersPage({
 
     async function loadProviderModels() {
       if (!selectedProvider) {
+        setModelSources([]);
         setProviderModels([]);
+        return;
+      }
+
+      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+        setLoadingModels(true);
+        try {
+          const items = await getModelSources(apiBase);
+          if (cancelled) {
+            return;
+          }
+          setModelSources(items);
+          setProviderModels(
+            items
+              .filter((item) => item.enabled)
+              .map((item) => ({
+                id: item.default_model_id,
+                object: "model_source",
+                owned_by: item.provider_type || item.name
+              }))
+          );
+        } catch (loadError) {
+          if (!cancelled) {
+            setModelSources([]);
+            setProviderModels([]);
+            setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingModels(false);
+          }
+        }
         return;
       }
 
@@ -197,6 +249,7 @@ export function ProvidersPage({
         if (cancelled) {
           return;
         }
+        setModelSources([]);
         setProviderModels(items);
       } catch (loadError) {
         if (!cancelled) {
@@ -233,12 +286,13 @@ export function ProvidersPage({
 
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
-    setProviders(providersData);
+    const decoratedProviders = decorateProviders(providersData, apiBase);
+    setProviders(decoratedProviders);
     const nextSelected =
-      providersData.find((provider) => provider.id === preferredProviderId) ??
-      providersData.find((provider) => provider.id === selectedProviderId) ??
-      providersData.find((provider) => provider.status.is_active) ??
-      providersData[0] ??
+      decoratedProviders.find((provider) => provider.id === preferredProviderId) ??
+      decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
+      decoratedProviders.find((provider) => provider.status.is_active) ??
+      decoratedProviders[0] ??
       null;
     onSelectedProviderChange(nextSelected);
   }
@@ -529,6 +583,10 @@ export function ProvidersPage({
                         <span className={statusPillClass("success")}>
                           {t("providers.status.active")}
                         </span>
+                      ) : provider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
+                        <span className={statusPillClass("default")}>
+                          {t("providers.status.system")}
+                        </span>
                       ) : (
                         <button
                           type="button"
@@ -564,6 +622,7 @@ export function ProvidersPage({
                             onSelectedProviderChange(provider);
                             startEditing(provider);
                           }}
+                          disabled={provider.id === LOCAL_GATEWAY_PROVIDER_ID}
                         >
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
@@ -598,6 +657,7 @@ export function ProvidersPage({
                           onClick={() => {
                             void handleDeleteProvider(provider.id);
                           }}
+                          disabled={provider.id === LOCAL_GATEWAY_PROVIDER_ID}
                         >
                           <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
@@ -647,7 +707,9 @@ export function ProvidersPage({
                         <p className={sectionMetaClass}>
                           {loadingModels
                             ? t("common.loading")
-                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                            : selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
+                              ? t("providers.detail.localGatewayModelsMeta")
+                              : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
                     </div>
@@ -667,7 +729,13 @@ export function ProvidersPage({
                     {filteredModels.length === 0 ? (
                       <div className="mt-4 min-h-0 flex-1">
                         <div className={emptyStateClass}>
-                          <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
+                          <p>
+                            {loadingModels
+                              ? t("common.loading")
+                              : selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
+                                ? t("providers.detail.localGatewayModelsEmpty")
+                                : t("providers.detail.modelsEmpty")}
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -696,6 +764,16 @@ export function ProvidersPage({
                                 <p className={`${metaClass} mt-1.5`}>
                                   {model.owned_by ?? t("models.available.ownerUnknown")}
                                 </p>
+                                {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
+                                  <>
+                                    <p className={`${metaClass} mt-1`}>
+                                      {modelSources.find((source) => source.default_model_id === model.id)?.name ?? "-"}
+                                    </p>
+                                    <p className={`${metaClass} mt-1`}>
+                                      {modelSources.find((source) => source.default_model_id === model.id)?.base_url ?? "-"}
+                                    </p>
+                                  </>
+                                ) : null}
                               </div>
                               <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
                                 :::

@@ -69,6 +69,7 @@ export const messages = {
     "providers.list.empty": "No providers configured yet.",
     "providers.status.active": "active",
     "providers.status.standby": "inactive",
+    "providers.status.system": "system",
     "providers.detail.title": "Providers / {name}",
     "providers.detail.fallbackTitle": "Providers",
     "providers.detail.inspectHint": "Select a provider to inspect its supported models and provider actions.",
@@ -89,6 +90,10 @@ export const messages = {
     "providers.detail.claudeSlot.clear": "Clear",
     "providers.detail.modelsCount": "{count} supported",
     "providers.detail.modelsEmpty": "No supported models found for this provider.",
+    "providers.detail.localGatewayModelsMeta":
+      "This is the local gateway provider. The models shown here come from the self-managed model source list.",
+    "providers.detail.localGatewayModelsEmpty":
+      "No model sources have been added to the local gateway yet.",
     "providers.detail.capabilities": "Capabilities",
     "providers.detail.capability.models": "models",
     "providers.detail.capability.balance": "balance",
@@ -404,6 +409,7 @@ export const messages = {
     "providers.list.empty": "还没有配置任何供应商。",
     "providers.status.active": "已启用",
     "providers.status.standby": "未启用",
+    "providers.status.system": "系统",
     "providers.detail.title": "供应商 / {name}",
     "providers.detail.fallbackTitle": "供应商",
     "providers.detail.inspectHint": "选择一个供应商，查看它支持哪些模型以及可执行的供应商操作。",
@@ -424,6 +430,10 @@ export const messages = {
     "providers.detail.claudeSlot.clear": "清空",
     "providers.detail.modelsCount": "支持 {count} 个模型",
     "providers.detail.modelsEmpty": "当前供应商没有返回可用模型。",
+    "providers.detail.localGatewayModelsMeta":
+      "这是本地 gateway provider。这里展示的模型来自自维护的模型来源列表。",
+    "providers.detail.localGatewayModelsEmpty":
+      "本地 gateway 还没有添加任何模型来源。",
     "providers.detail.capabilities": "能力",
     "providers.detail.capability.models": "模型",
     "providers.detail.capability.balance": "余额",
