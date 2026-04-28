@@ -12,6 +12,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
+	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
@@ -36,7 +37,8 @@ func Run() error {
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	healthService := health.NewService(providerService, credentialStore)
-	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
+	localGatewayExecutor := localgatewayexecutor.New(nil)
+	gatewayHandler := gateway.NewHandler(providerService, localGatewayExecutor, credentialStore, logService)
 
 	handler := api.NewRouter(providerService, healthService, logService, gatewayHandler)
 

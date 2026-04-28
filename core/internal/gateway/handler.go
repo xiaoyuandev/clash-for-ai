@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
+	dispatcher "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/inbound/dispatcher"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
@@ -24,17 +26,19 @@ type ActiveProviderResolver interface {
 
 type Handler struct {
 	providers    ActiveProviderResolver
+	executor     localgateway.Service
 	credentials  credential.Store
 	logs         *logging.Service
 	client       *http.Client
 	streamClient *http.Client
 }
 
-func NewHandler(providers ActiveProviderResolver, credentials credential.Store, logs *logging.Service) *Handler {
+func NewHandler(providers ActiveProviderResolver, executor localgateway.Service, credentials credential.Store, logs *logging.Service) *Handler {
 	transport := http.DefaultTransport
 
 	return &Handler{
 		providers:   providers,
+		executor:    executor,
 		credentials: credentials,
 		logs:        logs,
 		client: &http.Client{
@@ -118,18 +122,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attempts, model := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
-	result := h.forwardWithFallback(r.Context(), forwardInput{
-		baseURL:        baseURL,
-		activeProvider: *activeProvider,
-		apiKey:         apiKey,
-		originalHeader: r.Header,
-		method:         r.Method,
-		path:           r.URL.Path,
-		rawQuery:       r.URL.RawQuery,
-		isStream:       isStreamingRequest(r, body),
-		attempts:       attempts,
-	})
+	result, model := h.forwardThroughLocalGateway(r.Context(), r, body, *activeProvider, apiKey, baseURL, selectedModels)
 
 	if result.networkError != nil {
 		statusCode := http.StatusBadGateway
@@ -170,6 +163,92 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage: result.errorMessage,
 		ErrorSnippet: result.errorSnippet,
 	})
+}
+
+func (h *Handler) forwardThroughLocalGateway(
+	ctx context.Context,
+	r *http.Request,
+	body []byte,
+	activeProvider provider.Provider,
+	apiKey string,
+	baseURL *url.URL,
+	selectedModels []provider.SelectedModel,
+) (forwardResult, *string) {
+	request, err := dispatcher.ParseRequest(r, body)
+	if err != nil {
+		return h.forwardWithFallback(ctx, forwardInput{
+			baseURL:        baseURL,
+			activeProvider: activeProvider,
+			apiKey:         apiKey,
+			originalHeader: r.Header,
+			method:         r.Method,
+			path:           r.URL.Path,
+			rawQuery:       r.URL.RawQuery,
+			isStream:       isStreamingRequest(r, body),
+			attempts:       []attemptSpec{{model: nil, body: body}},
+		}), nil
+	}
+
+	attempts, model := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
+	for index, attempt := range attempts {
+		currentRequest := request
+		currentRequest.Body = attempt.body
+		if attempt.model != nil {
+			currentRequest.Model = *attempt.model
+		}
+		currentRequest.Stream = isStreamingRequest(r, attempt.body)
+
+		source := localgateway.ModelSource{
+			ID:             activeProvider.ID,
+			Name:           activeProvider.Name,
+			BaseURL:        activeProvider.BaseURL,
+			APIKey:         apiKey,
+			ProviderType:   inferProviderTypeForRequest(currentRequest),
+			DefaultModelID: currentRequest.Model,
+			Enabled:        true,
+		}
+
+		response, err := h.executor.Handle(ctx, currentRequest, source)
+		if err != nil {
+			if index < len(attempts)-1 {
+				continue
+			}
+			return forwardResult{networkError: err, finalModel: attempt.model}, model
+		}
+
+		result := forwardResult{
+			statusCode:  response.StatusCode,
+			header:      http.Header(response.Headers),
+			body:        response.Body,
+			firstByteAt: time.Now(),
+			finalModel:  attempt.model,
+		}
+
+		if response.StatusCode < 400 {
+			return result, model
+		}
+
+		message := strings.TrimSpace(string(response.Body))
+		if message != "" {
+			result.errorMessage = &message
+			result.errorSnippet = &message
+		}
+
+		if !isRetryableStatus(response.StatusCode) || index == len(attempts)-1 {
+			return result, model
+		}
+	}
+
+	return forwardResult{}, model
+}
+
+func inferProviderTypeForRequest(request localgateway.Request) string {
+	switch request.Protocol {
+	case localgateway.InboundAnthropic:
+		return "anthropic-compatible"
+	default:
+		return "openai-compatible"
+	}
 }
 
 func joinURLPath(basePath string, requestPath string) string {
