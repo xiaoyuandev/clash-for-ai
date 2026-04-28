@@ -30,7 +30,7 @@ export function buildLocalGatewayProvider(apiBase?: string): Provider | null {
       opus: "",
       sonnet: "",
       haiku: ""
-    }
+    },
+    is_system: true
   };
 }
-
