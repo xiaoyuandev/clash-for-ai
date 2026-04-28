@@ -12,20 +12,23 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
 type Router struct {
 	providers *provider.Service
 	models    *modelsource.Service
+	settings  *settings.Service
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, modelSources *modelsource.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, modelSources *modelsource.Service, settingsService *settings.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
 		models:    modelSources,
+		settings:  settingsService,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -38,6 +41,7 @@ func NewRouter(providers *provider.Service, modelSources *modelsource.Service, h
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.HandleFunc("/api/model-sources", router.handleModelSources)
 	mux.HandleFunc("/api/model-sources/", router.handleModelSourceActions)
+	mux.HandleFunc("/api/settings/local-gateway-selected-models", router.handleLocalGatewaySelectedModels)
 	mux.Handle("/v1/", router.gateway)
 
 	return withCORS(mux)
@@ -178,6 +182,32 @@ func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Reque
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleLocalGatewaySelectedModels(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.settings.GetLocalGatewaySelectedModels(req.Context())
+		if err != nil {
+			http.Error(w, "failed to list local gateway selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPut:
+		var input []settings.SelectedModel
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		items, err := r.settings.UpdateLocalGatewaySelectedModels(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to update local gateway selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

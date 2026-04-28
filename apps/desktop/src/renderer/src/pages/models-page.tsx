@@ -2,10 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
+  createModelSource,
+  deleteModelSource,
   getModelSources,
+  getLocalGatewaySelectedModels,
   getProviderModels,
   getProviders,
   getSelectedProviderModels,
+  updateLocalGatewaySelectedModels,
+  updateModelSource,
+  updateModelSourceOrder,
   updateSelectedProviderModels
 } from "../services/api";
 import type { ModelSource } from "../types/model-source";
@@ -13,11 +19,13 @@ import type { Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
 import type { SelectedModel } from "../types/selected-model";
 import {
+  actionRowClass,
   buttonClass,
   columnCardClass,
   compactStatGridClass,
   emptyStateClass,
   eyebrowClass,
+  fieldLabelClass,
   heroClass,
   heroContentClass,
   heroCopyClass,
@@ -26,8 +34,11 @@ import {
   iconBadgeClass,
   iconButtonClass,
   inputClass,
+  labelClass,
   metricNumberClass,
   metaClass,
+  modalBackdropClass,
+  modalPanelClass,
   monoClass,
   pageShellClass,
   queueItemClass,
@@ -39,11 +50,27 @@ import {
   statusPillClass,
   stickySearchClass
 } from "../ui";
+import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
 
 interface ModelsPageProps {
   apiBase?: string;
   selectedProvider: Provider | null;
   onSelectedProviderChange: (provider: Provider | null) => void;
+}
+
+function decorateProviders(items: Provider[], apiBase?: string): Provider[] {
+  const localProvider = buildLocalGatewayProvider(apiBase);
+  if (!localProvider) {
+    return items;
+  }
+
+  return [localProvider, ...items.map((provider) => ({
+    ...provider,
+    status: {
+      ...provider.status,
+      is_active: false
+    }
+  }))];
 }
 
 export function ModelsPage({
@@ -63,6 +90,16 @@ export function ModelsPage({
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [search, setSearch] = useState("");
   const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
+  const [modelSourceFormOpen, setModelSourceFormOpen] = useState(false);
+  const [editingModelSourceId, setEditingModelSourceId] = useState<string | null>(null);
+  const [modelSourceForm, setModelSourceForm] = useState({
+    name: "",
+    base_url: "",
+    provider_type: "openai-compatible",
+    default_model_id: "",
+    enabled: true,
+    api_key: ""
+  });
   const activeProvider = providers.find((provider) => provider.status.is_active) ?? null;
   const [leftPaneWidth, setLeftPaneWidth] = useState(48);
 
@@ -76,10 +113,12 @@ export function ModelsPage({
           return;
         }
 
-        setProviders(items);
+        const decoratedProviders = decorateProviders(items, apiBase);
+        setProviders(decoratedProviders);
         onSelectedProviderChange(
-          items.find((provider) => provider.status.is_active) ??
-            items.find((provider) => provider.id === selectedProvider?.id) ??
+          decoratedProviders.find((provider) => provider.status.is_active) ??
+            decoratedProviders.find((provider) => provider.id === selectedProvider?.id) ??
+            decoratedProviders[0] ??
             null
         );
       } catch (loadError) {
@@ -110,10 +149,10 @@ export function ModelsPage({
 
       setLoading(true);
       try {
-        if (activeProvider.name === "Clash Local Gateway") {
+        if (activeProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
           const [sources, selected] = await Promise.all([
             getModelSources(apiBase),
-            getSelectedProviderModels(activeProvider.id, apiBase)
+            getLocalGatewaySelectedModels(apiBase)
           ]);
 
           if (cancelled) {
@@ -168,6 +207,7 @@ export function ModelsPage({
   }, [activeProvider, apiBase, t]);
 
   const selectedModelIds = new Set(selectedModels.map((item) => item.model_id));
+  const isLocalGatewayProvider = activeProvider?.id === LOCAL_GATEWAY_PROVIDER_ID;
 
   const filteredAvailableModels = useMemo(() => {
     return availableModels.filter((model) => {
@@ -226,7 +266,9 @@ export function ModelsPage({
     setError(null);
 
     try {
-      const saved = await updateSelectedProviderModels(activeProvider.id, nextItems, apiBase);
+      const saved = isLocalGatewayProvider
+        ? await updateLocalGatewaySelectedModels(nextItems, apiBase)
+        : await updateSelectedProviderModels(activeProvider.id, nextItems, apiBase);
       setSelectedModels(saved);
       setFeedback(successMessage);
     } catch (saveError) {
@@ -293,6 +335,128 @@ export function ModelsPage({
     window.addEventListener("pointerup", onUp);
   }
 
+  async function reloadModelSources() {
+    const [sources, selected] = await Promise.all([
+      getModelSources(apiBase),
+      getLocalGatewaySelectedModels(apiBase)
+    ]);
+    setModelSources(sources);
+    setAvailableModels(
+      sources
+        .filter((source) => source.enabled)
+        .map((source) => ({
+          id: source.default_model_id,
+          object: "model_source",
+          owned_by: source.provider_type || source.name
+        }))
+    );
+    setSelectedModels(selected);
+  }
+
+  function resetModelSourceForm() {
+    setModelSourceForm({
+      name: "",
+      base_url: "",
+      provider_type: "openai-compatible",
+      default_model_id: "",
+      enabled: true,
+      api_key: ""
+    });
+    setEditingModelSourceId(null);
+    setModelSourceFormOpen(false);
+  }
+
+  async function handleSaveModelSource() {
+    setSaving(true);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      if (editingModelSourceId) {
+        await updateModelSource(editingModelSourceId, modelSourceForm, apiBase);
+      } else {
+        await createModelSource(modelSourceForm, apiBase);
+      }
+      await reloadModelSources();
+      resetModelSourceForm();
+      setFeedback(editingModelSourceId ? t("models.feedback.orderUpdated") : t("models.feedback.orderUpdated"));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteModelSource(id: string) {
+    setSaving(true);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const target = modelSources.find((source) => source.id === id);
+      await deleteModelSource(id, apiBase);
+      if (target) {
+        await updateLocalGatewaySelectedModels(
+          selectedModels
+            .filter((item) => item.model_id !== target.default_model_id)
+            .map((item, index) => ({ ...item, position: index })),
+          apiBase
+        );
+      }
+      await reloadModelSources();
+      setFeedback(t("models.feedback.removed"));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("common.unknownError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEditModelSource(source: ModelSource) {
+    setEditingModelSourceId(source.id);
+    setModelSourceForm({
+      name: source.name,
+      base_url: source.base_url,
+      provider_type: source.provider_type,
+      default_model_id: source.default_model_id,
+      enabled: source.enabled,
+      api_key: source.api_key
+    });
+    setModelSourceFormOpen(true);
+  }
+
+  async function moveModelSource(targetModelID: string) {
+    const current = [...modelSources].filter((source) => source.enabled);
+    const dragged = current.find((source) => source.default_model_id === draggedModelId);
+    const toIndex = current.findIndex((source) => source.default_model_id === targetModelID);
+    const fromIndex = current.findIndex((source) => source.default_model_id === draggedModelId);
+    if (!dragged || fromIndex < 0 || toIndex < 0) {
+      return;
+    }
+    current.splice(fromIndex, 1)
+    current.splice(toIndex, 0, dragged)
+
+    setSaving(true)
+    setFeedback(null)
+    setError(null)
+
+    try {
+      const reordered = await updateModelSourceOrder(
+        current.map((source, index) => ({ ...source, position: index })),
+        apiBase
+      )
+      const currentByID = new Map(reordered.map((source) => [source.id, source]))
+      setModelSources((previous) =>
+        previous.map((source) => currentByID.get(source.id) ?? source)
+      )
+      setFeedback(t("models.feedback.orderUpdated"))
+    } catch (moveError) {
+      setError(moveError instanceof Error ? moveError.message : t("common.unknownError"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <main className={pageShellClass}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
@@ -305,6 +469,15 @@ export function ModelsPage({
           <p className={heroCopyClass}>{t("models.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {isLocalGatewayProvider ? (
+            <button
+              type="button"
+              className={buttonClass("primary")}
+              onClick={() => setModelSourceFormOpen(true)}
+            >
+              {t("providers.form.addTitle")}
+            </button>
+          ) : null}
           <span className={statusPillClass(activeProvider ? "success" : "default")}>
             {activeProvider
               ? t("models.section.title", { name: activeProvider.name })
@@ -379,7 +552,9 @@ export function ModelsPage({
               <section className={columnCardClass}>
                 <div className={sectionHeadClass}>
                   <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
+                    <h3 className={sectionTitleClass}>
+                      {isLocalGatewayProvider ? t("models.available.addedTitle") : t("models.available.title")}
+                    </h3>
                     <p className={sectionMetaClass}>{filteredAvailableModels.length}</p>
                   </div>
                 </div>
@@ -415,18 +590,55 @@ export function ModelsPage({
                   ) : (
                     filteredAvailableModels.map((model) => (
                       <article key={model.id} className={queueItemClass}>
-                        <button
-                          type="button"
-                          className={`${iconButtonClass} absolute right-2.5 top-2.5 min-h-8 min-w-8 rounded-lg`}
-                          aria-label={t("models.available.add", { id: model.id })}
-                          title={t("models.available.add", { id: model.id })}
-                          onClick={() => addModel(model.id)}
-                        >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M11 5h2v14h-2z" />
-                            <path d="M5 11h14v2H5z" />
-                          </svg>
-                        </button>
+                        {isLocalGatewayProvider ? (
+                          <div className="absolute right-2.5 top-2.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
+                              aria-label={t("common.edit")}
+                              title={t("common.edit")}
+                              onClick={() => {
+                                const target = modelSources.find((source) => source.default_model_id === model.id)
+                                if (target) {
+                                  startEditModelSource(target)
+                                }
+                              }}
+                            >
+                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
+                              aria-label={t("common.delete")}
+                              title={t("common.delete")}
+                              onClick={() => {
+                                const target = modelSources.find((source) => source.default_model_id === model.id)
+                                if (target) {
+                                  void handleDeleteModelSource(target.id)
+                                }
+                              }}
+                            >
+                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`${iconButtonClass} absolute right-2.5 top-2.5 min-h-8 min-w-8 rounded-lg`}
+                            aria-label={t("models.available.add", { id: model.id })}
+                            title={t("models.available.add", { id: model.id })}
+                            onClick={() => addModel(model.id)}
+                          >
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M11 5h2v14h-2z" />
+                              <path d="M5 11h14v2H5z" />
+                            </svg>
+                          </button>
+                        )}
                         <div className="flex items-start gap-2.5 pr-10">
                           <span className={`${iconBadgeClass} mt-0.5`}>
                             <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
@@ -438,7 +650,7 @@ export function ModelsPage({
                             <p className={`${metaClass} mt-1.5`}>
                               {model.owned_by ?? t("models.available.ownerUnknown")}
                             </p>
-                            {activeProvider?.name === "Clash Local Gateway" ? (
+                            {isLocalGatewayProvider ? (
                               <>
                                 <p className={`${metaClass} mt-1`}>
                                   {
@@ -481,7 +693,7 @@ export function ModelsPage({
                 </div>
                 <p className={`${metaClass} mt-3`}>{t("models.fallback.subtitle")}</p>
 
-                <div className={`${scrollListClass} mt-3`}>
+                <div className={`${scrollListClass} content-start auto-rows-max mt-3`}>
                   {selectedModelDetails.length === 0 ? (
                     <div className={emptyStateClass}>
                       <p>{t("models.fallback.empty")}</p>
@@ -499,7 +711,11 @@ export function ModelsPage({
                           event.preventDefault();
                         }}
                         onDrop={() => {
-                          moveModel(item.model_id);
+                          if (isLocalGatewayProvider) {
+                            void moveModelSource(item.model_id)
+                          } else {
+                            moveModel(item.model_id)
+                          }
                         }}
                       >
                         <div className="flex items-start gap-3">
@@ -540,6 +756,114 @@ export function ModelsPage({
           </>
         )}
       </section>
+
+      {isLocalGatewayProvider && modelSourceFormOpen ? (
+        <div className={modalBackdropClass} role="presentation" onClick={resetModelSourceForm}>
+          <section
+            className={`${modalPanelClass} max-w-3xl`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("providers.form.addTitle")}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={sectionHeadClass}>
+              <div className="space-y-1">
+                <h2 className={sectionTitleClass}>
+                  {editingModelSourceId ? t("providers.form.editTitle") : t("providers.form.addTitle")}
+                </h2>
+                <p className={sectionMetaClass}>{t("models.subtitle")}</p>
+              </div>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={resetModelSourceForm}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("providers.form.name")}</span>
+                <input
+                  className={inputClass}
+                  value={modelSourceForm.name}
+                  onChange={(event) =>
+                    setModelSourceForm((current) => ({ ...current, name: event.target.value }))
+                  }
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("providers.form.baseUrl")}</span>
+                <input
+                  className={inputClass}
+                  value={modelSourceForm.base_url}
+                  onChange={(event) =>
+                    setModelSourceForm((current) => ({ ...current, base_url: event.target.value }))
+                  }
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("models.available.title")}</span>
+                <input
+                  className={inputClass}
+                  value={modelSourceForm.default_model_id}
+                  onChange={(event) =>
+                    setModelSourceForm((current) => ({
+                      ...current,
+                      default_model_id: event.target.value
+                    }))
+                  }
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("providers.form.apiKey")}</span>
+                <input
+                  className={inputClass}
+                  value={modelSourceForm.api_key}
+                  onChange={(event) =>
+                    setModelSourceForm((current) => ({ ...current, api_key: event.target.value }))
+                  }
+                />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("settings.guide.field.providerType")}</span>
+                <select
+                  className={inputClass}
+                  value={modelSourceForm.provider_type}
+                  onChange={(event) =>
+                    setModelSourceForm((current) => ({
+                      ...current,
+                      provider_type: event.target.value
+                    }))
+                  }
+                >
+                  <option value="openai-compatible">OpenAI Compatible</option>
+                  <option value="anthropic-compatible">Anthropic Compatible</option>
+                  <option value="gemini-compatible">Gemini Compatible</option>
+                </select>
+              </label>
+            </div>
+            <div className={`${actionRowClass} mt-4`}>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => void handleSaveModelSource()}
+                disabled={saving}
+              >
+                {saving ? t("common.saving") : editingModelSourceId ? t("providers.form.save") : t("providers.form.create")}
+              </button>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={resetModelSourceForm}
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

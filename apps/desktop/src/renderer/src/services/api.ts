@@ -290,3 +290,30 @@ export async function updateModelSourceOrder(
     "Update model source order failed"
   );
 }
+
+export async function getLocalGatewaySelectedModels(
+  apiBase?: string
+): Promise<SelectedModel[]> {
+  return fetchJson<SelectedModel[]>(
+    `${getApiBase(apiBase)}/api/settings/local-gateway-selected-models`,
+    {},
+    "Local gateway selected models request failed"
+  );
+}
+
+export async function updateLocalGatewaySelectedModels(
+  items: SelectedModel[],
+  apiBase?: string
+): Promise<SelectedModel[]> {
+  return fetchJson<SelectedModel[]>(
+    `${getApiBase(apiBase)}/api/settings/local-gateway-selected-models`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(items)
+    },
+    "Update local gateway selected models failed"
+  );
+}

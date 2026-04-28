@@ -16,6 +16,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
 )
 
@@ -35,15 +36,17 @@ func Run() error {
 
 	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
+	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
 	logRepository := logging.NewSQLiteRepository(sqliteStore.DB)
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
+	settingsService := settings.NewService(settingsRepository)
 	healthService := health.NewService(providerService, credentialStore)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 	gatewayHandler := gateway.NewHandler(providerService, localGatewayExecutor, credentialStore, logService)
 
-	handler := api.NewRouter(providerService, modelSourceService, healthService, logService, gatewayHandler)
+	handler := api.NewRouter(providerService, modelSourceService, settingsService, healthService, logService, gatewayHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),

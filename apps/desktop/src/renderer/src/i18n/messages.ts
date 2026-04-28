@@ -105,6 +105,7 @@ export const messages = {
     "models.empty.noActiveProvider":
       "Activate a provider first. This page only shows the current enabled provider.",
     "models.available.title": "Supported Models",
+    "models.available.addedTitle": "Added Models",
     "models.available.searchPlaceholder": "model id...",
     "models.available.empty": "No more models to add.",
     "models.available.ownerUnknown": "unknown owner",
@@ -437,6 +438,7 @@ export const messages = {
     "models.section.state.selected": "已选择 {count} 个",
     "models.empty.noActiveProvider": "请先激活一个供应商。此页面只显示当前启用的供应商。",
     "models.available.title": "支持的模型",
+    "models.available.addedTitle": "已添加模型",
     "models.available.searchPlaceholder": "模型 ID...",
     "models.available.empty": "没有更多可添加的模型了。",
     "models.available.ownerUnknown": "未知提供方",
