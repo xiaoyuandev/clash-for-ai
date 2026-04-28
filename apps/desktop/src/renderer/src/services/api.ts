@@ -1,3 +1,4 @@
+import type { ModelSource, ModelSourceInput } from "../types/model-source";
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
@@ -217,5 +218,75 @@ export async function updateSelectedProviderModels(
       body: JSON.stringify(items)
     },
     "Update selected models failed"
+  );
+}
+
+export async function getModelSources(apiBase?: string): Promise<ModelSource[]> {
+  return fetchJson<ModelSource[]>(
+    `${getApiBase(apiBase)}/api/model-sources`,
+    {},
+    "Model sources request failed"
+  );
+}
+
+export async function createModelSource(
+  input: ModelSourceInput,
+  apiBase?: string
+): Promise<ModelSource> {
+  return fetchJson<ModelSource>(
+    `${getApiBase(apiBase)}/api/model-sources`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Create model source failed"
+  );
+}
+
+export async function updateModelSource(
+  id: string,
+  input: ModelSourceInput,
+  apiBase?: string
+): Promise<ModelSource> {
+  return fetchJson<ModelSource>(
+    `${getApiBase(apiBase)}/api/model-sources/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update model source failed"
+  );
+}
+
+export async function deleteModelSource(id: string, apiBase?: string): Promise<void> {
+  return fetchVoid(
+    `${getApiBase(apiBase)}/api/model-sources/${id}`,
+    {
+      method: "DELETE"
+    },
+    "Delete model source failed"
+  );
+}
+
+export async function updateModelSourceOrder(
+  items: ModelSource[],
+  apiBase?: string
+): Promise<ModelSource[]> {
+  return fetchJson<ModelSource[]>(
+    `${getApiBase(apiBase)}/api/model-sources/order`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(items)
+    },
+    "Update model source order failed"
   );
 }

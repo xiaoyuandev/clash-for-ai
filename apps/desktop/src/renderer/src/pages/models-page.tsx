@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
+  getModelSources,
   getProviderModels,
   getProviders,
   getSelectedProviderModels,
   updateSelectedProviderModels
 } from "../services/api";
+import type { ModelSource } from "../types/model-source";
 import type { Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
 import type { SelectedModel } from "../types/selected-model";
@@ -51,6 +53,7 @@ export function ModelsPage({
 }: ModelsPageProps) {
   const { t } = useI18n();
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [modelSources, setModelSources] = useState<ModelSource[]>([]);
   const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
   const [selectedModels, setSelectedModels] = useState<SelectedModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +101,7 @@ export function ModelsPage({
 
     async function loadModels() {
       if (!activeProvider) {
+        setModelSources([]);
         setAvailableModels([]);
         setSelectedModels([]);
         setLoading(false);
@@ -106,6 +110,32 @@ export function ModelsPage({
 
       setLoading(true);
       try {
+        if (activeProvider.name === "Clash Local Gateway") {
+          const [sources, selected] = await Promise.all([
+            getModelSources(apiBase),
+            getSelectedProviderModels(activeProvider.id, apiBase)
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          setModelSources(sources);
+          setAvailableModels(
+            sources
+              .filter((source) => source.enabled)
+              .map((source) => ({
+                id: source.default_model_id,
+                object: "model_source",
+                owned_by: source.provider_type || source.name
+              }))
+          );
+          setSelectedModels(selected);
+          setError(null);
+          setLoading(false);
+          return
+        }
+
         const [available, selected] = await Promise.all([
           getProviderModels(activeProvider.id, apiBase),
           getSelectedProviderModels(activeProvider.id, apiBase)
@@ -115,6 +145,7 @@ export function ModelsPage({
           return;
         }
 
+        setModelSources([]);
         setAvailableModels(available);
         setSelectedModels(selected);
         setError(null);
@@ -407,6 +438,22 @@ export function ModelsPage({
                             <p className={`${metaClass} mt-1.5`}>
                               {model.owned_by ?? t("models.available.ownerUnknown")}
                             </p>
+                            {activeProvider?.name === "Clash Local Gateway" ? (
+                              <>
+                                <p className={`${metaClass} mt-1`}>
+                                  {
+                                    modelSources.find((source) => source.default_model_id === model.id)?.name ??
+                                    "-"
+                                  }
+                                </p>
+                                <p className={`${metaClass} mt-1`}>
+                                  {
+                                    modelSources.find((source) => source.default_model_id === model.id)?.base_url ??
+                                    "-"
+                                  }
+                                </p>
+                              </>
+                            ) : null}
                           </div>
                         </div>
                       </article>
