@@ -138,6 +138,31 @@ CREATE TABLE IF NOT EXISTS app_settings (
 		return fmt.Errorf("migrate app_settings table: %w", err)
 	}
 
+	const modelSourcesTable = `
+CREATE TABLE IF NOT EXISTS model_sources (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	base_url TEXT NOT NULL,
+	provider_type TEXT NOT NULL,
+	default_model_id TEXT NOT NULL,
+	enabled INTEGER NOT NULL DEFAULT 1,
+	position INTEGER NOT NULL DEFAULT 0,
+	api_key_ref TEXT NOT NULL,
+	api_key_masked TEXT NOT NULL DEFAULT ''
+);`
+
+	if _, err := s.DB.Exec(modelSourcesTable); err != nil {
+		return fmt.Errorf("migrate model_sources table: %w", err)
+	}
+
+	const modelSourcesIndex = `
+CREATE INDEX IF NOT EXISTS idx_model_sources_position
+ON model_sources (position ASC, name ASC);`
+
+	if _, err := s.DB.Exec(modelSourcesIndex); err != nil {
+		return fmt.Errorf("migrate model_sources index: %w", err)
+	}
+
 	return nil
 }
 
