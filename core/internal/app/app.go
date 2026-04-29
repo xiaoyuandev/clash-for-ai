@@ -45,12 +45,26 @@ func Run() error {
 	providerService := provider.NewService(providerRepository, credentialStore)
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
+	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
+	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
 	currentSettings, err := settingsService.Get(context.Background())
 	if err != nil {
 		return err
 	}
 
-	localRuntimeAdapter, err := resolveLocalRuntimeAdapter(cfg.DataDir, currentSettings.LocalGateway)
+	runtimeDataDir := resolveLocalRuntimeDataDir(cfg.DataDir)
+	if err := prepareLocalRuntimeState(
+		context.Background(),
+		runtimeDataDir,
+		modelSourceService,
+		settingsService,
+		providerService,
+		currentSettings,
+	); err != nil {
+		return err
+	}
+
+	localRuntimeAdapter, err := resolveLocalRuntimeAdapter(runtimeDataDir, currentSettings.LocalGateway)
 	if err != nil {
 		return err
 	}
@@ -119,10 +133,8 @@ func RunLocalGatewayRuntime() error {
 		return err
 	}
 
-	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
 	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
-	providerService := provider.NewService(providerRepository, credentialStore)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
@@ -134,7 +146,6 @@ func RunLocalGatewayRuntime() error {
 	localSettings := resolveRuntimeLocalGatewaySettings(currentSettings.LocalGateway)
 
 	handler := gateway.NewLocalRuntimeHandler(
-		providerService,
 		modelSourceService,
 		settingsService,
 		localGatewayExecutor,
@@ -178,33 +189,6 @@ func initializeLocalGatewayProvider(
 		needsSettingsCleanup = true
 	}
 
-	selectedModels, err := providers.ListSelectedModels(ctx, provider.LocalGatewayProviderID)
-	if err != nil {
-		return err
-	}
-
-	if len(currentSettings.LocalGatewaySelected) == 0 && len(selectedModels) > 0 {
-		items := make([]settings.SelectedModel, 0, len(selectedModels))
-		for _, item := range selectedModels {
-			modelID := strings.TrimSpace(item.ModelID)
-			if modelID == "" {
-				continue
-			}
-			items = append(items, settings.SelectedModel{
-				ModelID:  modelID,
-				Position: item.Position,
-			})
-		}
-
-		if _, err := settingsService.UpdateLocalGatewaySelectedModels(ctx, items); err != nil {
-			return err
-		}
-
-		if _, err := providers.ReplaceSelectedModels(ctx, provider.LocalGatewayProviderID, nil); err != nil {
-			return err
-		}
-	}
-
 	if needsSettingsCleanup {
 		if _, err := settingsService.Save(ctx, currentSettings); err != nil {
 			return err
@@ -237,7 +221,7 @@ func buildLocalGatewayProviderCapabilities(input gatewayadapter.RuntimeCapabilit
 }
 
 func resolveLocalRuntimeAdapter(
-	dataDir string,
+	runtimeDataDir string,
 	localSettings settings.LocalGatewaySettings,
 ) (gatewayadapter.LocalRuntimeAdapter, error) {
 	if externalBaseURL := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_BASE_URL")); externalBaseURL != "" {
@@ -249,7 +233,7 @@ func resolveLocalRuntimeAdapter(
 		return nil, err
 	}
 
-	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, executablePath, dataDir), nil
+	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, executablePath, runtimeDataDir), nil
 }
 
 func resolveRuntimeLocalGatewaySettings(input settings.LocalGatewaySettings) settings.LocalGatewaySettings {
@@ -277,4 +261,114 @@ func resolveRuntimeLocalGatewaySettings(input settings.LocalGatewaySettings) set
 
 func localGatewayListenAddr(input settings.LocalGatewaySettings) string {
 	return fmt.Sprintf("%s:%d", strings.TrimSpace(input.ListenHost), input.ListenPort)
+}
+
+func resolveLocalRuntimeDataDir(coreDataDir string) string {
+	return filepath.Join(coreDataDir, "local-gateway-runtime")
+}
+
+func prepareLocalRuntimeState(
+	ctx context.Context,
+	runtimeDataDir string,
+	coreModelSources *modelsource.Service,
+	coreSettings *settings.Service,
+	providers *provider.Service,
+	currentSettings settings.AppSettings,
+) error {
+	runtimeStore, err := storage.NewSQLite(filepath.Join(runtimeDataDir, "clash-for-ai.db"))
+	if err != nil {
+		return err
+	}
+	defer runtimeStore.Close()
+
+	runtimeCredentialStore, err := credential.NewFileStore(filepath.Join(runtimeDataDir, "credentials.json"))
+	if err != nil {
+		return err
+	}
+
+	runtimeModelSourceRepository := modelsource.NewSQLiteRepository(runtimeStore.DB)
+	runtimeSettingsRepository := settings.NewSQLiteRepository(runtimeStore.DB)
+	runtimeModelSources := modelsource.NewService(runtimeModelSourceRepository, runtimeCredentialStore)
+	runtimeSettings := settings.NewService(runtimeSettingsRepository)
+
+	runtimeSources, err := runtimeModelSources.List(ctx)
+	if err != nil {
+		return err
+	}
+	migratedSources := false
+	if len(runtimeSources) == 0 {
+		coreSources, listErr := coreModelSources.List(ctx)
+		if listErr != nil {
+			return listErr
+		}
+		for _, item := range coreSources {
+			if _, createErr := runtimeModelSources.Create(ctx, modelsource.CreateInput{
+				Name:           item.Name,
+				BaseURL:        item.BaseURL,
+				ProviderType:   item.ProviderType,
+				DefaultModelID: item.DefaultModelID,
+				Enabled:        item.Enabled,
+				APIKey:         item.APIKey,
+			}); createErr != nil {
+				return createErr
+			}
+		}
+		migratedSources = len(coreSources) > 0
+	}
+
+	runtimeSelected, err := runtimeSettings.GetLocalGatewaySelectedModels(ctx)
+	if err != nil {
+		return err
+	}
+	migratedSelected := false
+	if len(runtimeSelected) == 0 {
+		legacySelected := currentSettings.LocalGatewaySelected
+		if len(legacySelected) == 0 {
+			providerSelected, listErr := providers.ListSelectedModels(ctx, provider.LocalGatewayProviderID)
+			if listErr != nil {
+				return listErr
+			}
+			legacySelected = make([]settings.SelectedModel, 0, len(providerSelected))
+			for _, item := range providerSelected {
+				legacySelected = append(legacySelected, settings.SelectedModel{
+					ModelID:  item.ModelID,
+					Position: item.Position,
+				})
+			}
+		}
+
+		if len(legacySelected) > 0 {
+			if _, updateErr := runtimeSettings.UpdateLocalGatewaySelectedModels(ctx, legacySelected); updateErr != nil {
+				return updateErr
+			}
+			migratedSelected = true
+		}
+	}
+
+	if migratedSources {
+		coreSources, listErr := coreModelSources.List(ctx)
+		if listErr != nil {
+			return listErr
+		}
+		for _, item := range coreSources {
+			if deleteErr := coreModelSources.Delete(ctx, item.ID); deleteErr != nil {
+				return deleteErr
+			}
+		}
+	}
+
+	if migratedSelected && len(currentSettings.LocalGatewaySelected) > 0 {
+		currentSettings.LocalGatewaySelected = []settings.SelectedModel{}
+		if _, saveErr := coreSettings.Save(ctx, currentSettings); saveErr != nil {
+			return saveErr
+		}
+	}
+
+	if migratedSelected {
+		if _, replaceErr := providers.ReplaceSelectedModels(ctx, provider.LocalGatewayProviderID, nil); replaceErr != nil {
+			return replaceErr
+		}
+	}
+
+	return nil
 }

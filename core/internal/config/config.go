@@ -37,7 +37,9 @@ func Load() AppConfig {
 	}
 
 	dataDir := "./data"
-	if value := os.Getenv("CORE_DATA_DIR"); value != "" {
+	if value := os.Getenv("LOCAL_GATEWAY_RUNTIME_DATA_DIR"); value != "" {
+		dataDir = value
+	} else if value := os.Getenv("CORE_DATA_DIR"); value != "" {
 		dataDir = value
 	}
 

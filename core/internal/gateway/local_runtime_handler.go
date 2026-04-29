@@ -16,13 +16,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
-type LocalRuntimeProviderResolver interface {
-	GetByID(ctx context.Context, id string) (*provider.Provider, error)
-	ListSelectedModels(ctx context.Context, id string) ([]provider.SelectedModel, error)
-}
-
 type LocalRuntimeHandler struct {
-	providers    LocalRuntimeProviderResolver
 	modelSources ModelSourceResolver
 	selected     LocalRuntimeSelectedModelStore
 	executor     localgateway.Service
@@ -34,13 +28,11 @@ type LocalRuntimeSelectedModelStore interface {
 }
 
 func NewLocalRuntimeHandler(
-	providers LocalRuntimeProviderResolver,
 	modelSources ModelSourceResolver,
 	selected LocalRuntimeSelectedModelStore,
 	executor localgateway.Service,
 ) http.Handler {
 	handler := &LocalRuntimeHandler{
-		providers:    providers,
 		modelSources: modelSources,
 		selected:     selected,
 		executor:     executor,
@@ -76,16 +68,6 @@ func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activeProvider, err := h.providers.GetByID(r.Context(), provider.LocalGatewayProviderID)
-	if err != nil {
-		http.Error(w, "failed to resolve local gateway provider", http.StatusInternalServerError)
-		return
-	}
-	if activeProvider == nil {
-		http.Error(w, "local gateway provider unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
 	sources, err := h.modelSources.List(r.Context())
 	if err != nil {
 		http.Error(w, "failed to list local model sources", http.StatusInternalServerError)
@@ -114,7 +96,7 @@ func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attempts, _ := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
+	attempts, _ := buildSelectedModelAttempts(r, body, selectedModels)
 	for index, attempt := range attempts {
 		currentRequest := request
 		currentRequest.Body = attempt.body
@@ -412,6 +394,48 @@ func (h *LocalRuntimeHandler) listSelectedModels(ctx context.Context) ([]provide
 		})
 	}
 	return result, nil
+}
+
+func buildSelectedModelAttempts(
+	r *http.Request,
+	body []byte,
+	selected []provider.SelectedModel,
+) ([]attemptSpec, *string) {
+	currentModel, payload := extractModelFromBody(body)
+	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
+		return []attemptSpec{{model: currentModel, body: body}}, currentModel
+	}
+
+	orderedModels := make([]string, 0, len(selected))
+	for _, item := range selected {
+		orderedModels = append(orderedModels, item.ModelID)
+	}
+
+	startIndex := 0
+	if currentModel != nil {
+		found := -1
+		for index, modelID := range orderedModels {
+			if modelID == *currentModel {
+				found = index
+				break
+			}
+		}
+		if found < 0 {
+			return []attemptSpec{{model: currentModel, body: body}}, currentModel
+		}
+		startIndex = found
+	}
+
+	attempts := make([]attemptSpec, 0, len(orderedModels)-startIndex)
+	for _, modelID := range orderedModels[startIndex:] {
+		attemptModel := modelID
+		attempts = append(attempts, attemptSpec{
+			model: &attemptModel,
+			body:  bodyWithModel(payload, modelID, body),
+		})
+	}
+
+	return attempts, currentModel
 }
 
 func (h *LocalRuntimeHandler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
