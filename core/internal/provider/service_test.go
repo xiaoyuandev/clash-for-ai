@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
@@ -15,6 +18,12 @@ type stubModelSourceReader struct {
 
 func (r stubModelSourceReader) List(context.Context) ([]modelsource.Source, error) {
 	return r.items, nil
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestEnsureSystemLocalGatewayCreatesImmutableProvider(t *testing.T) {
@@ -63,45 +72,29 @@ func TestUpdateAndDeleteRejectImmutableProvider(t *testing.T) {
 	}
 }
 
-func TestFetchModelsForSystemLocalGatewayUsesEnabledModelSources(t *testing.T) {
+func TestFetchModelsForSystemLocalGatewayUsesRuntimeEndpoint(t *testing.T) {
 	service := NewService(
 		NewInMemoryRepository(),
 		credential.NewInMemoryStore(),
-		stubModelSourceReader{
-			items: []modelsource.Source{
-				{
-					ID:             "source-1",
-					Name:           "OpenAI",
-					ProviderType:   "openai-compatible",
-					DefaultModelID: "gpt-4.1",
-					Enabled:        true,
-				},
-				{
-					ID:             "source-2",
-					Name:           "Anthropic",
-					ProviderType:   "anthropic-compatible",
-					DefaultModelID: "claude-sonnet-4",
-					Enabled:        true,
-				},
-				{
-					ID:             "source-3",
-					Name:           "Duplicate",
-					ProviderType:   "openai-compatible",
-					DefaultModelID: "gpt-4.1",
-					Enabled:        true,
-				},
-				{
-					ID:             "source-4",
-					Name:           "Disabled",
-					ProviderType:   "openai-compatible",
-					DefaultModelID: "gpt-disabled",
-					Enabled:        false,
-				},
-			},
-		},
+		stubModelSourceReader{},
 	)
+	service.client = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.String() != "http://127.0.0.1:8788/v1/models" {
+				t.Fatalf("unexpected request url: %s", req.URL.String())
+			}
 
-	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:3456"); err != nil {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"gpt-4.1","owned_by":"openai-compatible"},{"id":"claude-sonnet-4","owned_by":"anthropic-compatible"}]}`)),
+			}, nil
+		}),
+	}
+
+	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:8788"); err != nil {
 		t.Fatalf("EnsureSystemLocalGateway returned error: %v", err)
 	}
 

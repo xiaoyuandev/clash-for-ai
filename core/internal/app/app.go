@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -45,14 +47,36 @@ func Run() error {
 	settingsService := settings.NewService(settingsRepository)
 	healthService := health.NewService(providerService, credentialStore)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
+	currentSettings, err := settingsService.Get(context.Background())
+	if err != nil {
+		return err
+	}
 
-	if err := initializeLocalGatewayProvider(context.Background(), providerService, settingsService, cfg.GatewayBind, cfg.HTTPPort); err != nil {
+	localGatewayBaseURL := buildLocalGatewayBaseURL(
+		currentSettings.LocalGateway.ListenHost,
+		currentSettings.LocalGateway.ListenPort,
+	)
+	if currentSettings.LocalGateway.Enabled {
+		if err := startLocalGatewayRuntime(
+			currentSettings.LocalGateway,
+			gateway.NewLocalRuntimeHandler(providerService, modelSourceService, localGatewayExecutor),
+		); err != nil {
+			return err
+		}
+	}
+
+	if err := initializeLocalGatewayProvider(
+		context.Background(),
+		providerService,
+		settingsService,
+		currentSettings,
+		localGatewayBaseURL,
+	); err != nil {
 		return err
 	}
 
 	gatewayHandler := gateway.NewHandler(
 		providerService,
-		modelSourceService,
 		localGatewayExecutor,
 		credentialStore,
 		logService,
@@ -75,15 +99,10 @@ func initializeLocalGatewayProvider(
 	ctx context.Context,
 	providers *provider.Service,
 	settingsService *settings.Service,
-	bindHost string,
-	port int,
+	currentSettings settings.AppSettings,
+	baseURL string,
 ) error {
-	localProvider, err := providers.EnsureSystemLocalGateway(ctx, buildLocalGatewayBaseURL(bindHost, port))
-	if err != nil {
-		return err
-	}
-
-	currentSettings, err := settingsService.Get(ctx)
+	localProvider, err := providers.EnsureSystemLocalGateway(ctx, baseURL)
 	if err != nil {
 		return err
 	}
@@ -135,6 +154,42 @@ func initializeLocalGatewayProvider(
 	}
 
 	return nil
+}
+
+func startLocalGatewayRuntime(
+	localSettings settings.LocalGatewaySettings,
+	handler http.Handler,
+) error {
+	listenHost := resolveLocalGatewayListenHost(localSettings.ListenHost)
+	addr := fmt.Sprintf("%s:%d", listenHost, localSettings.ListenPort)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("start local gateway runtime listener: %w", err)
+	}
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: handler,
+		BaseContext: func(net.Listener) context.Context {
+			return context.Background()
+		},
+	}
+
+	go func() {
+		if serveErr := server.Serve(listener); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			log.Printf("local gateway runtime exited: %v", serveErr)
+		}
+	}()
+
+	return nil
+}
+
+func resolveLocalGatewayListenHost(host string) string {
+	trimmed := strings.TrimSpace(host)
+	if trimmed == "" {
+		return "127.0.0.1"
+	}
+	return trimmed
 }
 
 func buildLocalGatewayBaseURL(bindHost string, port int) string {

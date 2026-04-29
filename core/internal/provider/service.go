@@ -439,9 +439,6 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	if item.IsSystem && item.ID == LocalGatewayProviderID {
-		return s.fetchSystemLocalGatewayModels(ctx)
-	}
 
 	baseURL, err := url.Parse(item.BaseURL)
 	if err != nil {
@@ -510,19 +507,6 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	}
 
 	return nil, fmt.Errorf("models response format not recognized")
-}
-
-func (s *Service) fetchSystemLocalGatewayModels(ctx context.Context) ([]ModelInfo, error) {
-	if s.models == nil {
-		return []ModelInfo{}, nil
-	}
-
-	sources, err := s.models.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return BuildSystemLocalGatewayModelInfo(sources), nil
 }
 
 func BuildSystemLocalGatewayModelInfo(sources []modelsource.Source) []ModelInfo {

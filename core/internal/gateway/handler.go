@@ -31,7 +31,6 @@ type ModelSourceResolver interface {
 
 type Handler struct {
 	providers    ActiveProviderResolver
-	modelSources ModelSourceResolver
 	executor     localgateway.Service
 	credentials  credential.Store
 	logs         *logging.Service
@@ -41,7 +40,6 @@ type Handler struct {
 
 func NewHandler(
 	providers ActiveProviderResolver,
-	modelSources ModelSourceResolver,
 	executor localgateway.Service,
 	credentials credential.Store,
 	logs *logging.Service,
@@ -49,11 +47,10 @@ func NewHandler(
 	transport := http.DefaultTransport
 
 	return &Handler{
-		providers:    providers,
-		modelSources: modelSources,
-		executor:     executor,
-		credentials:  credentials,
-		logs:         logs,
+		providers:   providers,
+		executor:    executor,
+		credentials: credentials,
+		logs:        logs,
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   120 * time.Second,
@@ -105,53 +102,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if activeProvider.ID == provider.LocalGatewayProviderID {
-		selectedModels, selectedErr := h.providers.ListSelectedModels(r.Context(), activeProvider.ID)
-		if selectedErr != nil {
-			http.Error(w, "failed to load selected models", http.StatusInternalServerError)
-			return
-		}
-
-		result, model := h.forwardViaLocalSystemGateway(r.Context(), r, body, *activeProvider, selectedModels)
-		if result.networkError != nil {
-			statusCode := http.StatusBadGateway
-			message := result.networkError.Error()
-			snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, message)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(statusCode)
-			_, _ = w.Write([]byte(snippet))
-			h.recordLog(r.Context(), logging.Entry{
-				ProviderID:   activeProvider.ID,
-				ProviderName: activeProvider.Name,
-				Method:       r.Method,
-				Path:         r.URL.Path,
-				Model:        result.finalModel,
-				StatusCode:   &statusCode,
-				IsStream:     isStreamingRequest(r, body),
-				LatencyMs:    time.Since(startedAt).Milliseconds(),
-				ErrorMessage: &message,
-				ErrorSnippet: &snippet,
-			})
-			return
-		}
-
-		writeResponse(w, result)
-		h.recordLog(r.Context(), logging.Entry{
-			ProviderID:   activeProvider.ID,
-			ProviderName: activeProvider.Name,
-			Method:       r.Method,
-			Path:         r.URL.Path,
-			Model:        chooseLogModel(result.finalModel, model),
-			StatusCode:   intPtr(result.statusCode),
-			IsStream:     isStreamingRequest(r, body),
-			LatencyMs:    time.Since(startedAt).Milliseconds(),
-			FirstByteMs:  result.firstByteMsPtr(startedAt),
-			ErrorMessage: result.errorMessage,
-			ErrorSnippet: result.errorSnippet,
-		})
-		return
-	}
-
 	baseURL, err := url.Parse(activeProvider.BaseURL)
 	if err != nil {
 		http.Error(w, "invalid provider base_url", http.StatusBadGateway)
@@ -177,6 +127,61 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+	}
+
+	if activeProvider.ID == provider.LocalGatewayProviderID {
+		currentModel, _ := extractModelFromBody(body)
+		result := h.forwardWithFallback(r.Context(), forwardInput{
+			baseURL:        baseURL,
+			activeProvider: *activeProvider,
+			apiKey:         apiKey,
+			originalHeader: r.Header,
+			method:         r.Method,
+			path:           r.URL.Path,
+			rawQuery:       r.URL.RawQuery,
+			isStream:       isStreamingRequest(r, body),
+			attempts:       []attemptSpec{{model: currentModel, body: body}},
+			preservePath:   true,
+		})
+		if result.networkError != nil {
+			statusCode := http.StatusBadGateway
+			message := result.networkError.Error()
+			snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, message)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+			_, _ = w.Write([]byte(snippet))
+			h.recordLog(r.Context(), logging.Entry{
+				ProviderID:   activeProvider.ID,
+				ProviderName: activeProvider.Name,
+				Method:       r.Method,
+				Path:         r.URL.Path,
+				Model:        result.finalModel,
+				StatusCode:   &statusCode,
+				IsStream:     isStreamingRequest(r, body),
+				UpstreamHost: baseURL.Host,
+				LatencyMs:    time.Since(startedAt).Milliseconds(),
+				ErrorMessage: &message,
+				ErrorSnippet: &snippet,
+			})
+			return
+		}
+
+		writeResponse(w, result)
+		h.recordLog(r.Context(), logging.Entry{
+			ProviderID:   activeProvider.ID,
+			ProviderName: activeProvider.Name,
+			Method:       r.Method,
+			Path:         r.URL.Path,
+			Model:        chooseLogModel(result.finalModel, currentModel),
+			StatusCode:   intPtr(result.statusCode),
+			IsStream:     isStreamingRequest(r, body),
+			UpstreamHost: baseURL.Host,
+			LatencyMs:    time.Since(startedAt).Milliseconds(),
+			FirstByteMs:  result.firstByteMsPtr(startedAt),
+			ErrorMessage: result.errorMessage,
+			ErrorSnippet: result.errorSnippet,
+		})
+		return
 	}
 
 	selectedModels, err := h.providers.ListSelectedModels(r.Context(), activeProvider.ID)
@@ -226,161 +231,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage: result.errorMessage,
 		ErrorSnippet: result.errorSnippet,
 	})
-}
-
-func (h *Handler) forwardViaLocalSystemGateway(
-	ctx context.Context,
-	r *http.Request,
-	body []byte,
-	activeProvider provider.Provider,
-	selectedModels []provider.SelectedModel,
-) (forwardResult, *string) {
-	sources, err := h.modelSources.List(ctx)
-	if err != nil {
-		return forwardResult{networkError: err}, nil
-	}
-
-	request, err := dispatcher.ParseRequest(r, body)
-	if err != nil {
-		return forwardResult{networkError: err}, nil
-	}
-
-	if request.Operation == localgateway.OperationModels {
-		return buildLocalModelsResponse(sources), nil
-	}
-
-	if len(sources) == 0 {
-		return forwardResult{networkError: fmt.Errorf("no enabled model source available")}, nil
-	}
-
-	attempts, model := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
-	for index, attempt := range attempts {
-		currentRequest := request
-		currentRequest.Body = attempt.body
-		if attempt.model != nil {
-			currentRequest.Model = *attempt.model
-		}
-		currentRequest.Stream = isStreamingRequest(r, attempt.body)
-
-		source := chooseModelSource(sources, currentRequest.Model, selectedModels)
-		if source == nil {
-			return forwardResult{networkError: fmt.Errorf("no enabled model source available")}, model
-		}
-
-		response, err := h.executor.Handle(ctx, currentRequest, *source)
-		if err != nil {
-			if index < len(attempts)-1 {
-				continue
-			}
-			return forwardResult{networkError: err, finalModel: attempt.model}, model
-		}
-
-		result := forwardResult{
-			statusCode:  response.StatusCode,
-			header:      http.Header(response.Headers),
-			body:        response.Body,
-			firstByteAt: time.Now(),
-			finalModel:  attempt.model,
-		}
-
-		if response.StatusCode < 400 {
-			return result, model
-		}
-
-		message := strings.TrimSpace(string(response.Body))
-		if message != "" {
-			result.errorMessage = &message
-			result.errorSnippet = &message
-		}
-
-		if !isRetryableStatus(response.StatusCode) || index == len(attempts)-1 {
-			return result, model
-		}
-	}
-
-	return forwardResult{}, model
-}
-
-func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
-	models := provider.BuildSystemLocalGatewayModelInfo(sources)
-	payload := map[string]any{
-		"data": models,
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return forwardResult{networkError: err}
-	}
-
-	return forwardResult{
-		statusCode:  http.StatusOK,
-		header:      http.Header{"Content-Type": []string{"application/json"}},
-		body:        body,
-		firstByteAt: time.Now(),
-	}
-}
-
-func chooseModelSource(
-	sources []modelsource.Source,
-	requestModel string,
-	selected []provider.SelectedModel,
-) *localgateway.ModelSource {
-	byModelID := make(map[string]modelsource.Source, len(sources))
-	var firstEnabled *modelsource.Source
-	for _, source := range sources {
-		if !source.Enabled {
-			continue
-		}
-		byModelID[source.DefaultModelID] = source
-		if firstEnabled == nil {
-			next := source
-			firstEnabled = &next
-		}
-	}
-
-	if source, ok := byModelID[requestModel]; ok {
-		next := source
-		return &localgateway.ModelSource{
-			ID:             next.ID,
-			Name:           next.Name,
-			BaseURL:        next.BaseURL,
-			APIKey:         next.APIKey,
-			ProviderType:   next.ProviderType,
-			DefaultModelID: next.DefaultModelID,
-			Enabled:        next.Enabled,
-		}
-	}
-
-	for _, item := range selected {
-		source, ok := byModelID[item.ModelID]
-		if !ok {
-			continue
-		}
-		next := source
-		return &localgateway.ModelSource{
-			ID:             next.ID,
-			Name:           next.Name,
-			BaseURL:        next.BaseURL,
-			APIKey:         next.APIKey,
-			ProviderType:   next.ProviderType,
-			DefaultModelID: next.DefaultModelID,
-			Enabled:        next.Enabled,
-		}
-	}
-
-	if firstEnabled == nil {
-		return nil
-	}
-
-	return &localgateway.ModelSource{
-		ID:             firstEnabled.ID,
-		Name:           firstEnabled.Name,
-		BaseURL:        firstEnabled.BaseURL,
-		APIKey:         firstEnabled.APIKey,
-		ProviderType:   firstEnabled.ProviderType,
-		DefaultModelID: firstEnabled.DefaultModelID,
-		Enabled:        firstEnabled.Enabled,
-	}
 }
 
 func (h *Handler) forwardThroughLocalGateway(
@@ -509,6 +359,7 @@ type forwardInput struct {
 	rawQuery       string
 	isStream       bool
 	attempts       []attemptSpec
+	preservePath   bool
 }
 
 type forwardResult struct {
@@ -708,9 +559,12 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 
 	for index, attempt := range input.attempts {
 		reqURL := *input.baseURL
-		if input.path == "/v1/models" {
+		switch {
+		case input.preservePath:
+			reqURL.Path = joinURLPath(input.baseURL.Path, input.path)
+		case input.path == "/v1/models":
 			reqURL.Path = provider.ResolveModelsPath(input.baseURL.Path)
-		} else {
+		default:
 			reqURL.Path = joinURLPath(input.baseURL.Path, strings.TrimPrefix(input.path, "/v1"))
 		}
 		reqURL.RawPath = reqURL.Path
