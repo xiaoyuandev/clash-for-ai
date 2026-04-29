@@ -29,6 +29,11 @@ func NormalizeSettings(input AppSettings) AppSettings {
 	settings := input
 	defaults := DefaultSettings()
 
+	if !settings.LocalGateway.Enabled &&
+		strings.TrimSpace(settings.LocalGateway.ListenHost) == "" &&
+		settings.LocalGateway.ListenPort == 0 {
+		settings.LocalGateway.Enabled = defaults.LocalGateway.Enabled
+	}
 	if strings.TrimSpace(settings.LocalGateway.ListenHost) == "" {
 		settings.LocalGateway.ListenHost = defaults.LocalGateway.ListenHost
 	}

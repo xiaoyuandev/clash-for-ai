@@ -44,7 +44,14 @@ func Run() error {
 	settingsService := settings.NewService(settingsRepository)
 	healthService := health.NewService(providerService, credentialStore)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
-	gatewayHandler := gateway.NewHandler(providerService, localGatewayExecutor, credentialStore, logService)
+	gatewayHandler := gateway.NewHandler(
+		providerService,
+		modelSourceService,
+		settingsService,
+		localGatewayExecutor,
+		credentialStore,
+		logService,
+	)
 
 	handler := api.NewRouter(providerService, modelSourceService, settingsService, healthService, logService, gatewayHandler)
 
