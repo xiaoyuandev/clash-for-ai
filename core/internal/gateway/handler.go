@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
 	dispatcher "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/inbound/dispatcher"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
@@ -33,6 +34,7 @@ type Handler struct {
 	providers    ActiveProviderResolver
 	executor     localgateway.Service
 	credentials  credential.Store
+	localRuntime gatewayadapter.RuntimeAdapter
 	logs         *logging.Service
 	client       *http.Client
 	streamClient *http.Client
@@ -42,15 +44,17 @@ func NewHandler(
 	providers ActiveProviderResolver,
 	executor localgateway.Service,
 	credentials credential.Store,
+	localRuntime gatewayadapter.RuntimeAdapter,
 	logs *logging.Service,
 ) *Handler {
 	transport := http.DefaultTransport
 
 	return &Handler{
-		providers:   providers,
-		executor:    executor,
-		credentials: credentials,
-		logs:        logs,
+		providers:    providers,
+		executor:     executor,
+		credentials:  credentials,
+		localRuntime: localRuntime,
+		logs:         logs,
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   120 * time.Second,
@@ -130,6 +134,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if activeProvider.ID == provider.LocalGatewayProviderID {
+		if h.localRuntime != nil {
+			if healthErr := h.localRuntime.EnsureReady(r.Context()); healthErr != nil {
+				http.Error(w, "failed to prepare local gateway runtime", http.StatusBadGateway)
+				return
+			}
+		}
+
 		currentModel, _ := extractModelFromBody(body)
 		result := h.forwardWithFallback(r.Context(), forwardInput{
 			baseURL:        baseURL,

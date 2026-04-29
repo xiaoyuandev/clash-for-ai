@@ -31,10 +31,42 @@ type RuntimeCapabilities struct {
 	SupportsSelectedModelAdmin  bool
 }
 
+func (c RuntimeCapabilities) MissingRequiredCapabilities() []string {
+	missing := make([]string, 0, 4)
+	if !c.SupportsOpenAICompatible {
+		missing = append(missing, "openai-compatible")
+	}
+	if !c.SupportsAnthropicCompatible {
+		missing = append(missing, "anthropic-compatible")
+	}
+	if !c.SupportsModelsAPI {
+		missing = append(missing, "models-api")
+	}
+	if !c.SupportsStream {
+		missing = append(missing, "stream")
+	}
+	return missing
+}
+
+func (c RuntimeCapabilities) MissingOptionalCapabilities() []string {
+	missing := make([]string, 0, 3)
+	if !c.SupportsAdminAPI {
+		missing = append(missing, "admin-api")
+	}
+	if !c.SupportsModelSourceAdmin {
+		missing = append(missing, "model-source-admin")
+	}
+	if !c.SupportsSelectedModelAdmin {
+		missing = append(missing, "selected-model-admin")
+	}
+	return missing
+}
+
 type RuntimeAdapter interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	Discover(ctx context.Context) (RuntimeInfo, error)
+	EnsureReady(ctx context.Context) error
 	CheckHealth(ctx context.Context) (RuntimeHealth, error)
 	Capabilities(ctx context.Context) (RuntimeCapabilities, error)
 }

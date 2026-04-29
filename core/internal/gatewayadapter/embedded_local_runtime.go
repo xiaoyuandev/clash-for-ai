@@ -1,13 +1,14 @@
 package gatewayadapter
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,81 +19,85 @@ import (
 )
 
 type EmbeddedLocalRuntimeAdapter struct {
-	baseURL    string
-	listenAddr string
-	handler    http.Handler
-	client     *http.Client
+	baseURL      string
+	listenAddr   string
+	executable   string
+	dataDir      string
+	client       *http.Client
+	capabilities RuntimeCapabilities
 
 	mu        sync.Mutex
-	startOnce sync.Once
-	startErr  error
-	server    *http.Server
-	listener  net.Listener
+	process   *exec.Cmd
+	startedAt time.Time
 }
 
 func NewEmbeddedLocalRuntimeAdapter(
 	localSettings settings.LocalGatewaySettings,
-	handler http.Handler,
+	executable string,
+	dataDir string,
 ) *EmbeddedLocalRuntimeAdapter {
 	listenHost := resolveListenHost(localSettings.ListenHost)
-	listenAddr := fmt.Sprintf("%s:%d", listenHost, localSettings.ListenPort)
+	listenPort := localSettings.ListenPort
+	if listenPort <= 0 {
+		listenPort = 8788
+	}
 
 	return &EmbeddedLocalRuntimeAdapter{
-		baseURL:    fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), localSettings.ListenPort),
-		listenAddr: listenAddr,
-		handler:    handler,
+		baseURL:    fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), listenPort),
+		listenAddr: fmt.Sprintf("%s:%d", listenHost, listenPort),
+		executable: executable,
+		dataDir:    dataDir,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
+		},
+		capabilities: RuntimeCapabilities{
+			SupportsOpenAICompatible:    true,
+			SupportsAnthropicCompatible: true,
+			SupportsModelsAPI:           true,
+			SupportsStream:              true,
+			SupportsAdminAPI:            true,
+			SupportsModelSourceAdmin:    true,
+			SupportsSelectedModelAdmin:  true,
 		},
 	}
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) Start(_ context.Context) error {
-	a.startOnce.Do(func() {
-		listener, err := net.Listen("tcp", a.listenAddr)
-		if err != nil {
-			a.startErr = fmt.Errorf("start local gateway runtime listener: %w", err)
-			return
-		}
-
-		server := &http.Server{
-			Addr:    a.listenAddr,
-			Handler: a.handler,
-			BaseContext: func(net.Listener) context.Context {
-				return context.Background()
-			},
-		}
-		a.mu.Lock()
-		a.server = server
-		a.listener = listener
-		a.mu.Unlock()
-
-		go func() {
-			_ = server.Serve(listener)
-		}()
-	})
-
-	return a.startErr
-}
-
-func (a *EmbeddedLocalRuntimeAdapter) Stop(ctx context.Context) error {
+func (a *EmbeddedLocalRuntimeAdapter) Start(ctx context.Context) error {
 	a.mu.Lock()
-	server := a.server
-	listener := a.listener
+	running := a.process != nil && a.process.Process != nil && a.process.ProcessState == nil
 	a.mu.Unlock()
 
-	if server == nil {
+	if running {
+		if err := a.waitForHealth(ctx, 2, 150*time.Millisecond); err == nil {
+			return nil
+		}
+	}
+
+	if err := a.startProcess(); err != nil {
+		return err
+	}
+
+	return a.waitForHealth(ctx, 20, 250*time.Millisecond)
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) Stop(_ context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.process == nil || a.process.Process == nil {
 		return nil
 	}
 
-	err := server.Shutdown(ctx)
-	if listener != nil {
-		_ = listener.Close()
-	}
+	err := a.process.Process.Kill()
+	a.process = nil
 	return err
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) Discover(_ context.Context) (RuntimeInfo, error) {
+func (a *EmbeddedLocalRuntimeAdapter) Discover(ctx context.Context) (RuntimeInfo, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return RuntimeInfo{}, err
+	}
+
 	return RuntimeInfo{
 		BaseURL:    a.baseURL,
 		ListenAddr: a.listenAddr,
@@ -101,7 +106,15 @@ func (a *EmbeddedLocalRuntimeAdapter) Discover(_ context.Context) (RuntimeInfo, 
 	}, nil
 }
 
+func (a *EmbeddedLocalRuntimeAdapter) EnsureReady(ctx context.Context) error {
+	return a.Start(ctx)
+}
+
 func (a *EmbeddedLocalRuntimeAdapter) CheckHealth(ctx context.Context) (RuntimeHealth, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return RuntimeHealth{}, err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/health", nil)
 	if err != nil {
 		return RuntimeHealth{}, err
@@ -137,115 +150,120 @@ func (a *EmbeddedLocalRuntimeAdapter) CheckHealth(ctx context.Context) (RuntimeH
 }
 
 func (a *EmbeddedLocalRuntimeAdapter) Capabilities(context.Context) (RuntimeCapabilities, error) {
-	return RuntimeCapabilities{
-		SupportsOpenAICompatible:    true,
-		SupportsAnthropicCompatible: true,
-		SupportsModelsAPI:           true,
-		SupportsStream:              true,
-		SupportsAdminAPI:            true,
-		SupportsModelSourceAdmin:    true,
-		SupportsSelectedModelAdmin:  true,
-	}, nil
+	return a.capabilities, nil
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ListModelSources(ctx context.Context) ([]modelsource.Source, error) {
-	var items []modelsource.Source
-	if err := a.fetchJSON(ctx, http.MethodGet, "/admin/model-sources", nil, &items); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (a *EmbeddedLocalRuntimeAdapter) ListModelSources(context.Context) ([]modelsource.Source, error) {
+	return nil, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) CreateModelSource(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error) {
-	var item modelsource.Source
-	if err := a.fetchJSON(ctx, http.MethodPost, "/admin/model-sources", input, &item); err != nil {
-		return modelsource.Source{}, err
-	}
-	return item, nil
+func (a *EmbeddedLocalRuntimeAdapter) CreateModelSource(context.Context, modelsource.CreateInput) (modelsource.Source, error) {
+	return modelsource.Source{}, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) UpdateModelSource(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error) {
-	var item modelsource.Source
-	if err := a.fetchJSON(ctx, http.MethodPut, "/admin/model-sources/"+id, input, &item); err != nil {
-		return modelsource.Source{}, err
-	}
-	return item, nil
+func (a *EmbeddedLocalRuntimeAdapter) UpdateModelSource(context.Context, string, modelsource.UpdateInput) (modelsource.Source, error) {
+	return modelsource.Source{}, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) DeleteModelSource(ctx context.Context, id string) error {
-	return a.fetchJSON(ctx, http.MethodDelete, "/admin/model-sources/"+id, nil, nil)
+func (a *EmbeddedLocalRuntimeAdapter) DeleteModelSource(context.Context, string) error {
+	return ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ReplaceModelSourceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error) {
-	var saved []modelsource.Source
-	if err := a.fetchJSON(ctx, http.MethodPut, "/admin/model-sources/order", items, &saved); err != nil {
-		return nil, err
-	}
-	return saved, nil
+func (a *EmbeddedLocalRuntimeAdapter) ReplaceModelSourceOrder(context.Context, []modelsource.Source) ([]modelsource.Source, error) {
+	return nil, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ListSelectedModels(ctx context.Context) ([]provider.SelectedModel, error) {
-	var items []provider.SelectedModel
-	if err := a.fetchJSON(ctx, http.MethodGet, "/admin/selected-models", nil, &items); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (a *EmbeddedLocalRuntimeAdapter) ListSelectedModels(context.Context) ([]provider.SelectedModel, error) {
+	return nil, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ReplaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
-	var saved []provider.SelectedModel
-	if err := a.fetchJSON(ctx, http.MethodPut, "/admin/selected-models", items, &saved); err != nil {
-		return nil, err
-	}
-	return saved, nil
+func (a *EmbeddedLocalRuntimeAdapter) ReplaceSelectedModels(context.Context, []provider.SelectedModel) ([]provider.SelectedModel, error) {
+	return nil, ErrRuntimeAdminUnsupported
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) fetchJSON(
-	ctx context.Context,
-	method string,
-	path string,
-	payload any,
-	target any,
-) error {
-	var body *bytes.Reader
-	if payload == nil {
-		body = bytes.NewReader(nil)
-	} else {
-		encoded, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(encoded)
-	}
+func (a *EmbeddedLocalRuntimeAdapter) startProcess() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-	req, err := http.NewRequestWithContext(ctx, method, a.baseURL+path, body)
-	if err != nil {
-		return err
-	}
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		switch resp.StatusCode {
-		case http.StatusNotFound:
-			return modelsource.ErrSourceNotFound
-		default:
-			return fmt.Errorf("runtime admin request failed: %s %s -> HTTP %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(body)))
-		}
-	}
-	if target == nil || resp.StatusCode == http.StatusNoContent {
+	if a.process != nil && a.process.Process != nil && a.process.ProcessState == nil {
 		return nil
 	}
 
-	return json.NewDecoder(resp.Body).Decode(target)
+	cmd := exec.Command(a.executable)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(),
+		"CLASH_FOR_AI_MODE=local-gateway-runtime",
+		"CORE_DATA_DIR="+a.dataDir,
+		"LOCAL_GATEWAY_RUNTIME_HOST="+runtimeHostFromListenAddr(a.listenAddr),
+		"LOCAL_GATEWAY_RUNTIME_PORT="+runtimePortFromListenAddr(a.listenAddr),
+	)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	a.process = cmd
+	a.startedAt = time.Now()
+
+	go func() {
+		_ = cmd.Wait()
+		a.mu.Lock()
+		if a.process == cmd {
+			a.process = nil
+		}
+		a.mu.Unlock()
+	}()
+
+	return nil
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) waitForHealth(ctx context.Context, attempts int, interval time.Duration) error {
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/health", nil)
+		if err != nil {
+			return err
+		}
+
+		resp, err := a.client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode < 400 {
+				return nil
+			}
+			lastErr = fmt.Errorf("runtime health returned HTTP %d", resp.StatusCode)
+		} else {
+			lastErr = err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+		}
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("runtime healthcheck failed")
+	}
+	return lastErr
+}
+
+func runtimeHostFromListenAddr(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "127.0.0.1"
+	}
+	return strings.TrimSpace(host)
+}
+
+func runtimePortFromListenAddr(addr string) string {
+	_, port, found := strings.Cut(addr, ":")
+	if !found {
+		return strconv.Itoa(8788)
+	}
+	return strings.TrimSpace(port)
 }
 
 func resolveListenHost(host string) string {

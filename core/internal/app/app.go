@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/api"
@@ -38,12 +39,10 @@ func Run() error {
 	}
 
 	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
-	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
 	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
 	logRepository := logging.NewSQLiteRepository(sqliteStore.DB)
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
-	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
-	providerService := provider.NewService(providerRepository, credentialStore, modelSourceService)
+	providerService := provider.NewService(providerRepository, credentialStore)
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 	currentSettings, err := settingsService.Get(context.Background())
@@ -51,10 +50,10 @@ func Run() error {
 		return err
 	}
 
-	localRuntimeAdapter := resolveLocalRuntimeAdapter(
-		currentSettings.LocalGateway,
-		gateway.NewLocalRuntimeHandler(providerService, modelSourceService, settingsService, localGatewayExecutor),
-	)
+	localRuntimeAdapter, err := resolveLocalRuntimeAdapter(cfg.DataDir, currentSettings.LocalGateway)
+	if err != nil {
+		return err
+	}
 	if currentSettings.LocalGateway.Enabled {
 		if err := localRuntimeAdapter.Start(context.Background()); err != nil {
 			return err
@@ -68,6 +67,9 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	if missing := runtimeCapabilities.MissingRequiredCapabilities(); len(missing) > 0 {
+		return fmt.Errorf("local gateway runtime missing required capabilities: %s", strings.Join(missing, ", "))
+	}
 	healthService := health.NewService(providerService, credentialStore, localRuntimeAdapter)
 
 	if err := initializeLocalGatewayProvider(
@@ -80,12 +82,13 @@ func Run() error {
 	); err != nil {
 		return err
 	}
-	providerService.BindLocalRuntimeState(localRuntimeAdapter)
+	providerService.BindLocalRuntimeAdapter(localRuntimeAdapter)
 
 	gatewayHandler := gateway.NewHandler(
 		providerService,
 		localGatewayExecutor,
 		credentialStore,
+		localRuntimeAdapter,
 		logService,
 	)
 
@@ -93,6 +96,52 @@ func Run() error {
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),
+		Handler: handler,
+		BaseContext: func(net.Listener) context.Context {
+			return context.Background()
+		},
+	}
+
+	return server.ListenAndServe()
+}
+
+func RunLocalGatewayRuntime() error {
+	cfg := config.Load()
+
+	sqliteStore, err := storage.NewSQLite(filepath.Join(cfg.DataDir, "clash-for-ai.db"))
+	if err != nil {
+		return err
+	}
+	defer sqliteStore.Close()
+
+	credentialStore, err := credential.NewFileStore(filepath.Join(cfg.DataDir, "credentials.json"))
+	if err != nil {
+		return err
+	}
+
+	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
+	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
+	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
+	providerService := provider.NewService(providerRepository, credentialStore)
+	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
+	settingsService := settings.NewService(settingsRepository)
+	localGatewayExecutor := localgatewayexecutor.New(nil)
+
+	currentSettings, err := settingsService.Get(context.Background())
+	if err != nil {
+		return err
+	}
+	localSettings := resolveRuntimeLocalGatewaySettings(currentSettings.LocalGateway)
+
+	handler := gateway.NewLocalRuntimeHandler(
+		providerService,
+		modelSourceService,
+		settingsService,
+		localGatewayExecutor,
+	)
+
+	server := &http.Server{
+		Addr:    localGatewayListenAddr(localSettings),
 		Handler: handler,
 		BaseContext: func(net.Listener) context.Context {
 			return context.Background()
@@ -188,12 +237,44 @@ func buildLocalGatewayProviderCapabilities(input gatewayadapter.RuntimeCapabilit
 }
 
 func resolveLocalRuntimeAdapter(
+	dataDir string,
 	localSettings settings.LocalGatewaySettings,
-	handler http.Handler,
-) gatewayadapter.LocalRuntimeAdapter {
+) (gatewayadapter.LocalRuntimeAdapter, error) {
 	if externalBaseURL := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_BASE_URL")); externalBaseURL != "" {
-		return gatewayadapter.NewExternalRuntimeAdapter(externalBaseURL)
+		return gatewayadapter.NewExternalRuntimeAdapter(externalBaseURL), nil
 	}
 
-	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, handler)
+	executablePath, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+
+	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, executablePath, dataDir), nil
+}
+
+func resolveRuntimeLocalGatewaySettings(input settings.LocalGatewaySettings) settings.LocalGatewaySettings {
+	settingsValue := input
+
+	if value := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_HOST")); value != "" {
+		settingsValue.ListenHost = value
+	}
+
+	if value := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_PORT")); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
+			settingsValue.ListenPort = parsed
+		}
+	}
+
+	if strings.TrimSpace(settingsValue.ListenHost) == "" {
+		settingsValue.ListenHost = "127.0.0.1"
+	}
+	if settingsValue.ListenPort <= 0 {
+		settingsValue.ListenPort = 8788
+	}
+
+	return settingsValue
+}
+
+func localGatewayListenAddr(input settings.LocalGatewaySettings) string {
+	return fmt.Sprintf("%s:%d", strings.TrimSpace(input.ListenHost), input.ListenPort)
 }

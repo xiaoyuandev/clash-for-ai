@@ -45,6 +45,17 @@ func (a *ExternalRuntimeAdapter) Discover(context.Context) (RuntimeInfo, error) 
 	}, nil
 }
 
+func (a *ExternalRuntimeAdapter) EnsureReady(ctx context.Context) error {
+	health, err := a.CheckHealth(ctx)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(health.Status) != "" && !strings.EqualFold(strings.TrimSpace(health.Status), "ok") {
+		return fmt.Errorf("external runtime unavailable: %s", health.Summary)
+	}
+	return nil
+}
+
 func (a *ExternalRuntimeAdapter) CheckHealth(ctx context.Context) (RuntimeHealth, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/health", nil)
 	if err != nil {

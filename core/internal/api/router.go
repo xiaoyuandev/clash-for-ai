@@ -168,6 +168,11 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 
 		writeJSON(w, http.StatusOK, items)
 	case len(parts) == 2 && parts[1] == "selected-models" && req.Method == http.MethodGet:
+		if parts[0] == provider.LocalGatewayProviderID {
+			http.Error(w, "local gateway selected models are runtime-internal", http.StatusNotFound)
+			return
+		}
+
 		items, err := r.providers.ListSelectedModels(req.Context(), parts[0])
 		if err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {
@@ -181,6 +186,11 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 
 		writeJSON(w, http.StatusOK, items)
 	case len(parts) == 2 && parts[1] == "selected-models" && req.Method == http.MethodPut:
+		if parts[0] == provider.LocalGatewayProviderID {
+			http.Error(w, "local gateway selected models are runtime-internal", http.StatusNotFound)
+			return
+		}
+
 		var input []provider.SelectedModel
 		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)

@@ -1,7 +1,6 @@
 import type { Provider } from "../types/provider";
 import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
-import type { SelectedModel } from "../types/selected-model";
 
 function getApiBase(apiBase?: string) {
   return apiBase ?? "http://127.0.0.1:3456";
@@ -217,34 +216,5 @@ export async function updateProviderClaudeCodeModelMap(
       body: JSON.stringify(input)
     },
     "Update Claude Code model map failed"
-  );
-}
-
-export async function getSelectedProviderModels(
-  id: string,
-  apiBase?: string
-): Promise<SelectedModel[]> {
-  return fetchJson<SelectedModel[]>(
-    `${getApiBase(apiBase)}/api/providers/${id}/selected-models`,
-    {},
-    "Selected models request failed"
-  );
-}
-
-export async function updateSelectedProviderModels(
-  id: string,
-  items: SelectedModel[],
-  apiBase?: string
-): Promise<SelectedModel[]> {
-  return fetchJson<SelectedModel[]>(
-    `${getApiBase(apiBase)}/api/providers/${id}/selected-models`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(items)
-    },
-    "Update selected models failed"
   );
 }

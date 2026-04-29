@@ -36,6 +36,12 @@ func TestExternalRuntimeAdapterCapabilities(t *testing.T) {
 	if capabilities.SupportsAdminAPI || capabilities.SupportsModelSourceAdmin || capabilities.SupportsSelectedModelAdmin {
 		t.Fatalf("external runtime should not expose embedded admin capabilities: %+v", capabilities)
 	}
+	if missing := capabilities.MissingRequiredCapabilities(); len(missing) != 0 {
+		t.Fatalf("unexpected missing required capabilities: %v", missing)
+	}
+	if missing := capabilities.MissingOptionalCapabilities(); len(missing) != 3 {
+		t.Fatalf("unexpected missing optional capabilities: %v", missing)
+	}
 }
 
 func TestExternalRuntimeAdapterAdminUnsupported(t *testing.T) {
