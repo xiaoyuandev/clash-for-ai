@@ -22,6 +22,10 @@ type LocalRuntimeHandler struct {
 	executor     localgateway.Service
 }
 
+type ModelSourceResolver interface {
+	List(ctx context.Context) ([]modelsource.Source, error)
+}
+
 type LocalRuntimeSelectedModelStore interface {
 	ListSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error)
 	ReplaceSelectedModels(ctx context.Context, items []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error)

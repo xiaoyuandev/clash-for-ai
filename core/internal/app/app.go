@@ -46,7 +46,6 @@ func Run() error {
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	settingsService := settings.NewService(settingsRepository)
-	localGatewayExecutor := localgatewayexecutor.New(nil)
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
 	localGatewayStateRepository := localgatewaystate.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
@@ -105,7 +104,6 @@ func Run() error {
 
 	gatewayHandler := gateway.NewHandler(
 		providerService,
-		localGatewayExecutor,
 		credentialStore,
 		localRuntimeAdapter,
 		logService,
