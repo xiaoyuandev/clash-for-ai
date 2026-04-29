@@ -17,6 +17,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaycontrol"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
@@ -109,8 +110,9 @@ func Run() error {
 		localRuntimeAdapter,
 		logService,
 	)
+	localGatewayAdmin := localgatewaycontrol.NewService(providerService, localRuntimeAdapter)
 
-	handler := api.NewRouter(providerService, healthService, logService, gatewayHandler)
+	handler := api.NewRouter(providerService, healthService, logService, gatewayHandler, localGatewayAdmin)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),

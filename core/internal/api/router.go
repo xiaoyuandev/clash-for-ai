@@ -7,30 +7,44 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaycontrol"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
 type Router struct {
-	providers *provider.Service
-	health    *health.Service
-	logs      *logging.Service
-	gateway   http.Handler
+	providers         *provider.Service
+	health            *health.Service
+	logs              *logging.Service
+	gateway           http.Handler
+	localGatewayAdmin *localgatewaycontrol.Service
 }
 
-func NewRouter(providers *provider.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(
+	providers *provider.Service,
+	healthService *health.Service,
+	loggingService *logging.Service,
+	gatewayHandler http.Handler,
+	localGatewayAdmin *localgatewaycontrol.Service,
+) http.Handler {
 	router := &Router{
-		providers: providers,
-		health:    healthService,
-		logs:      loggingService,
-		gateway:   gatewayHandler,
+		providers:         providers,
+		health:            healthService,
+		logs:              loggingService,
+		gateway:           gatewayHandler,
+		localGatewayAdmin: localGatewayAdmin,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", router.handleHealth)
 	mux.HandleFunc("/api/logs", router.handleLogs)
+	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
+	mux.HandleFunc("/api/local-gateway/model-sources", router.handleLocalGatewayModelSources)
+	mux.HandleFunc("/api/local-gateway/model-sources/", router.handleLocalGatewayModelSourceActions)
+	mux.HandleFunc("/api/local-gateway/selected-models", router.handleLocalGatewaySelectedModels)
 	mux.HandleFunc("/api/providers", router.handleProviders)
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.Handle("/v1/", router.gateway)
@@ -103,6 +117,120 @@ func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleLocalGatewayRuntime(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	status, err := r.localGatewayAdmin.GetRuntimeStatus(req.Context())
+	if err != nil {
+		if errors.Is(err, provider.ErrProviderNotFound) {
+			http.Error(w, "local gateway provider not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to load local gateway runtime", http.StatusBadGateway)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (r *Router) handleLocalGatewayModelSources(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.localGatewayAdmin.ListModelSources(req.Context())
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to list local gateway model sources")
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var input modelsource.CreateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.localGatewayAdmin.CreateModelSource(req.Context(), input)
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to create local gateway model source")
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleLocalGatewayModelSourceActions(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimPrefix(req.URL.Path, "/api/local-gateway/model-sources/")
+	parts := strings.Split(path, "/")
+	switch {
+	case len(parts) == 1 && parts[0] == "order" && req.Method == http.MethodPut:
+		var input []modelsource.Source
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := r.localGatewayAdmin.ReplaceModelSourceOrder(req.Context(), input)
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to reorder local gateway model sources")
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case len(parts) == 1 && req.Method == http.MethodPut:
+		var input modelsource.UpdateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.localGatewayAdmin.UpdateModelSource(req.Context(), parts[0], input)
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to update local gateway model source")
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 1 && req.Method == http.MethodDelete:
+		if err := r.localGatewayAdmin.DeleteModelSource(req.Context(), parts[0]); err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to delete local gateway model source")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleLocalGatewaySelectedModels(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.localGatewayAdmin.ListSelectedModels(req.Context())
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to list local gateway selected models")
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPut:
+		var input []provider.SelectedModel
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := r.localGatewayAdmin.ReplaceSelectedModels(req.Context(), input)
+		if err != nil {
+			writeLocalGatewayAdminError(w, err, "failed to update local gateway selected models")
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {
@@ -274,6 +402,15 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeLocalGatewayAdminError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, gatewayadapter.ErrRuntimeAdminUnsupported):
+		http.Error(w, "local gateway runtime admin unsupported", http.StatusNotImplemented)
+	default:
+		http.Error(w, fallback, http.StatusBadGateway)
+	}
 }
 
 func withCORS(next http.Handler) http.Handler {
