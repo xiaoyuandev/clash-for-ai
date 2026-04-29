@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
@@ -29,6 +30,7 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 	}
 
 	coreModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(coreStore.DB), coreCredentials)
+	coreLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(coreStore.DB))
 	coreSettings := settings.NewService(settings.NewSQLiteRepository(coreStore.DB))
 	providers := provider.NewService(provider.NewSQLiteRepository(coreStore.DB), coreCredentials)
 
@@ -57,6 +59,7 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 		context.Background(),
 		runtimeDataDir,
 		coreModelSources,
+		coreLocalGatewayState,
 		coreSettings,
 		providers,
 		initialSettings,
@@ -76,7 +79,7 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 	}
 
 	runtimeModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(runtimeStore.DB), runtimeCredentials)
-	runtimeSettings := settings.NewService(settings.NewSQLiteRepository(runtimeStore.DB))
+	runtimeLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(runtimeStore.DB))
 
 	runtimeSources, err := runtimeModelSources.List(context.Background())
 	if err != nil {
@@ -86,9 +89,9 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 		t.Fatalf("unexpected runtime model sources: %+v", runtimeSources)
 	}
 
-	selected, err := runtimeSettings.GetLocalGatewaySelectedModels(context.Background())
+	selected, err := runtimeLocalGatewayState.ListSelectedModels(context.Background())
 	if err != nil {
-		t.Fatalf("GetLocalGatewaySelectedModels returned error: %v", err)
+		t.Fatalf("ListSelectedModels returned error: %v", err)
 	}
 	if len(selected) != 1 || selected[0].ModelID != "gpt-4.1" {
 		t.Fatalf("unexpected runtime selected models: %+v", selected)

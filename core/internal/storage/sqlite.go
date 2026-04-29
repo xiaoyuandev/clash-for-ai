@@ -183,6 +183,24 @@ ON model_sources (position ASC, name ASC);`
 		return fmt.Errorf("migrate model_sources index: %w", err)
 	}
 
+	const localGatewaySelectedModelsTable = `
+CREATE TABLE IF NOT EXISTS local_gateway_selected_models (
+	model_id TEXT PRIMARY KEY,
+	position INTEGER NOT NULL
+);`
+
+	if _, err := s.DB.Exec(localGatewaySelectedModelsTable); err != nil {
+		return fmt.Errorf("migrate local_gateway_selected_models table: %w", err)
+	}
+
+	const localGatewaySelectedModelsIndex = `
+CREATE INDEX IF NOT EXISTS idx_local_gateway_selected_models_position
+ON local_gateway_selected_models (position ASC, model_id ASC);`
+
+	if _, err := s.DB.Exec(localGatewaySelectedModelsIndex); err != nil {
+		return fmt.Errorf("migrate local_gateway_selected_models index: %w", err)
+	}
+
 	return nil
 }
 

@@ -11,9 +11,9 @@ import (
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
 	dispatcher "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/inbound/dispatcher"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
 type LocalRuntimeHandler struct {
@@ -23,8 +23,8 @@ type LocalRuntimeHandler struct {
 }
 
 type LocalRuntimeSelectedModelStore interface {
-	GetLocalGatewaySelectedModels(ctx context.Context) ([]settings.SelectedModel, error)
-	UpdateLocalGatewaySelectedModels(ctx context.Context, items []settings.SelectedModel) ([]settings.SelectedModel, error)
+	ListSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error)
+	ReplaceSelectedModels(ctx context.Context, items []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error)
 }
 
 func NewLocalRuntimeHandler(
@@ -305,7 +305,7 @@ func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
 func chooseModelSource(
 	sources []modelsource.Source,
 	requestModel string,
-	selected []provider.SelectedModel,
+	selected []localgatewaystate.SelectedModel,
 ) *localgateway.ModelSource {
 	byModelID := make(map[string]modelsource.Source, len(sources))
 	var firstEnabled *modelsource.Source
@@ -380,26 +380,18 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func (h *LocalRuntimeHandler) listSelectedModels(ctx context.Context) ([]provider.SelectedModel, error) {
-	items, err := h.selected.GetLocalGatewaySelectedModels(ctx)
+func (h *LocalRuntimeHandler) listSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error) {
+	items, err := h.selected.ListSelectedModels(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	result := make([]provider.SelectedModel, 0, len(items))
-	for _, item := range items {
-		result = append(result, provider.SelectedModel{
-			ModelID:  item.ModelID,
-			Position: item.Position,
-		})
-	}
-	return result, nil
+	return items, nil
 }
 
 func buildSelectedModelAttempts(
 	r *http.Request,
 	body []byte,
-	selected []provider.SelectedModel,
+	selected []localgatewaystate.SelectedModel,
 ) ([]attemptSpec, *string) {
 	currentModel, payload := extractModelFromBody(body)
 	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
@@ -439,15 +431,15 @@ func buildSelectedModelAttempts(
 }
 
 func (h *LocalRuntimeHandler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
-	runtimeItems := make([]settings.SelectedModel, 0, len(items))
+	runtimeItems := make([]localgatewaystate.SelectedModel, 0, len(items))
 	for _, item := range items {
-		runtimeItems = append(runtimeItems, settings.SelectedModel{
+		runtimeItems = append(runtimeItems, localgatewaystate.SelectedModel{
 			ModelID:  item.ModelID,
 			Position: item.Position,
 		})
 	}
 
-	saved, err := h.selected.UpdateLocalGatewaySelectedModels(ctx, runtimeItems)
+	saved, err := h.selected.ReplaceSelectedModels(ctx, runtimeItems)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
@@ -46,7 +47,9 @@ func Run() error {
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
+	localGatewayStateRepository := localgatewaystate.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
+	localGatewayStateService := localgatewaystate.NewService(localGatewayStateRepository)
 	currentSettings, err := settingsService.Get(context.Background())
 	if err != nil {
 		return err
@@ -57,6 +60,7 @@ func Run() error {
 		context.Background(),
 		runtimeDataDir,
 		modelSourceService,
+		localGatewayStateService,
 		settingsService,
 		providerService,
 		currentSettings,
@@ -134,8 +138,10 @@ func RunLocalGatewayRuntime() error {
 	}
 
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
+	localGatewayStateRepository := localgatewaystate.NewSQLiteRepository(sqliteStore.DB)
 	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
+	localGatewayStateService := localgatewaystate.NewService(localGatewayStateRepository)
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 
@@ -147,7 +153,7 @@ func RunLocalGatewayRuntime() error {
 
 	handler := gateway.NewLocalRuntimeHandler(
 		modelSourceService,
-		settingsService,
+		localGatewayStateService,
 		localGatewayExecutor,
 	)
 
@@ -271,6 +277,7 @@ func prepareLocalRuntimeState(
 	ctx context.Context,
 	runtimeDataDir string,
 	coreModelSources *modelsource.Service,
+	coreLocalGatewayState *localgatewaystate.Service,
 	coreSettings *settings.Service,
 	providers *provider.Service,
 	currentSettings settings.AppSettings,
@@ -287,9 +294,9 @@ func prepareLocalRuntimeState(
 	}
 
 	runtimeModelSourceRepository := modelsource.NewSQLiteRepository(runtimeStore.DB)
-	runtimeSettingsRepository := settings.NewSQLiteRepository(runtimeStore.DB)
+	runtimeLocalGatewayStateRepository := localgatewaystate.NewSQLiteRepository(runtimeStore.DB)
 	runtimeModelSources := modelsource.NewService(runtimeModelSourceRepository, runtimeCredentialStore)
-	runtimeSettings := settings.NewService(runtimeSettingsRepository)
+	runtimeLocalGatewayState := localgatewaystate.NewService(runtimeLocalGatewayStateRepository)
 
 	runtimeSources, err := runtimeModelSources.List(ctx)
 	if err != nil {
@@ -316,21 +323,27 @@ func prepareLocalRuntimeState(
 		migratedSources = len(coreSources) > 0
 	}
 
-	runtimeSelected, err := runtimeSettings.GetLocalGatewaySelectedModels(ctx)
+	runtimeSelected, err := runtimeLocalGatewayState.ListSelectedModels(ctx)
 	if err != nil {
 		return err
 	}
 	migratedSelected := false
 	if len(runtimeSelected) == 0 {
-		legacySelected := currentSettings.LocalGatewaySelected
+		legacySelected := make([]localgatewaystate.SelectedModel, 0, len(currentSettings.LocalGatewaySelected))
+		for _, item := range currentSettings.LocalGatewaySelected {
+			legacySelected = append(legacySelected, localgatewaystate.SelectedModel{
+				ModelID:  item.ModelID,
+				Position: item.Position,
+			})
+		}
 		if len(legacySelected) == 0 {
 			providerSelected, listErr := providers.ListSelectedModels(ctx, provider.LocalGatewayProviderID)
 			if listErr != nil {
 				return listErr
 			}
-			legacySelected = make([]settings.SelectedModel, 0, len(providerSelected))
+			legacySelected = make([]localgatewaystate.SelectedModel, 0, len(providerSelected))
 			for _, item := range providerSelected {
-				legacySelected = append(legacySelected, settings.SelectedModel{
+				legacySelected = append(legacySelected, localgatewaystate.SelectedModel{
 					ModelID:  item.ModelID,
 					Position: item.Position,
 				})
@@ -338,7 +351,7 @@ func prepareLocalRuntimeState(
 		}
 
 		if len(legacySelected) > 0 {
-			if _, updateErr := runtimeSettings.UpdateLocalGatewaySelectedModels(ctx, legacySelected); updateErr != nil {
+			if _, updateErr := runtimeLocalGatewayState.ReplaceSelectedModels(ctx, legacySelected); updateErr != nil {
 				return updateErr
 			}
 			migratedSelected = true
@@ -365,7 +378,7 @@ func prepareLocalRuntimeState(
 	}
 
 	if migratedSelected {
-		if _, replaceErr := providers.ReplaceSelectedModels(ctx, provider.LocalGatewayProviderID, nil); replaceErr != nil {
+		if _, replaceErr := coreLocalGatewayState.ReplaceSelectedModels(ctx, nil); replaceErr != nil {
 			return replaceErr
 		}
 	}
