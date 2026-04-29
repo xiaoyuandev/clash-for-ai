@@ -20,8 +20,6 @@ func DefaultSettings() AppSettings {
 			ListenHost: "127.0.0.1",
 			ListenPort: 8788,
 		},
-		LocalGatewaySelected: []SelectedModel{},
-		LocalGatewayClaude:   ClaudeCodeModelMap{},
 	}
 }
 
@@ -41,10 +39,6 @@ func NormalizeSettings(input AppSettings) AppSettings {
 		settings.LocalGateway.ListenPort = defaults.LocalGateway.ListenPort
 	}
 
-	if settings.LocalGatewaySelected == nil {
-		settings.LocalGatewaySelected = defaults.LocalGatewaySelected
-	}
-
 	return settings
 }
 
@@ -58,74 +52,4 @@ func (s *Service) Get(ctx context.Context) (AppSettings, error) {
 
 func (s *Service) Save(ctx context.Context, settings AppSettings) (AppSettings, error) {
 	return s.repository.Save(ctx, NormalizeSettings(settings))
-}
-
-func normalizeSelectedModels(items []SelectedModel) []SelectedModel {
-	normalized := make([]SelectedModel, 0, len(items))
-	seen := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		modelID := strings.TrimSpace(item.ModelID)
-		if modelID == "" {
-			continue
-		}
-		if _, ok := seen[modelID]; ok {
-			continue
-		}
-		seen[modelID] = struct{}{}
-		normalized = append(normalized, SelectedModel{
-			ModelID:  modelID,
-			Position: len(normalized),
-		})
-	}
-	return normalized
-}
-
-func (s *Service) GetLocalGatewaySelectedModels(ctx context.Context) ([]SelectedModel, error) {
-	settings, err := s.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return normalizeSelectedModels(settings.LocalGatewaySelected), nil
-}
-
-func (s *Service) UpdateLocalGatewaySelectedModels(ctx context.Context, items []SelectedModel) ([]SelectedModel, error) {
-	settings, err := s.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	settings.LocalGatewaySelected = normalizeSelectedModels(items)
-	saved, err := s.Save(ctx, settings)
-	if err != nil {
-		return nil, err
-	}
-	return saved.LocalGatewaySelected, nil
-}
-
-func normalizeClaudeCodeModelMap(input ClaudeCodeModelMap) ClaudeCodeModelMap {
-	return ClaudeCodeModelMap{
-		Opus:   strings.TrimSpace(input.Opus),
-		Sonnet: strings.TrimSpace(input.Sonnet),
-		Haiku:  strings.TrimSpace(input.Haiku),
-	}
-}
-
-func (s *Service) GetLocalGatewayClaudeMap(ctx context.Context) (ClaudeCodeModelMap, error) {
-	settings, err := s.Get(ctx)
-	if err != nil {
-		return ClaudeCodeModelMap{}, err
-	}
-	return normalizeClaudeCodeModelMap(settings.LocalGatewayClaude), nil
-}
-
-func (s *Service) UpdateLocalGatewayClaudeMap(ctx context.Context, input ClaudeCodeModelMap) (ClaudeCodeModelMap, error) {
-	settings, err := s.Get(ctx)
-	if err != nil {
-		return ClaudeCodeModelMap{}, err
-	}
-	settings.LocalGatewayClaude = normalizeClaudeCodeModelMap(input)
-	saved, err := s.Save(ctx, settings)
-	if err != nil {
-		return ClaudeCodeModelMap{}, err
-	}
-	return saved.LocalGatewayClaude, nil
 }
