@@ -112,33 +112,6 @@ export async function createProvider(
   );
 }
 
-export async function getLocalGatewayClaudeMap(
-  apiBase?: string
-): Promise<Provider["claude_code_model_map"]> {
-  return fetchJson<Provider["claude_code_model_map"]>(
-    `${getApiBase(apiBase)}/api/settings/local-gateway-claude-map`,
-    {},
-    "Local gateway Claude map request failed"
-  );
-}
-
-export async function updateLocalGatewayClaudeMap(
-  input: Provider["claude_code_model_map"],
-  apiBase?: string
-): Promise<Provider["claude_code_model_map"]> {
-  return fetchJson<Provider["claude_code_model_map"]>(
-    `${getApiBase(apiBase)}/api/settings/local-gateway-claude-map`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(input)
-    },
-    "Update local gateway Claude map failed"
-  );
-}
-
 export async function activateProvider(id: string, apiBase?: string): Promise<Provider> {
   return fetchJson<Provider>(
     `${getApiBase(apiBase)}/api/providers/${id}/activate`,
@@ -216,6 +189,35 @@ export async function getProviderModels(
     `${getApiBase(apiBase)}/api/providers/${id}/models`,
     {},
     "Models request failed"
+  );
+}
+
+export async function getProviderClaudeCodeModelMap(
+  id: string,
+  apiBase?: string
+): Promise<Provider["claude_code_model_map"]> {
+  return fetchJson<Provider["claude_code_model_map"]>(
+    `${getApiBase(apiBase)}/api/providers/${id}/claude-code-model-map`,
+    {},
+    "Claude Code model map request failed"
+  );
+}
+
+export async function updateProviderClaudeCodeModelMap(
+  id: string,
+  input: Provider["claude_code_model_map"],
+  apiBase?: string
+): Promise<Provider["claude_code_model_map"]> {
+  return fetchJson<Provider["claude_code_model_map"]>(
+    `${getApiBase(apiBase)}/api/providers/${id}/claude-code-model-map`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Update Claude Code model map failed"
   );
 }
 
@@ -315,32 +317,5 @@ export async function updateModelSourceOrder(
       body: JSON.stringify(items)
     },
     "Update model source order failed"
-  );
-}
-
-export async function getLocalGatewaySelectedModels(
-  apiBase?: string
-): Promise<SelectedModel[]> {
-  return fetchJson<SelectedModel[]>(
-    `${getApiBase(apiBase)}/api/settings/local-gateway-selected-models`,
-    {},
-    "Local gateway selected models request failed"
-  );
-}
-
-export async function updateLocalGatewaySelectedModels(
-  items: SelectedModel[],
-  apiBase?: string
-): Promise<SelectedModel[]> {
-  return fetchJson<SelectedModel[]>(
-    `${getApiBase(apiBase)}/api/settings/local-gateway-selected-models`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(items)
-    },
-    "Update local gateway selected models failed"
   );
 }

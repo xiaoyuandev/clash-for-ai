@@ -28,6 +28,11 @@ type ClaudeCodeModelMap struct {
 	Haiku  string `json:"haiku"`
 }
 
+const (
+	LocalGatewayProviderID   = "system-local-gateway"
+	LocalGatewayProviderName = "Clash Local Gateway"
+)
+
 type Provider struct {
 	ID                 string             `json:"id"`
 	Name               string             `json:"name"`
@@ -40,6 +45,8 @@ type Provider struct {
 	Status             Status             `json:"status"`
 	APIKeyMasked       string             `json:"api_key_masked"`
 	ClaudeCodeModelMap ClaudeCodeModelMap `json:"claude_code_model_map"`
+	IsSystem           bool               `json:"is_system"`
+	IsImmutable        bool               `json:"is_immutable"`
 }
 
 type SelectedModel struct {

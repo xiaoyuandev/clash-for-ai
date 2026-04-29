@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 )
 
 type CreateInput struct {
@@ -41,6 +43,11 @@ type Service struct {
 	repository  Repository
 	credentials credential.Store
 	client      *http.Client
+	models      ModelSourceReader
+}
+
+type ModelSourceReader interface {
+	List(ctx context.Context) ([]modelsource.Source, error)
 }
 
 func InferAuthMode(name string, baseURL string) AuthMode {
@@ -114,10 +121,11 @@ func rewriteAuthorizationValue(original string, apiKey string) string {
 	return apiKey
 }
 
-func NewService(repository Repository, credentials credential.Store) *Service {
+func NewService(repository Repository, credentials credential.Store, models ModelSourceReader) *Service {
 	return &Service{
 		repository:  repository,
 		credentials: credentials,
+		models:      models,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -189,6 +197,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, erro
 		},
 		APIKeyMasked:       maskAPIKey(input.APIKey),
 		ClaudeCodeModelMap: normalizeClaudeCodeModelMap(input.ClaudeCodeModelMap),
+		IsSystem:           false,
+		IsImmutable:        false,
 	}
 
 	item.Status.LastHealthcheckAt = now
@@ -208,6 +218,9 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return Provider{}, err
+	}
+	if item.IsImmutable {
+		return Provider{}, ErrProviderImmutable
 	}
 
 	if input.AuthMode == "" {
@@ -288,14 +301,123 @@ func (s *Service) ReplaceSelectedModels(ctx context.Context, id string, items []
 	return normalized, nil
 }
 
+func (s *Service) EnsureSystemLocalGateway(ctx context.Context, baseURL string) (Provider, error) {
+	current, err := s.repository.GetByID(ctx, LocalGatewayProviderID)
+	if err != nil && !errors.Is(err, ErrProviderNotFound) {
+		return Provider{}, err
+	}
+
+	active, err := s.repository.GetActive(ctx)
+	if err != nil {
+		return Provider{}, err
+	}
+
+	status := Status{
+		IsActive:         active == nil,
+		LastHealthStatus: "ok",
+	}
+
+	if current != nil {
+		status = current.Status
+		switch {
+		case active == nil:
+			status.IsActive = true
+		case active.ID == LocalGatewayProviderID:
+			status.IsActive = true
+		default:
+			status.IsActive = false
+		}
+		if strings.TrimSpace(status.LastHealthStatus) == "" {
+			status.LastHealthStatus = "ok"
+		}
+	}
+	if strings.TrimSpace(status.LastHealthcheckAt) == "" {
+		status.LastHealthcheckAt = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	item := Provider{
+		ID:           LocalGatewayProviderID,
+		Name:         LocalGatewayProviderName,
+		BaseURL:      strings.TrimSpace(baseURL),
+		APIKeyRef:    "",
+		APIKey:       "",
+		AuthMode:     AuthModeBearer,
+		ExtraHeaders: map[string]string{},
+		Capabilities: Capabilities{
+			SupportsOpenAICompatible:    true,
+			SupportsAnthropicCompatible: true,
+			SupportsModelsAPI:           true,
+			SupportsBalanceAPI:          false,
+			SupportsStream:              true,
+		},
+		Status:             status,
+		APIKeyMasked:       "system-managed",
+		ClaudeCodeModelMap: ClaudeCodeModelMap{},
+		IsSystem:           true,
+		IsImmutable:        true,
+	}
+	if current != nil {
+		item.ClaudeCodeModelMap = normalizeClaudeCodeModelMap(current.ClaudeCodeModelMap)
+		item.Status = current.Status
+		item.Status.IsActive = status.IsActive
+		if strings.TrimSpace(item.Status.LastHealthStatus) == "" {
+			item.Status.LastHealthStatus = "ok"
+		}
+		if strings.TrimSpace(item.Status.LastHealthcheckAt) == "" {
+			item.Status.LastHealthcheckAt = status.LastHealthcheckAt
+		}
+		updated, updateErr := s.repository.Update(ctx, item)
+		if updateErr != nil {
+			return Provider{}, updateErr
+		}
+		return updated, nil
+	}
+
+	created, createErr := s.repository.Create(ctx, item)
+	if createErr != nil {
+		return Provider{}, createErr
+	}
+
+	return created, nil
+}
+
+func (s *Service) GetClaudeCodeModelMap(ctx context.Context, id string) (ClaudeCodeModelMap, error) {
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+
+	return normalizeClaudeCodeModelMap(item.ClaudeCodeModelMap), nil
+}
+
+func (s *Service) UpdateClaudeCodeModelMap(ctx context.Context, id string, input ClaudeCodeModelMap) (ClaudeCodeModelMap, error) {
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+
+	item.ClaudeCodeModelMap = normalizeClaudeCodeModelMap(input)
+	updated, err := s.repository.Update(ctx, *item)
+	if err != nil {
+		return ClaudeCodeModelMap{}, err
+	}
+
+	return normalizeClaudeCodeModelMap(updated.ClaudeCodeModelMap), nil
+}
+
 func (s *Service) Delete(ctx context.Context, id string) error {
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
+	if item.IsImmutable {
+		return ErrProviderImmutable
+	}
 
-	if err := s.credentials.Delete(ctx, item.APIKeyRef); err != nil {
-		return err
+	if strings.TrimSpace(item.APIKeyRef) != "" {
+		if err := s.credentials.Delete(ctx, item.APIKeyRef); err != nil {
+			return err
+		}
 	}
 
 	return s.repository.Delete(ctx, id)
@@ -317,15 +439,21 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	if err != nil {
 		return nil, err
 	}
+	if item.IsSystem && item.ID == LocalGatewayProviderID {
+		return s.fetchSystemLocalGatewayModels(ctx)
+	}
 
 	baseURL, err := url.Parse(item.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid provider base_url: %w", err)
 	}
 
-	apiKey, err := s.credentials.Get(ctx, item.APIKeyRef)
-	if err != nil {
-		return nil, fmt.Errorf("load provider credential: %w", err)
+	apiKey := ""
+	if strings.TrimSpace(item.APIKeyRef) != "" {
+		apiKey, err = s.credentials.Get(ctx, item.APIKeyRef)
+		if err != nil {
+			return nil, fmt.Errorf("load provider credential: %w", err)
+		}
 	}
 
 	target := *baseURL
@@ -382,6 +510,32 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	}
 
 	return nil, fmt.Errorf("models response format not recognized")
+}
+
+func (s *Service) fetchSystemLocalGatewayModels(ctx context.Context) ([]ModelInfo, error) {
+	if s.models == nil {
+		return []ModelInfo{}, nil
+	}
+
+	sources, err := s.models.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return BuildSystemLocalGatewayModelInfo(sources), nil
+}
+
+func BuildSystemLocalGatewayModelInfo(sources []modelsource.Source) []ModelInfo {
+	exposed := modelsource.BuildExposedModels(sources)
+	models := make([]ModelInfo, 0, len(exposed))
+	for _, item := range exposed {
+		models = append(models, ModelInfo{
+			ID:      item.ID,
+			Object:  "model",
+			OwnedBy: item.OwnedBy,
+		})
+	}
+	return models
 }
 
 func ResolveModelsPath(basePath string) string {

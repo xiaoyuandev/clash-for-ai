@@ -12,25 +12,20 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
 type Router struct {
 	providers *provider.Service
 	models    *modelsource.Service
-	settings  *settings.Service
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-const localGatewayProviderID = "system-local-gateway"
-
-func NewRouter(providers *provider.Service, modelSources *modelsource.Service, settingsService *settings.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, modelSources *modelsource.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
 		models:    modelSources,
-		settings:  settingsService,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -43,8 +38,6 @@ func NewRouter(providers *provider.Service, modelSources *modelsource.Service, s
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
 	mux.HandleFunc("/api/model-sources", router.handleModelSources)
 	mux.HandleFunc("/api/model-sources/", router.handleModelSourceActions)
-	mux.HandleFunc("/api/settings/local-gateway-claude-map", router.handleLocalGatewayClaudeMap)
-	mux.HandleFunc("/api/settings/local-gateway-selected-models", router.handleLocalGatewaySelectedModels)
 	mux.Handle("/v1/", router.gateway)
 
 	return withCORS(mux)
@@ -190,97 +183,11 @@ func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-func (r *Router) handleLocalGatewaySelectedModels(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		items, err := r.settings.GetLocalGatewaySelectedModels(req.Context())
-		if err != nil {
-			http.Error(w, "failed to list local gateway selected models", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, items)
-	case http.MethodPut:
-		var input []settings.SelectedModel
-		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		items, err := r.settings.UpdateLocalGatewaySelectedModels(req.Context(), input)
-		if err != nil {
-			http.Error(w, "failed to update local gateway selected models", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, items)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (r *Router) handleLocalGatewayClaudeMap(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		item, err := r.settings.GetLocalGatewayClaudeMap(req.Context())
-		if err != nil {
-			http.Error(w, "failed to load local gateway claude map", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, item)
-	case http.MethodPut:
-		var input settings.ClaudeCodeModelMap
-		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		item, err := r.settings.UpdateLocalGatewayClaudeMap(req.Context(), input)
-		if err != nil {
-			http.Error(w, "failed to update local gateway claude map", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, item)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/api/providers/")
 	parts := strings.Split(path, "/")
 	switch {
 	case len(parts) == 2 && parts[1] == "activate" && req.Method == http.MethodPost:
-		if parts[0] == localGatewayProviderID {
-			if err := r.providers.DeactivateAll(req.Context()); err != nil {
-				http.Error(w, "failed to activate local gateway provider", http.StatusInternalServerError)
-				return
-			}
-
-			localClaudeMap, _ := r.settings.GetLocalGatewayClaudeMap(req.Context())
-			writeJSON(w, http.StatusOK, provider.Provider{
-				ID:           localGatewayProviderID,
-				Name:         "Clash Local Gateway",
-				BaseURL:      "http://" + req.Host,
-				AuthMode:     provider.AuthModeBearer,
-				ExtraHeaders: map[string]string{},
-				Capabilities: provider.Capabilities{
-					SupportsOpenAICompatible:    true,
-					SupportsAnthropicCompatible: true,
-					SupportsModelsAPI:           true,
-					SupportsBalanceAPI:          false,
-					SupportsStream:              true,
-				},
-				Status: provider.Status{
-					IsActive:         true,
-					LastHealthStatus: "ok",
-				},
-				APIKeyMasked: "system-managed",
-				ClaudeCodeModelMap: provider.ClaudeCodeModelMap{
-					Opus:   localClaudeMap.Opus,
-					Sonnet: localClaudeMap.Sonnet,
-					Haiku:  localClaudeMap.Haiku,
-				},
-			})
-			return
-		}
-
 		item, err := r.providers.Activate(req.Context(), parts[0])
 		if err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {
@@ -289,6 +196,38 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 			}
 
 			http.Error(w, "failed to activate provider", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "claude-code-model-map" && req.Method == http.MethodGet:
+		item, err := r.providers.GetClaudeCodeModelMap(req.Context(), parts[0])
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to load claude code model map", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "claude-code-model-map" && req.Method == http.MethodPut:
+		var input provider.ClaudeCodeModelMap
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := r.providers.UpdateClaudeCodeModelMap(req.Context(), parts[0], input)
+		if err != nil {
+			if errors.Is(err, provider.ErrProviderNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, "failed to update claude code model map", http.StatusInternalServerError)
 			return
 		}
 
@@ -357,6 +296,10 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 				http.Error(w, "provider not found", http.StatusNotFound)
 				return
 			}
+			if errors.Is(err, provider.ErrProviderImmutable) {
+				http.Error(w, "system provider cannot be deleted", http.StatusForbidden)
+				return
+			}
 
 			http.Error(w, "failed to delete provider", http.StatusInternalServerError)
 			return
@@ -378,6 +321,10 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 		if err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {
 				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+			if errors.Is(err, provider.ErrProviderImmutable) {
+				http.Error(w, "system provider cannot be updated", http.StatusForbidden)
 				return
 			}
 

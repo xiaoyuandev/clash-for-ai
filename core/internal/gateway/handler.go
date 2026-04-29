@@ -18,7 +18,6 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
 type ActiveProviderResolver interface {
@@ -30,16 +29,9 @@ type ModelSourceResolver interface {
 	List(ctx context.Context) ([]modelsource.Source, error)
 }
 
-type SettingsResolver interface {
-	Get(ctx context.Context) (settings.AppSettings, error)
-	GetLocalGatewaySelectedModels(ctx context.Context) ([]settings.SelectedModel, error)
-	GetLocalGatewayClaudeMap(ctx context.Context) (settings.ClaudeCodeModelMap, error)
-}
-
 type Handler struct {
 	providers    ActiveProviderResolver
 	modelSources ModelSourceResolver
-	settings     SettingsResolver
 	executor     localgateway.Service
 	credentials  credential.Store
 	logs         *logging.Service
@@ -50,7 +42,6 @@ type Handler struct {
 func NewHandler(
 	providers ActiveProviderResolver,
 	modelSources ModelSourceResolver,
-	settings SettingsResolver,
 	executor localgateway.Service,
 	credentials credential.Store,
 	logs *logging.Service,
@@ -60,7 +51,6 @@ func NewHandler(
 	return &Handler{
 		providers:    providers,
 		modelSources: modelSources,
-		settings:     settings,
 		executor:     executor,
 		credentials:  credentials,
 		logs:         logs,
@@ -82,57 +72,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	localGatewayEnabled := false
-	if currentSettings, err := h.settings.Get(r.Context()); err == nil {
-		localGatewayEnabled = currentSettings.LocalGateway.Enabled
-	}
-
 	body, bodyErr := readRequestBody(r)
 	if bodyErr != nil {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
-	}
-
-	if localGatewayEnabled {
-		if result, model, handled := h.forwardViaLocalSystemGateway(r.Context(), r, body); handled {
-			if result.networkError != nil {
-				statusCode := http.StatusBadGateway
-				message := result.networkError.Error()
-				snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, message)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(statusCode)
-				_, _ = w.Write([]byte(snippet))
-				h.recordLog(r.Context(), logging.Entry{
-					ProviderID:   "system-local-gateway",
-					ProviderName: "Clash Local Gateway",
-					Method:       r.Method,
-					Path:         r.URL.Path,
-					Model:        result.finalModel,
-					StatusCode:   &statusCode,
-					IsStream:     isStreamingRequest(r, body),
-					LatencyMs:    time.Since(startedAt).Milliseconds(),
-					ErrorMessage: &message,
-					ErrorSnippet: &snippet,
-				})
-				return
-			}
-
-			writeResponse(w, result)
-			h.recordLog(r.Context(), logging.Entry{
-				ProviderID:   "system-local-gateway",
-				ProviderName: "Clash Local Gateway",
-				Method:       r.Method,
-				Path:         r.URL.Path,
-				Model:        chooseLogModel(result.finalModel, model),
-				StatusCode:   intPtr(result.statusCode),
-				IsStream:     isStreamingRequest(r, body),
-				LatencyMs:    time.Since(startedAt).Milliseconds(),
-				FirstByteMs:  result.firstByteMsPtr(startedAt),
-				ErrorMessage: result.errorMessage,
-				ErrorSnippet: result.errorSnippet,
-			})
-			return
-		}
 	}
 
 	activeProvider, err := h.providers.GetActive(r.Context())
@@ -162,28 +105,78 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if activeProvider.ID == provider.LocalGatewayProviderID {
+		selectedModels, selectedErr := h.providers.ListSelectedModels(r.Context(), activeProvider.ID)
+		if selectedErr != nil {
+			http.Error(w, "failed to load selected models", http.StatusInternalServerError)
+			return
+		}
+
+		result, model := h.forwardViaLocalSystemGateway(r.Context(), r, body, *activeProvider, selectedModels)
+		if result.networkError != nil {
+			statusCode := http.StatusBadGateway
+			message := result.networkError.Error()
+			snippet := fmt.Sprintf(`{"error":"upstream_request_failed","message":%q}`, message)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
+			_, _ = w.Write([]byte(snippet))
+			h.recordLog(r.Context(), logging.Entry{
+				ProviderID:   activeProvider.ID,
+				ProviderName: activeProvider.Name,
+				Method:       r.Method,
+				Path:         r.URL.Path,
+				Model:        result.finalModel,
+				StatusCode:   &statusCode,
+				IsStream:     isStreamingRequest(r, body),
+				LatencyMs:    time.Since(startedAt).Milliseconds(),
+				ErrorMessage: &message,
+				ErrorSnippet: &snippet,
+			})
+			return
+		}
+
+		writeResponse(w, result)
+		h.recordLog(r.Context(), logging.Entry{
+			ProviderID:   activeProvider.ID,
+			ProviderName: activeProvider.Name,
+			Method:       r.Method,
+			Path:         r.URL.Path,
+			Model:        chooseLogModel(result.finalModel, model),
+			StatusCode:   intPtr(result.statusCode),
+			IsStream:     isStreamingRequest(r, body),
+			LatencyMs:    time.Since(startedAt).Milliseconds(),
+			FirstByteMs:  result.firstByteMsPtr(startedAt),
+			ErrorMessage: result.errorMessage,
+			ErrorSnippet: result.errorSnippet,
+		})
+		return
+	}
+
 	baseURL, err := url.Parse(activeProvider.BaseURL)
 	if err != nil {
 		http.Error(w, "invalid provider base_url", http.StatusBadGateway)
 		return
 	}
 
-	apiKey, err := h.credentials.Get(r.Context(), activeProvider.APIKeyRef)
-	if err != nil {
-		http.Error(w, "failed to load provider credential", http.StatusInternalServerError)
-		message := err.Error()
-		statusCode := http.StatusInternalServerError
-		h.recordLog(r.Context(), logging.Entry{
-			ProviderID:   activeProvider.ID,
-			ProviderName: activeProvider.Name,
-			Method:       r.Method,
-			Path:         r.URL.Path,
-			StatusCode:   &statusCode,
-			UpstreamHost: baseURL.Host,
-			LatencyMs:    time.Since(startedAt).Milliseconds(),
-			ErrorMessage: &message,
-		})
-		return
+	apiKey := ""
+	if strings.TrimSpace(activeProvider.APIKeyRef) != "" {
+		apiKey, err = h.credentials.Get(r.Context(), activeProvider.APIKeyRef)
+		if err != nil {
+			http.Error(w, "failed to load provider credential", http.StatusInternalServerError)
+			message := err.Error()
+			statusCode := http.StatusInternalServerError
+			h.recordLog(r.Context(), logging.Entry{
+				ProviderID:   activeProvider.ID,
+				ProviderName: activeProvider.Name,
+				Method:       r.Method,
+				Path:         r.URL.Path,
+				StatusCode:   &statusCode,
+				UpstreamHost: baseURL.Host,
+				LatencyMs:    time.Since(startedAt).Milliseconds(),
+				ErrorMessage: &message,
+			})
+			return
+		}
 	}
 
 	selectedModels, err := h.providers.ListSelectedModels(r.Context(), activeProvider.ID)
@@ -239,31 +232,28 @@ func (h *Handler) forwardViaLocalSystemGateway(
 	ctx context.Context,
 	r *http.Request,
 	body []byte,
-) (forwardResult, *string, bool) {
+	activeProvider provider.Provider,
+	selectedModels []provider.SelectedModel,
+) (forwardResult, *string) {
 	sources, err := h.modelSources.List(ctx)
 	if err != nil {
-		return forwardResult{networkError: err}, nil, true
-	}
-	if len(sources) == 0 {
-		return forwardResult{}, nil, false
+		return forwardResult{networkError: err}, nil
 	}
 
 	request, err := dispatcher.ParseRequest(r, body)
 	if err != nil {
-		return forwardResult{}, nil, false
+		return forwardResult{networkError: err}, nil
 	}
 
-	selectedModels, err := h.settings.GetLocalGatewaySelectedModels(ctx)
-	if err != nil {
-		return forwardResult{networkError: err}, nil, true
+	if request.Operation == localgateway.OperationModels {
+		return buildLocalModelsResponse(sources), nil
 	}
 
-	claudeMap, err := h.settings.GetLocalGatewayClaudeMap(ctx)
-	if err != nil {
-		return forwardResult{networkError: err}, nil, true
+	if len(sources) == 0 {
+		return forwardResult{networkError: fmt.Errorf("no enabled model source available")}, nil
 	}
 
-	attempts, model := buildSettingsModelAttempts(r, body, selectedModels, claudeMap)
+	attempts, model := buildModelAttempts(r, body, selectedModels, activeProvider.ClaudeCodeModelMap)
 	for index, attempt := range attempts {
 		currentRequest := request
 		currentRequest.Body = attempt.body
@@ -274,7 +264,7 @@ func (h *Handler) forwardViaLocalSystemGateway(
 
 		source := chooseModelSource(sources, currentRequest.Model, selectedModels)
 		if source == nil {
-			return forwardResult{networkError: fmt.Errorf("no enabled model source available")}, model, true
+			return forwardResult{networkError: fmt.Errorf("no enabled model source available")}, model
 		}
 
 		response, err := h.executor.Handle(ctx, currentRequest, *source)
@@ -282,7 +272,7 @@ func (h *Handler) forwardViaLocalSystemGateway(
 			if index < len(attempts)-1 {
 				continue
 			}
-			return forwardResult{networkError: err, finalModel: attempt.model}, model, true
+			return forwardResult{networkError: err, finalModel: attempt.model}, model
 		}
 
 		result := forwardResult{
@@ -294,7 +284,7 @@ func (h *Handler) forwardViaLocalSystemGateway(
 		}
 
 		if response.StatusCode < 400 {
-			return result, model, true
+			return result, model
 		}
 
 		message := strings.TrimSpace(string(response.Body))
@@ -304,17 +294,36 @@ func (h *Handler) forwardViaLocalSystemGateway(
 		}
 
 		if !isRetryableStatus(response.StatusCode) || index == len(attempts)-1 {
-			return result, model, true
+			return result, model
 		}
 	}
 
-	return forwardResult{}, model, true
+	return forwardResult{}, model
+}
+
+func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
+	models := provider.BuildSystemLocalGatewayModelInfo(sources)
+	payload := map[string]any{
+		"data": models,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return forwardResult{networkError: err}
+	}
+
+	return forwardResult{
+		statusCode:  http.StatusOK,
+		header:      http.Header{"Content-Type": []string{"application/json"}},
+		body:        body,
+		firstByteAt: time.Now(),
+	}
 }
 
 func chooseModelSource(
 	sources []modelsource.Source,
 	requestModel string,
-	selected []settings.SelectedModel,
+	selected []provider.SelectedModel,
 ) *localgateway.ModelSource {
 	byModelID := make(map[string]modelsource.Source, len(sources))
 	var firstEnabled *modelsource.Source
@@ -371,101 +380,6 @@ func chooseModelSource(
 		ProviderType:   firstEnabled.ProviderType,
 		DefaultModelID: firstEnabled.DefaultModelID,
 		Enabled:        firstEnabled.Enabled,
-	}
-}
-
-func buildSettingsModelAttempts(
-	r *http.Request,
-	body []byte,
-	selected []settings.SelectedModel,
-	claudeCodeModels settings.ClaudeCodeModelMap,
-) ([]attemptSpec, *string) {
-	currentModel, payload := extractModelFromBody(body)
-	if rewritten := buildSettingsClaudeAttempt(r, currentModel, payload, body, claudeCodeModels); rewritten != nil {
-		return rewritten, currentModel
-	}
-
-	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
-		return []attemptSpec{{model: currentModel, body: body}}, currentModel
-	}
-
-	orderedModels := make([]string, 0, len(selected))
-	for _, item := range selected {
-		orderedModels = append(orderedModels, item.ModelID)
-	}
-
-	startIndex := 0
-	if currentModel != nil {
-		found := -1
-		for index, modelID := range orderedModels {
-			if modelID == *currentModel {
-				found = index
-				break
-			}
-		}
-		if found < 0 {
-			return []attemptSpec{{model: currentModel, body: body}}, currentModel
-		}
-		startIndex = found
-	}
-
-	attempts := make([]attemptSpec, 0, len(orderedModels)-startIndex)
-	for _, modelID := range orderedModels[startIndex:] {
-		attemptModel := modelID
-		updatedBody := bodyWithModel(payload, modelID, body)
-		attempts = append(attempts, attemptSpec{
-			model: &attemptModel,
-			body:  updatedBody,
-		})
-	}
-
-	return attempts, currentModel
-}
-
-func buildSettingsClaudeAttempt(
-	r *http.Request,
-	currentModel *string,
-	payload map[string]any,
-	fallback []byte,
-	claudeCodeModels settings.ClaudeCodeModelMap,
-) []attemptSpec {
-	if currentModel == nil || payload == nil || r.Method != http.MethodPost {
-		return nil
-	}
-
-	targetModel := resolveSettingsClaudeTargetModel(r, *currentModel, claudeCodeModels)
-	if targetModel == "" || targetModel == *currentModel {
-		return nil
-	}
-
-	updatedBody := bodyWithModel(payload, targetModel, fallback)
-	return []attemptSpec{
-		{
-			model: stringPtr(targetModel),
-			body:  updatedBody,
-		},
-	}
-}
-
-func resolveSettingsClaudeTargetModel(
-	r *http.Request,
-	requestModel string,
-	claudeCodeModels settings.ClaudeCodeModelMap,
-) string {
-	if !isAnthropicModelRequest(r) {
-		return ""
-	}
-
-	normalized := strings.ToLower(strings.TrimSpace(requestModel))
-	switch {
-	case strings.Contains(normalized, "haiku"):
-		return strings.TrimSpace(claudeCodeModels.Haiku)
-	case strings.Contains(normalized, "sonnet"), strings.Contains(normalized, "default"):
-		return strings.TrimSpace(claudeCodeModels.Sonnet)
-	case strings.Contains(normalized, "opus"):
-		return strings.TrimSpace(claudeCodeModels.Opus)
-	default:
-		return ""
 	}
 }
 

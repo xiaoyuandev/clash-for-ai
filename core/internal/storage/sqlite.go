@@ -60,7 +60,9 @@ CREATE TABLE IF NOT EXISTS providers (
 	is_active INTEGER NOT NULL DEFAULT 0,
 	last_health_status TEXT NOT NULL DEFAULT 'pending',
 	last_healthcheck_at TEXT NOT NULL DEFAULT '',
-	api_key_masked TEXT NOT NULL DEFAULT ''
+	api_key_masked TEXT NOT NULL DEFAULT '',
+	is_system INTEGER NOT NULL DEFAULT 0,
+	is_immutable INTEGER NOT NULL DEFAULT 0
 );`
 
 	if _, err := s.DB.Exec(providersTable); err != nil {
@@ -74,6 +76,24 @@ CREATE TABLE IF NOT EXISTS providers (
 		"TEXT NOT NULL DEFAULT '{}'",
 	); err != nil {
 		return fmt.Errorf("migrate providers claude_code_model_map_json column: %w", err)
+	}
+
+	if err := addColumnIfMissing(
+		s.DB,
+		"providers",
+		"is_system",
+		"INTEGER NOT NULL DEFAULT 0",
+	); err != nil {
+		return fmt.Errorf("migrate providers is_system column: %w", err)
+	}
+
+	if err := addColumnIfMissing(
+		s.DB,
+		"providers",
+		"is_immutable",
+		"INTEGER NOT NULL DEFAULT 0",
+	); err != nil {
+		return fmt.Errorf("migrate providers is_immutable column: %w", err)
 	}
 
 	const requestLogsTable = `

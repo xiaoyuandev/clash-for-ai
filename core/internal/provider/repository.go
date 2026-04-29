@@ -7,6 +7,7 @@ import (
 )
 
 var ErrProviderNotFound = errors.New("provider not found")
+var ErrProviderImmutable = errors.New("provider is immutable")
 
 type Repository interface {
 	List(ctx context.Context) ([]Provider, error)

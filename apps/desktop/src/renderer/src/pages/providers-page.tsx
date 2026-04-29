@@ -6,21 +6,15 @@ import {
   createProvider,
   deleteProvider,
   getHealth,
-  getLocalGatewayClaudeMap,
-  getModelSources,
+  getProviderClaudeCodeModelMap,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
-  updateLocalGatewayClaudeMap,
+  updateProviderClaudeCodeModelMap,
   updateProvider
 } from "../services/api";
-import type { ModelSource } from "../types/model-source";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
-import {
-  decorateProvidersWithLocalGateway,
-  LOCAL_GATEWAY_PROVIDER_ID
-} from "../utils/local-gateway-provider";
 import {
   buttonClass,
   columnCardClass,
@@ -67,7 +61,6 @@ export function ProvidersPage({
   const { t } = useI18n();
   const [health, setHealth] = useState("loading");
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [modelSources, setModelSources] = useState<ModelSource[]>([]);
   const [providerModels, setProviderModels] = useState<ProviderModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
@@ -167,12 +160,11 @@ export function ProvidersPage({
         }
 
         setHealth(healthData.status);
-        const decoratedProviders = decorateProvidersWithLocalGateway(providersData, apiBase);
-        setProviders(decoratedProviders);
+        setProviders(providersData);
         const nextSelected =
-          decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
-          decoratedProviders.find((provider) => provider.status.is_active) ??
-          decoratedProviders[0] ??
+          providersData.find((provider) => provider.id === selectedProviderId) ??
+          providersData.find((provider) => provider.status.is_active) ??
+          providersData[0] ??
           null;
         onSelectedProviderChange(nextSelected);
       } catch (loadError) {
@@ -197,39 +189,7 @@ export function ProvidersPage({
 
     async function loadProviderModels() {
       if (!selectedProvider) {
-        setModelSources([]);
         setProviderModels([]);
-        return;
-      }
-
-      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-        setLoadingModels(true);
-        try {
-          const items = await getModelSources(apiBase);
-          if (cancelled) {
-            return;
-          }
-          setModelSources(items);
-          setProviderModels(
-            items
-              .filter((item) => item.enabled)
-              .map((item) => ({
-                id: item.default_model_id,
-                object: "model_source",
-                owned_by: item.provider_type || item.name
-              }))
-          );
-        } catch (loadError) {
-          if (!cancelled) {
-            setModelSources([]);
-            setProviderModels([]);
-            setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
-          }
-        } finally {
-          if (!cancelled) {
-            setLoadingModels(false);
-          }
-        }
         return;
       }
 
@@ -239,7 +199,6 @@ export function ProvidersPage({
         if (cancelled) {
           return;
         }
-        setModelSources([]);
         setProviderModels(items);
       } catch (loadError) {
         if (!cancelled) {
@@ -277,31 +236,20 @@ export function ProvidersPage({
         return;
       }
 
-      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-        try {
-          const map = await getLocalGatewayClaudeMap(apiBase);
-          if (!cancelled) {
-            setClaudeCodeModelMap(map);
-          }
-        } catch {
-          if (!cancelled) {
-            setClaudeCodeModelMap({
-              opus: "",
-              sonnet: "",
-              haiku: ""
-            });
-          }
+      try {
+        const map = await getProviderClaudeCodeModelMap(selectedProvider.id, apiBase);
+        if (!cancelled) {
+          setClaudeCodeModelMap(map);
         }
-        return;
+      } catch {
+        if (!cancelled) {
+          setClaudeCodeModelMap({
+            opus: "",
+            sonnet: "",
+            haiku: ""
+          });
+        }
       }
-
-      setClaudeCodeModelMap(
-        selectedProvider.claude_code_model_map ?? {
-          opus: "",
-          sonnet: "",
-          haiku: ""
-        }
-      );
     }
 
     void syncClaudeMap();
@@ -313,13 +261,12 @@ export function ProvidersPage({
 
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
-    const decoratedProviders = decorateProvidersWithLocalGateway(providersData, apiBase);
-    setProviders(decoratedProviders);
+    setProviders(providersData);
     const nextSelected =
-      decoratedProviders.find((provider) => provider.id === preferredProviderId) ??
-      decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
-      decoratedProviders.find((provider) => provider.status.is_active) ??
-      decoratedProviders[0] ??
+      providersData.find((provider) => provider.id === preferredProviderId) ??
+      providersData.find((provider) => provider.id === selectedProviderId) ??
+      providersData.find((provider) => provider.status.is_active) ??
+      providersData[0] ??
       null;
     onSelectedProviderChange(nextSelected);
   }
@@ -384,7 +331,8 @@ export function ProvidersPage({
   }
 
   async function handleDeleteProvider(id: string) {
-    if (id === LOCAL_GATEWAY_PROVIDER_ID) {
+    const target = providers.find((provider) => provider.id === id) ?? null;
+    if (target?.is_immutable) {
       setError(t("providers.feedback.systemProviderLocked"));
       return;
     }
@@ -431,33 +379,15 @@ export function ProvidersPage({
     setError(null);
 
     try {
-      if (selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID) {
-        await updateLocalGatewayClaudeMap(
-          {
-            opus: nextMap.opus.trim(),
-            sonnet: nextMap.sonnet.trim(),
-            haiku: nextMap.haiku.trim()
-          },
-          apiBase
-        );
-      } else {
-        await updateProvider(
-          selectedProvider.id,
-          {
-            name: selectedProvider.name,
-            base_url: selectedProvider.base_url,
-            api_key: selectedProvider.api_key,
-            auth_mode: selectedProvider.auth_mode,
-            extra_headers: selectedProvider.extra_headers ?? {},
-            claude_code_model_map: {
-              opus: nextMap.opus.trim(),
-              sonnet: nextMap.sonnet.trim(),
-              haiku: nextMap.haiku.trim()
-            }
-          },
-          apiBase
-        );
-      }
+      await updateProviderClaudeCodeModelMap(
+        selectedProvider.id,
+        {
+          opus: nextMap.opus.trim(),
+          sonnet: nextMap.sonnet.trim(),
+          haiku: nextMap.haiku.trim()
+        },
+        apiBase
+      );
       await refreshProviders(selectedProvider.id);
       if (selectedProvider.status.is_active) {
         await syncClaudeCodeIntegrationIfConfigured();
@@ -492,7 +422,7 @@ export function ProvidersPage({
   }
 
   function startEditing(provider: Provider) {
-    if (provider.id === LOCAL_GATEWAY_PROVIDER_ID) {
+    if (provider.is_immutable) {
       setError(t("providers.feedback.systemProviderLocked"));
       return;
     }
@@ -618,14 +548,14 @@ export function ProvidersPage({
                             {provider.base_url}
                           </p>
                           <p className={`${metaClass} mt-1 truncate`}>
-                            {maskApiKey(provider.api_key ?? "")}
+                            {provider.api_key_masked || maskApiKey(provider.api_key ?? "")}
                           </p>
                         </div>
                       </div>
                     </button>
 
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
+                      {provider.is_system ? (
                         <span className={statusPillClass("default")}>
                           {t("providers.status.system")}
                         </span>
@@ -660,7 +590,7 @@ export function ProvidersPage({
                           {t("providers.action.view")}
                         </span>
                       </div>
-                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? null : (
+                      {provider.is_immutable ? null : (
                         <div className="relative">
                           <button
                             type="button"
@@ -697,7 +627,7 @@ export function ProvidersPage({
                           {t("providers.action.test")}
                         </span>
                       </div>
-                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? null : (
+                      {provider.is_immutable ? null : (
                         <div className="relative">
                           <button
                             type="button"
@@ -756,9 +686,7 @@ export function ProvidersPage({
                         <p className={sectionMetaClass}>
                           {loadingModels
                             ? t("common.loading")
-                            : selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
-                              ? t("providers.detail.localGatewayModelsMeta")
-                              : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
                     </div>
@@ -781,9 +709,7 @@ export function ProvidersPage({
                           <p>
                             {loadingModels
                               ? t("common.loading")
-                              : selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
-                                ? t("providers.detail.localGatewayModelsEmpty")
-                                : t("providers.detail.modelsEmpty")}
+                              : t("providers.detail.modelsEmpty")}
                           </p>
                         </div>
                       </div>
@@ -813,16 +739,6 @@ export function ProvidersPage({
                                 <p className={`${metaClass} mt-1.5`}>
                                   {model.owned_by ?? t("models.available.ownerUnknown")}
                                 </p>
-                                {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
-                                  <>
-                                    <p className={`${metaClass} mt-1`}>
-                                      {modelSources.find((source) => source.default_model_id === model.id)?.name ?? "-"}
-                                    </p>
-                                    <p className={`${metaClass} mt-1`}>
-                                      {modelSources.find((source) => source.default_model_id === model.id)?.base_url ?? "-"}
-                                    </p>
-                                  </>
-                                ) : null}
                               </div>
                               <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
                                 :::
@@ -1110,33 +1026,35 @@ export function ProvidersPage({
                       <span className={monoClass}>
                         {showSelectedProviderApiKey
                           ? detailProvider.api_key
-                          : maskApiKey(detailProvider.api_key ?? "")}
+                          : detailProvider.api_key_masked || maskApiKey(detailProvider.api_key ?? "")}
                       </span>
-                      <button
-                        type="button"
-                        className={`${iconButtonSmallClass} ml-2 align-middle`}
-                        aria-label={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        title={
-                          showSelectedProviderApiKey
-                            ? t("providers.form.hideApiKey")
-                            : t("providers.form.showApiKey")
-                        }
-                        onClick={() => setShowSelectedProviderApiKey((current) => !current)}
-                      >
-                        {showSelectedProviderApiKey ? (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
-                          </svg>
-                        ) : (
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
-                          </svg>
-                        )}
-                      </button>
+                      {detailProvider.api_key ? (
+                        <button
+                          type="button"
+                          className={`${iconButtonSmallClass} ml-2 align-middle`}
+                          aria-label={
+                            showSelectedProviderApiKey
+                              ? t("providers.form.hideApiKey")
+                              : t("providers.form.showApiKey")
+                          }
+                          title={
+                            showSelectedProviderApiKey
+                              ? t("providers.form.hideApiKey")
+                              : t("providers.form.showApiKey")
+                          }
+                          onClick={() => setShowSelectedProviderApiKey((current) => !current)}
+                        >
+                          {showSelectedProviderApiKey ? (
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M2.7 1.3 1.3 2.7l3 3C2.9 6.9 1.9 8.2 1.3 9.2a1.3 1.3 0 0 0 0 1.6C2.5 12.4 6.5 17 12 17c2 0 3.8-.6 5.3-1.5l4 4 1.4-1.4zM9.9 11.3l2.8 2.8a2.5 2.5 0 0 1-2.8-2.8m4.1 1.3-3.6-3.6A2.5 2.5 0 0 1 14 12.6M12 7c3.8 0 7 3 8.6 5-.5.6-1.1 1.3-2 2l1.4 1.4c1.1-.8 2-1.8 2.7-2.8.4-.5.4-1.1 0-1.6C21.5 9.4 17.5 5 12 5c-1.4 0-2.7.3-3.9.8l1.7 1.7A9 9 0 0 1 12 7" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 5c5.5 0 9.5 4.6 10.7 6.2.4.5.4 1.1 0 1.6C21.5 14.4 17.5 19 12 19S2.5 14.4 1.3 12.8a1.3 1.3 0 0 1 0-1.6C2.5 9.6 6.5 5 12 5m0 2C8.2 7 5 10 3.4 12 5 14 8.2 17 12 17s7-3 8.6-5C19 10 15.8 7 12 7m0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                            </svg>
+                          )}
+                        </button>
+                      ) : null}
                     </p>
                   </div>
                 </div>

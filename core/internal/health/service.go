@@ -25,6 +25,7 @@ type CheckResult struct {
 
 type ProviderReader interface {
 	GetByID(ctx context.Context, id string) (*provider.Provider, error)
+	FetchModels(ctx context.Context, id string) ([]provider.ModelInfo, error)
 	UpdateStatus(ctx context.Context, id string, status provider.Status) (provider.Provider, error)
 }
 
@@ -55,13 +56,57 @@ func (s *Service) CheckProvider(ctx context.Context, id string) (*CheckResult, e
 		return nil, fmt.Errorf("invalid provider base_url: %w", err)
 	}
 
-	apiKey, err := s.credentials.Get(ctx, item.APIKeyRef)
-	if err != nil {
-		return nil, fmt.Errorf("load provider credential: %w", err)
+	if item.IsSystem && item.ID == provider.LocalGatewayProviderID {
+		startedAt := time.Now()
+		models, err := s.providers.FetchModels(ctx, id)
+		if err != nil {
+			result := &CheckResult{
+				Status:      "error",
+				StatusCode:  0,
+				LatencyMs:   time.Since(startedAt).Milliseconds(),
+				Summary:     err.Error(),
+				CheckedAt:   time.Now().UTC(),
+				ProviderID:  item.ID,
+				ProviderURL: item.BaseURL,
+			}
+			_, _ = s.providers.UpdateStatus(ctx, item.ID, provider.Status{
+				IsActive:          item.Status.IsActive,
+				LastHealthStatus:  "error",
+				LastHealthcheckAt: result.CheckedAt.Format(time.RFC3339),
+			})
+			return result, nil
+		}
+
+		result := &CheckResult{
+			Status:      "ok",
+			StatusCode:  http.StatusOK,
+			LatencyMs:   time.Since(startedAt).Milliseconds(),
+			Summary:     fmt.Sprintf("resolved %d local models", len(models)),
+			CheckedAt:   time.Now().UTC(),
+			ProviderID:  item.ID,
+			ProviderURL: item.BaseURL,
+		}
+		_, updateErr := s.providers.UpdateStatus(ctx, item.ID, provider.Status{
+			IsActive:          item.Status.IsActive,
+			LastHealthStatus:  "ok",
+			LastHealthcheckAt: result.CheckedAt.Format(time.RFC3339),
+		})
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		return result, nil
+	}
+
+	apiKey := ""
+	if strings.TrimSpace(item.APIKeyRef) != "" {
+		apiKey, err = s.credentials.Get(ctx, item.APIKeyRef)
+		if err != nil {
+			return nil, fmt.Errorf("load provider credential: %w", err)
+		}
 	}
 
 	target := *baseURL
-	target.Path = joinURLPath(baseURL.Path, "/models")
+	target.Path = provider.ResolveModelsPath(baseURL.Path)
 	target.RawPath = target.Path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
