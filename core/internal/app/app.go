@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -46,21 +48,17 @@ func Run() error {
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	settingsService := settings.NewService(settingsRepository)
-	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
-	localGatewayStateRepository := localgatewaystate.NewSQLiteRepository(sqliteStore.DB)
-	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
-	localGatewayStateService := localgatewaystate.NewService(localGatewayStateRepository)
 	currentSettings, err := settingsService.Get(context.Background())
 	if err != nil {
 		return err
 	}
 
 	runtimeDataDir := resolveLocalRuntimeDataDir(cfg.DataDir)
-	if err := prepareLocalRuntimeState(
+	if err := prepareLocalRuntimeStateIfNeeded(
 		context.Background(),
 		runtimeDataDir,
-		modelSourceService,
-		localGatewayStateService,
+		sqliteStore.DB,
+		credentialStore,
 		settingsService,
 		providerService,
 		currentSettings,
@@ -273,6 +271,12 @@ func resolveLocalRuntimeDataDir(coreDataDir string) string {
 	return filepath.Join(coreDataDir, "local-gateway-runtime")
 }
 
+const localRuntimeStateMigrationVersion = 1
+
+type localRuntimeStateMigrationMarker struct {
+	Version int `json:"version"`
+}
+
 func prepareLocalRuntimeState(
 	ctx context.Context,
 	runtimeDataDir string,
@@ -282,6 +286,14 @@ func prepareLocalRuntimeState(
 	providers *provider.Service,
 	currentSettings settings.AppSettings,
 ) error {
+	migrated, err := hasPreparedLocalRuntimeState(runtimeDataDir)
+	if err != nil {
+		return err
+	}
+	if migrated {
+		return nil
+	}
+
 	runtimeStore, err := storage.NewSQLite(filepath.Join(runtimeDataDir, "clash-for-ai.db"))
 	if err != nil {
 		return err
@@ -383,5 +395,72 @@ func prepareLocalRuntimeState(
 		}
 	}
 
-	return nil
+	return markLocalRuntimeStatePrepared(runtimeDataDir)
+}
+
+func prepareLocalRuntimeStateIfNeeded(
+	ctx context.Context,
+	runtimeDataDir string,
+	coreDB *sql.DB,
+	coreCredentials credential.Store,
+	coreSettings *settings.Service,
+	providers *provider.Service,
+	currentSettings settings.AppSettings,
+) error {
+	migrated, err := hasPreparedLocalRuntimeState(runtimeDataDir)
+	if err != nil {
+		return err
+	}
+	if migrated {
+		return nil
+	}
+
+	coreModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(coreDB), coreCredentials)
+	coreLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(coreDB))
+
+	return prepareLocalRuntimeState(
+		ctx,
+		runtimeDataDir,
+		coreModelSources,
+		coreLocalGatewayState,
+		coreSettings,
+		providers,
+		currentSettings,
+	)
+}
+
+func localRuntimeStateMarkerPath(runtimeDataDir string) string {
+	return filepath.Join(runtimeDataDir, "state-migration.json")
+}
+
+func hasPreparedLocalRuntimeState(runtimeDataDir string) (bool, error) {
+	body, err := os.ReadFile(localRuntimeStateMarkerPath(runtimeDataDir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	var marker localRuntimeStateMigrationMarker
+	if err := json.Unmarshal(body, &marker); err != nil {
+		return false, err
+	}
+
+	return marker.Version >= localRuntimeStateMigrationVersion, nil
+}
+
+func markLocalRuntimeStatePrepared(runtimeDataDir string) error {
+	if err := os.MkdirAll(runtimeDataDir, 0o755); err != nil {
+		return err
+	}
+
+	body, err := json.Marshal(localRuntimeStateMigrationMarker{
+		Version: localRuntimeStateMigrationVersion,
+	})
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(localRuntimeStateMarkerPath(runtimeDataDir), body, 0o644)
 }
