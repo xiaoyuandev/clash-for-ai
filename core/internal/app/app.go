@@ -2,9 +2,7 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -14,6 +12,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/config"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
@@ -52,15 +51,12 @@ func Run() error {
 		return err
 	}
 
-	localGatewayBaseURL := buildLocalGatewayBaseURL(
-		currentSettings.LocalGateway.ListenHost,
-		currentSettings.LocalGateway.ListenPort,
+	localRuntimeAdapter := gatewayadapter.NewEmbeddedLocalRuntimeAdapter(
+		currentSettings.LocalGateway,
+		gateway.NewLocalRuntimeHandler(providerService, modelSourceService, settingsService, localGatewayExecutor),
 	)
 	if currentSettings.LocalGateway.Enabled {
-		if err := startLocalGatewayRuntime(
-			currentSettings.LocalGateway,
-			gateway.NewLocalRuntimeHandler(providerService, modelSourceService, localGatewayExecutor),
-		); err != nil {
+		if err := localRuntimeAdapter.Start(); err != nil {
 			return err
 		}
 	}
@@ -70,10 +66,11 @@ func Run() error {
 		providerService,
 		settingsService,
 		currentSettings,
-		localGatewayBaseURL,
+		localRuntimeAdapter.BaseURL(),
 	); err != nil {
 		return err
 	}
+	providerService.BindLocalRuntimeState(localRuntimeAdapter)
 
 	gatewayHandler := gateway.NewHandler(
 		providerService,
@@ -82,7 +79,7 @@ func Run() error {
 		logService,
 	)
 
-	handler := api.NewRouter(providerService, modelSourceService, healthService, logService, gatewayHandler)
+	handler := api.NewRouter(providerService, localRuntimeAdapter, healthService, logService, gatewayHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),
@@ -126,25 +123,26 @@ func initializeLocalGatewayProvider(
 		return err
 	}
 
-	if len(selectedModels) == 0 && len(currentSettings.LocalGatewaySelected) > 0 {
-		items := make([]provider.SelectedModel, 0, len(currentSettings.LocalGatewaySelected))
-		for _, item := range currentSettings.LocalGatewaySelected {
+	if len(currentSettings.LocalGatewaySelected) == 0 && len(selectedModels) > 0 {
+		items := make([]settings.SelectedModel, 0, len(selectedModels))
+		for _, item := range selectedModels {
 			modelID := strings.TrimSpace(item.ModelID)
 			if modelID == "" {
 				continue
 			}
-			items = append(items, provider.SelectedModel{
+			items = append(items, settings.SelectedModel{
 				ModelID:  modelID,
 				Position: item.Position,
 			})
 		}
 
-		if _, err := providers.ReplaceSelectedModels(ctx, provider.LocalGatewayProviderID, items); err != nil {
+		if _, err := settingsService.UpdateLocalGatewaySelectedModels(ctx, items); err != nil {
 			return err
 		}
 
-		currentSettings.LocalGatewaySelected = []settings.SelectedModel{}
-		needsSettingsCleanup = true
+		if _, err := providers.ReplaceSelectedModels(ctx, provider.LocalGatewayProviderID, nil); err != nil {
+			return err
+		}
 	}
 
 	if needsSettingsCleanup {
@@ -154,52 +152,6 @@ func initializeLocalGatewayProvider(
 	}
 
 	return nil
-}
-
-func startLocalGatewayRuntime(
-	localSettings settings.LocalGatewaySettings,
-	handler http.Handler,
-) error {
-	listenHost := resolveLocalGatewayListenHost(localSettings.ListenHost)
-	addr := fmt.Sprintf("%s:%d", listenHost, localSettings.ListenPort)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("start local gateway runtime listener: %w", err)
-	}
-
-	server := &http.Server{
-		Addr:    addr,
-		Handler: handler,
-		BaseContext: func(net.Listener) context.Context {
-			return context.Background()
-		},
-	}
-
-	go func() {
-		if serveErr := server.Serve(listener); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			log.Printf("local gateway runtime exited: %v", serveErr)
-		}
-	}()
-
-	return nil
-}
-
-func resolveLocalGatewayListenHost(host string) string {
-	trimmed := strings.TrimSpace(host)
-	if trimmed == "" {
-		return "127.0.0.1"
-	}
-	return trimmed
-}
-
-func buildLocalGatewayBaseURL(bindHost string, port int) string {
-	host := strings.TrimSpace(bindHost)
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-
-	return fmt.Sprintf("http://%s:%d", host, port)
 }
 
 func isEmptyClaudeCodeModelMap(input provider.ClaudeCodeModelMap) bool {

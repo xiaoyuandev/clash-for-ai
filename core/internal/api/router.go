@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -16,16 +17,24 @@ import (
 
 type Router struct {
 	providers *provider.Service
-	models    *modelsource.Service
+	runtime   LocalRuntimeAdmin
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-func NewRouter(providers *provider.Service, modelSources *modelsource.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+type LocalRuntimeAdmin interface {
+	ListModelSources(ctx context.Context) ([]modelsource.Source, error)
+	CreateModelSource(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error)
+	UpdateModelSource(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error)
+	DeleteModelSource(ctx context.Context, id string) error
+	ReplaceModelSourceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error)
+}
+
+func NewRouter(providers *provider.Service, runtime LocalRuntimeAdmin, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
-		models:    modelSources,
+		runtime:   runtime,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -113,7 +122,7 @@ func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleModelSources(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		items, err := r.models.List(req.Context())
+		items, err := r.runtime.ListModelSources(req.Context())
 		if err != nil {
 			http.Error(w, "failed to list model sources", http.StatusInternalServerError)
 			return
@@ -125,7 +134,7 @@ func (r *Router) handleModelSources(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		item, err := r.models.Create(req.Context(), input)
+		item, err := r.runtime.CreateModelSource(req.Context(), input)
 		if err != nil {
 			http.Error(w, "failed to create model source", http.StatusInternalServerError)
 			return
@@ -146,7 +155,7 @@ func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Reque
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		items, err := r.models.ReplaceOrder(req.Context(), input)
+		items, err := r.runtime.ReplaceModelSourceOrder(req.Context(), input)
 		if err != nil {
 			http.Error(w, "failed to update model source order", http.StatusInternalServerError)
 			return
@@ -158,7 +167,7 @@ func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Reque
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		item, err := r.models.Update(req.Context(), parts[0], input)
+		item, err := r.runtime.UpdateModelSource(req.Context(), parts[0], input)
 		if err != nil {
 			if errors.Is(err, modelsource.ErrSourceNotFound) {
 				http.Error(w, "model source not found", http.StatusNotFound)
@@ -169,7 +178,7 @@ func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Reque
 		}
 		writeJSON(w, http.StatusOK, item)
 	case len(parts) == 1 && req.Method == http.MethodDelete:
-		if err := r.models.Delete(req.Context(), parts[0]); err != nil {
+		if err := r.runtime.DeleteModelSource(req.Context(), parts[0]); err != nil {
 			if errors.Is(err, modelsource.ErrSourceNotFound) {
 				http.Error(w, "model source not found", http.StatusNotFound)
 				return

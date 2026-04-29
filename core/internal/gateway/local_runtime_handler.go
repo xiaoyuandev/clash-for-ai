@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	dispatcher "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/inbound/dispatcher"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 )
 
 type LocalRuntimeProviderResolver interface {
@@ -22,22 +24,33 @@ type LocalRuntimeProviderResolver interface {
 type LocalRuntimeHandler struct {
 	providers    LocalRuntimeProviderResolver
 	modelSources ModelSourceResolver
+	selected     LocalRuntimeSelectedModelStore
 	executor     localgateway.Service
+}
+
+type LocalRuntimeSelectedModelStore interface {
+	GetLocalGatewaySelectedModels(ctx context.Context) ([]settings.SelectedModel, error)
+	UpdateLocalGatewaySelectedModels(ctx context.Context, items []settings.SelectedModel) ([]settings.SelectedModel, error)
 }
 
 func NewLocalRuntimeHandler(
 	providers LocalRuntimeProviderResolver,
 	modelSources ModelSourceResolver,
+	selected LocalRuntimeSelectedModelStore,
 	executor localgateway.Service,
 ) http.Handler {
 	handler := &LocalRuntimeHandler{
 		providers:    providers,
 		modelSources: modelSources,
+		selected:     selected,
 		executor:     executor,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handler.handleHealth)
+	mux.HandleFunc("/admin/model-sources", handler.handleModelSources)
+	mux.HandleFunc("/admin/model-sources/", handler.handleModelSourceActions)
+	mux.HandleFunc("/admin/selected-models", handler.handleSelectedModels)
 	mux.HandleFunc("/v1", handler.handleV1)
 	mux.HandleFunc("/v1/", handler.handleV1)
 	return mux
@@ -95,7 +108,7 @@ func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	selectedModels, err := h.providers.ListSelectedModels(r.Context(), provider.LocalGatewayProviderID)
+	selectedModels, err := h.listSelectedModels(r.Context())
 	if err != nil {
 		http.Error(w, "failed to load local gateway selected models", http.StatusInternalServerError)
 		return
@@ -151,6 +164,141 @@ func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeLocalRuntimeError(w, http.StatusBadGateway, fmt.Errorf("no enabled model source available"))
+}
+
+func (h *LocalRuntimeHandler) handleModelSources(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := h.modelSources.List(req.Context())
+		if err != nil {
+			http.Error(w, "failed to list model sources", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		service, ok := h.modelSources.(interface {
+			Create(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error)
+		})
+		if !ok {
+			http.Error(w, "model source create unavailable", http.StatusNotImplemented)
+			return
+		}
+
+		var input modelsource.CreateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := service.Create(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to create model source", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *LocalRuntimeHandler) handleModelSourceActions(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimPrefix(req.URL.Path, "/admin/model-sources/")
+	parts := strings.Split(path, "/")
+	switch {
+	case len(parts) == 2 && parts[1] == "order" && req.Method == http.MethodPut:
+		service, ok := h.modelSources.(interface {
+			ReplaceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error)
+		})
+		if !ok {
+			http.Error(w, "model source reorder unavailable", http.StatusNotImplemented)
+			return
+		}
+
+		var input []modelsource.Source
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := service.ReplaceOrder(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to update model source order", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case len(parts) == 1 && req.Method == http.MethodPut:
+		service, ok := h.modelSources.(interface {
+			Update(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error)
+		})
+		if !ok {
+			http.Error(w, "model source update unavailable", http.StatusNotImplemented)
+			return
+		}
+
+		var input modelsource.UpdateInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		item, err := service.Update(req.Context(), parts[0], input)
+		if err != nil {
+			if errors.Is(err, modelsource.ErrSourceNotFound) {
+				http.Error(w, "model source not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to update model source", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 1 && req.Method == http.MethodDelete:
+		service, ok := h.modelSources.(interface {
+			Delete(ctx context.Context, id string) error
+		})
+		if !ok {
+			http.Error(w, "model source delete unavailable", http.StatusNotImplemented)
+			return
+		}
+
+		if err := service.Delete(req.Context(), parts[0]); err != nil {
+			if errors.Is(err, modelsource.ErrSourceNotFound) {
+				http.Error(w, "model source not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to delete model source", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *LocalRuntimeHandler) handleSelectedModels(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := h.listSelectedModels(req.Context())
+		if err != nil {
+			http.Error(w, "failed to list selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPut:
+		var input []provider.SelectedModel
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		items, err := h.replaceSelectedModels(req.Context(), input)
+		if err != nil {
+			http.Error(w, "failed to update selected models", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
@@ -242,4 +390,50 @@ func writeLocalRuntimeError(w http.ResponseWriter, statusCode int, err error) {
 		"error":   "upstream_request_failed",
 		"message": err.Error(),
 	})
+}
+
+func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (h *LocalRuntimeHandler) listSelectedModels(ctx context.Context) ([]provider.SelectedModel, error) {
+	items, err := h.selected.GetLocalGatewaySelectedModels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]provider.SelectedModel, 0, len(items))
+	for _, item := range items {
+		result = append(result, provider.SelectedModel{
+			ModelID:  item.ModelID,
+			Position: item.Position,
+		})
+	}
+	return result, nil
+}
+
+func (h *LocalRuntimeHandler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
+	runtimeItems := make([]settings.SelectedModel, 0, len(items))
+	for _, item := range items {
+		runtimeItems = append(runtimeItems, settings.SelectedModel{
+			ModelID:  item.ModelID,
+			Position: item.Position,
+		})
+	}
+
+	saved, err := h.selected.UpdateLocalGatewaySelectedModels(ctx, runtimeItems)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]provider.SelectedModel, 0, len(saved))
+	for _, item := range saved {
+		result = append(result, provider.SelectedModel{
+			ModelID:  item.ModelID,
+			Position: item.Position,
+		})
+	}
+	return result, nil
 }

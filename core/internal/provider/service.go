@@ -44,10 +44,16 @@ type Service struct {
 	credentials credential.Store
 	client      *http.Client
 	models      ModelSourceReader
+	localState  LocalRuntimeState
 }
 
 type ModelSourceReader interface {
 	List(ctx context.Context) ([]modelsource.Source, error)
+}
+
+type LocalRuntimeState interface {
+	ListSelectedModels(ctx context.Context) ([]SelectedModel, error)
+	ReplaceSelectedModels(ctx context.Context, items []SelectedModel) ([]SelectedModel, error)
 }
 
 func InferAuthMode(name string, baseURL string) AuthMode {
@@ -130,6 +136,10 @@ func NewService(repository Repository, credentials credential.Store, models Mode
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+func (s *Service) BindLocalRuntimeState(state LocalRuntimeState) {
+	s.localState = state
 }
 
 func (s *Service) List(ctx context.Context) ([]Provider, error) {
@@ -263,6 +273,10 @@ func normalizeClaudeCodeModelMap(input ClaudeCodeModelMap) ClaudeCodeModelMap {
 }
 
 func (s *Service) ListSelectedModels(ctx context.Context, id string) ([]SelectedModel, error) {
+	if id == LocalGatewayProviderID && s.localState != nil {
+		return s.localState.ListSelectedModels(ctx)
+	}
+
 	if _, err := s.repository.GetByID(ctx, id); err != nil {
 		return nil, err
 	}
@@ -271,6 +285,10 @@ func (s *Service) ListSelectedModels(ctx context.Context, id string) ([]Selected
 }
 
 func (s *Service) ReplaceSelectedModels(ctx context.Context, id string, items []SelectedModel) ([]SelectedModel, error) {
+	if id == LocalGatewayProviderID && s.localState != nil {
+		return s.localState.ReplaceSelectedModels(ctx, items)
+	}
+
 	if _, err := s.repository.GetByID(ctx, id); err != nil {
 		return nil, err
 	}
