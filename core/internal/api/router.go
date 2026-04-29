@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,30 +10,19 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
 type Router struct {
 	providers *provider.Service
-	runtime   LocalRuntimeAdmin
 	health    *health.Service
 	logs      *logging.Service
 	gateway   http.Handler
 }
 
-type LocalRuntimeAdmin interface {
-	ListModelSources(ctx context.Context) ([]modelsource.Source, error)
-	CreateModelSource(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error)
-	UpdateModelSource(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error)
-	DeleteModelSource(ctx context.Context, id string) error
-	ReplaceModelSourceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error)
-}
-
-func NewRouter(providers *provider.Service, runtime LocalRuntimeAdmin, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
+func NewRouter(providers *provider.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
-		runtime:   runtime,
 		health:    healthService,
 		logs:      loggingService,
 		gateway:   gatewayHandler,
@@ -45,8 +33,6 @@ func NewRouter(providers *provider.Service, runtime LocalRuntimeAdmin, healthSer
 	mux.HandleFunc("/api/logs", router.handleLogs)
 	mux.HandleFunc("/api/providers", router.handleProviders)
 	mux.HandleFunc("/api/providers/", router.handleProviderActions)
-	mux.HandleFunc("/api/model-sources", router.handleModelSources)
-	mux.HandleFunc("/api/model-sources/", router.handleModelSourceActions)
 	mux.Handle("/v1/", router.gateway)
 
 	return withCORS(mux)
@@ -117,79 +103,6 @@ func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, items)
-}
-
-func (r *Router) handleModelSources(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		items, err := r.runtime.ListModelSources(req.Context())
-		if err != nil {
-			http.Error(w, "failed to list model sources", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, items)
-	case http.MethodPost:
-		var input modelsource.CreateInput
-		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		item, err := r.runtime.CreateModelSource(req.Context(), input)
-		if err != nil {
-			http.Error(w, "failed to create model source", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusCreated, item)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (r *Router) handleModelSourceActions(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/api/model-sources/")
-	parts := strings.Split(path, "/")
-	switch {
-	case len(parts) == 2 && parts[1] == "order" && req.Method == http.MethodPut:
-		var input []modelsource.Source
-		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		items, err := r.runtime.ReplaceModelSourceOrder(req.Context(), input)
-		if err != nil {
-			http.Error(w, "failed to update model source order", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, items)
-	case len(parts) == 1 && req.Method == http.MethodPut:
-		var input modelsource.UpdateInput
-		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		item, err := r.runtime.UpdateModelSource(req.Context(), parts[0], input)
-		if err != nil {
-			if errors.Is(err, modelsource.ErrSourceNotFound) {
-				http.Error(w, "model source not found", http.StatusNotFound)
-				return
-			}
-			http.Error(w, "failed to update model source", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, http.StatusOK, item)
-	case len(parts) == 1 && req.Method == http.MethodDelete:
-		if err := r.runtime.DeleteModelSource(req.Context(), parts[0]); err != nil {
-			if errors.Is(err, modelsource.ErrSourceNotFound) {
-				http.Error(w, "model source not found", http.StatusNotFound)
-				return
-			}
-			http.Error(w, "failed to delete model source", http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {

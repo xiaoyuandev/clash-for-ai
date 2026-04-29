@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -44,29 +45,38 @@ func Run() error {
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
 	providerService := provider.NewService(providerRepository, credentialStore, modelSourceService)
 	settingsService := settings.NewService(settingsRepository)
-	healthService := health.NewService(providerService, credentialStore)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 	currentSettings, err := settingsService.Get(context.Background())
 	if err != nil {
 		return err
 	}
 
-	localRuntimeAdapter := gatewayadapter.NewEmbeddedLocalRuntimeAdapter(
+	localRuntimeAdapter := resolveLocalRuntimeAdapter(
 		currentSettings.LocalGateway,
 		gateway.NewLocalRuntimeHandler(providerService, modelSourceService, settingsService, localGatewayExecutor),
 	)
 	if currentSettings.LocalGateway.Enabled {
-		if err := localRuntimeAdapter.Start(); err != nil {
+		if err := localRuntimeAdapter.Start(context.Background()); err != nil {
 			return err
 		}
 	}
+	runtimeInfo, err := localRuntimeAdapter.Discover(context.Background())
+	if err != nil {
+		return err
+	}
+	runtimeCapabilities, err := localRuntimeAdapter.Capabilities(context.Background())
+	if err != nil {
+		return err
+	}
+	healthService := health.NewService(providerService, credentialStore, localRuntimeAdapter)
 
 	if err := initializeLocalGatewayProvider(
 		context.Background(),
 		providerService,
 		settingsService,
 		currentSettings,
-		localRuntimeAdapter.BaseURL(),
+		runtimeInfo.BaseURL,
+		buildLocalGatewayProviderCapabilities(runtimeCapabilities),
 	); err != nil {
 		return err
 	}
@@ -79,7 +89,7 @@ func Run() error {
 		logService,
 	)
 
-	handler := api.NewRouter(providerService, localRuntimeAdapter, healthService, logService, gatewayHandler)
+	handler := api.NewRouter(providerService, healthService, logService, gatewayHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),
@@ -98,8 +108,9 @@ func initializeLocalGatewayProvider(
 	settingsService *settings.Service,
 	currentSettings settings.AppSettings,
 	baseURL string,
+	capabilities provider.Capabilities,
 ) error {
-	localProvider, err := providers.EnsureSystemLocalGateway(ctx, baseURL)
+	localProvider, err := providers.EnsureSystemLocalGateway(ctx, baseURL, capabilities)
 	if err != nil {
 		return err
 	}
@@ -164,4 +175,25 @@ func hasLegacyClaudeCodeModelMap(input settings.ClaudeCodeModelMap) bool {
 	return strings.TrimSpace(input.Opus) != "" ||
 		strings.TrimSpace(input.Sonnet) != "" ||
 		strings.TrimSpace(input.Haiku) != ""
+}
+
+func buildLocalGatewayProviderCapabilities(input gatewayadapter.RuntimeCapabilities) provider.Capabilities {
+	return provider.Capabilities{
+		SupportsOpenAICompatible:    input.SupportsOpenAICompatible,
+		SupportsAnthropicCompatible: input.SupportsAnthropicCompatible,
+		SupportsModelsAPI:           input.SupportsModelsAPI,
+		SupportsBalanceAPI:          false,
+		SupportsStream:              input.SupportsStream,
+	}
+}
+
+func resolveLocalRuntimeAdapter(
+	localSettings settings.LocalGatewaySettings,
+	handler http.Handler,
+) gatewayadapter.LocalRuntimeAdapter {
+	if externalBaseURL := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_BASE_URL")); externalBaseURL != "" {
+		return gatewayadapter.NewExternalRuntimeAdapter(externalBaseURL)
+	}
+
+	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, handler)
 }

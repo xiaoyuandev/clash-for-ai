@@ -42,7 +42,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestEnsureSystemLocalGatewayCreatesImmutableProvider(t *testing.T) {
 	service := NewService(NewInMemoryRepository(), credential.NewInMemoryStore(), stubModelSourceReader{})
 
-	item, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:3456")
+	item, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:3456", DefaultLocalGatewayCapabilities())
 	if err != nil {
 		t.Fatalf("EnsureSystemLocalGateway returned error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestEnsureSystemLocalGatewayCreatesImmutableProvider(t *testing.T) {
 func TestUpdateAndDeleteRejectImmutableProvider(t *testing.T) {
 	service := NewService(NewInMemoryRepository(), credential.NewInMemoryStore(), stubModelSourceReader{})
 
-	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:3456"); err != nil {
+	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:3456", DefaultLocalGatewayCapabilities()); err != nil {
 		t.Fatalf("EnsureSystemLocalGateway returned error: %v", err)
 	}
 
@@ -107,7 +107,7 @@ func TestFetchModelsForSystemLocalGatewayUsesRuntimeEndpoint(t *testing.T) {
 		}),
 	}
 
-	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:8788"); err != nil {
+	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:8788", DefaultLocalGatewayCapabilities()); err != nil {
 		t.Fatalf("EnsureSystemLocalGateway returned error: %v", err)
 	}
 
@@ -129,7 +129,7 @@ func TestFetchModelsForSystemLocalGatewayUsesRuntimeEndpoint(t *testing.T) {
 
 func TestLocalGatewaySelectedModelsUseBoundRuntimeState(t *testing.T) {
 	service := NewService(NewInMemoryRepository(), credential.NewInMemoryStore(), stubModelSourceReader{})
-	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:8788"); err != nil {
+	if _, err := service.EnsureSystemLocalGateway(context.Background(), "http://127.0.0.1:8788", DefaultLocalGatewayCapabilities()); err != nil {
 		t.Fatalf("EnsureSystemLocalGateway returned error: %v", err)
 	}
 

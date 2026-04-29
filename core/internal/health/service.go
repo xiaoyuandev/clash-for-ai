@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/gatewayadapter"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
@@ -29,15 +30,17 @@ type ProviderReader interface {
 }
 
 type Service struct {
-	providers   ProviderReader
-	credentials credential.Store
-	client      *http.Client
+	providers    ProviderReader
+	credentials  credential.Store
+	localRuntime gatewayadapter.RuntimeAdapter
+	client       *http.Client
 }
 
-func NewService(providers ProviderReader, credentials credential.Store) *Service {
+func NewService(providers ProviderReader, credentials credential.Store, localRuntime gatewayadapter.RuntimeAdapter) *Service {
 	return &Service{
-		providers:   providers,
-		credentials: credentials,
+		providers:    providers,
+		credentials:  credentials,
+		localRuntime: localRuntime,
 		client: &http.Client{
 			Timeout: 8 * time.Second,
 		},
@@ -53,6 +56,45 @@ func (s *Service) CheckProvider(ctx context.Context, id string) (*CheckResult, e
 	baseURL, err := url.Parse(item.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid provider base_url: %w", err)
+	}
+
+	if item.ID == provider.LocalGatewayProviderID && s.localRuntime != nil {
+		health, err := s.localRuntime.CheckHealth(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		status := health.Status
+		if strings.TrimSpace(status) == "" {
+			status = "error"
+		}
+		summary := health.Summary
+		if strings.TrimSpace(summary) == "" {
+			summary = status
+		}
+
+		result := &CheckResult{
+			Status:      status,
+			StatusCode:  http.StatusOK,
+			LatencyMs:   0,
+			Summary:     summary,
+			CheckedAt:   health.CheckedAt,
+			ProviderID:  item.ID,
+			ProviderURL: item.BaseURL,
+		}
+		if result.CheckedAt.IsZero() {
+			result.CheckedAt = time.Now().UTC()
+		}
+
+		_, updateErr := s.providers.UpdateStatus(ctx, item.ID, provider.Status{
+			IsActive:          item.Status.IsActive,
+			LastHealthStatus:  status,
+			LastHealthcheckAt: result.CheckedAt.Format(time.RFC3339),
+		})
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		return result, nil
 	}
 
 	apiKey := ""

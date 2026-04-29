@@ -138,6 +138,16 @@ func NewService(repository Repository, credentials credential.Store, models Mode
 	}
 }
 
+func DefaultLocalGatewayCapabilities() Capabilities {
+	return Capabilities{
+		SupportsOpenAICompatible:    true,
+		SupportsAnthropicCompatible: true,
+		SupportsModelsAPI:           true,
+		SupportsBalanceAPI:          false,
+		SupportsStream:              true,
+	}
+}
+
 func (s *Service) BindLocalRuntimeState(state LocalRuntimeState) {
 	s.localState = state
 }
@@ -319,7 +329,7 @@ func (s *Service) ReplaceSelectedModels(ctx context.Context, id string, items []
 	return normalized, nil
 }
 
-func (s *Service) EnsureSystemLocalGateway(ctx context.Context, baseURL string) (Provider, error) {
+func (s *Service) EnsureSystemLocalGateway(ctx context.Context, baseURL string, capabilities Capabilities) (Provider, error) {
 	current, err := s.repository.GetByID(ctx, LocalGatewayProviderID)
 	if err != nil && !errors.Is(err, ErrProviderNotFound) {
 		return Provider{}, err
@@ -354,20 +364,14 @@ func (s *Service) EnsureSystemLocalGateway(ctx context.Context, baseURL string) 
 	}
 
 	item := Provider{
-		ID:           LocalGatewayProviderID,
-		Name:         LocalGatewayProviderName,
-		BaseURL:      strings.TrimSpace(baseURL),
-		APIKeyRef:    "",
-		APIKey:       "",
-		AuthMode:     AuthModeBearer,
-		ExtraHeaders: map[string]string{},
-		Capabilities: Capabilities{
-			SupportsOpenAICompatible:    true,
-			SupportsAnthropicCompatible: true,
-			SupportsModelsAPI:           true,
-			SupportsBalanceAPI:          false,
-			SupportsStream:              true,
-		},
+		ID:                 LocalGatewayProviderID,
+		Name:               LocalGatewayProviderName,
+		BaseURL:            strings.TrimSpace(baseURL),
+		APIKeyRef:          "",
+		APIKey:             "",
+		AuthMode:           AuthModeBearer,
+		ExtraHeaders:       map[string]string{},
+		Capabilities:       capabilities,
 		Status:             status,
 		APIKeyMasked:       "system-managed",
 		ClaudeCodeModelMap: ClaudeCodeModelMap{},

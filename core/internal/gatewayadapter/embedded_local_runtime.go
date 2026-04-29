@@ -23,8 +23,11 @@ type EmbeddedLocalRuntimeAdapter struct {
 	handler    http.Handler
 	client     *http.Client
 
+	mu        sync.Mutex
 	startOnce sync.Once
 	startErr  error
+	server    *http.Server
+	listener  net.Listener
 }
 
 func NewEmbeddedLocalRuntimeAdapter(
@@ -44,11 +47,7 @@ func NewEmbeddedLocalRuntimeAdapter(
 	}
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) BaseURL() string {
-	return a.baseURL
-}
-
-func (a *EmbeddedLocalRuntimeAdapter) Start() error {
+func (a *EmbeddedLocalRuntimeAdapter) Start(_ context.Context) error {
 	a.startOnce.Do(func() {
 		listener, err := net.Listen("tcp", a.listenAddr)
 		if err != nil {
@@ -63,6 +62,10 @@ func (a *EmbeddedLocalRuntimeAdapter) Start() error {
 				return context.Background()
 			},
 		}
+		a.mu.Lock()
+		a.server = server
+		a.listener = listener
+		a.mu.Unlock()
 
 		go func() {
 			_ = server.Serve(listener)
@@ -70,6 +73,79 @@ func (a *EmbeddedLocalRuntimeAdapter) Start() error {
 	})
 
 	return a.startErr
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) Stop(ctx context.Context) error {
+	a.mu.Lock()
+	server := a.server
+	listener := a.listener
+	a.mu.Unlock()
+
+	if server == nil {
+		return nil
+	}
+
+	err := server.Shutdown(ctx)
+	if listener != nil {
+		_ = listener.Close()
+	}
+	return err
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) Discover(_ context.Context) (RuntimeInfo, error) {
+	return RuntimeInfo{
+		BaseURL:    a.baseURL,
+		ListenAddr: a.listenAddr,
+		Mode:       "embedded",
+		Embedded:   true,
+	}, nil
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) CheckHealth(ctx context.Context) (RuntimeHealth, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.baseURL+"/health", nil)
+	if err != nil {
+		return RuntimeHealth{}, err
+	}
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return RuntimeHealth{
+			Status:    "error",
+			Summary:   err.Error(),
+			CheckedAt: time.Now().UTC(),
+		}, nil
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return RuntimeHealth{}, err
+	}
+
+	status := payload.Status
+	if status == "" {
+		status = "ok"
+	}
+
+	return RuntimeHealth{
+		Status:    status,
+		Summary:   fmt.Sprintf("HTTP %d", resp.StatusCode),
+		CheckedAt: time.Now().UTC(),
+	}, nil
+}
+
+func (a *EmbeddedLocalRuntimeAdapter) Capabilities(context.Context) (RuntimeCapabilities, error) {
+	return RuntimeCapabilities{
+		SupportsOpenAICompatible:    true,
+		SupportsAnthropicCompatible: true,
+		SupportsModelsAPI:           true,
+		SupportsStream:              true,
+		SupportsAdminAPI:            true,
+		SupportsModelSourceAdmin:    true,
+		SupportsSelectedModelAdmin:  true,
+	}, nil
 }
 
 func (a *EmbeddedLocalRuntimeAdapter) ListModelSources(ctx context.Context) ([]modelsource.Source, error) {
