@@ -98,6 +98,12 @@ export const messages = {
       "No model sources have been added to the local gateway yet.",
     "providers.detail.localGatewayClaudeHint":
       "Claude model slot mapping for the local gateway will be reconnected after the self-hosted gateway data flow fully replaces the old provider model flow.",
+    "providers.detail.localGatewayRuntimeMode": "runtime: {mode}",
+    "providers.detail.localGatewayAdminEnabled": "admin writable",
+    "providers.detail.localGatewayAdminReadOnly": "admin read-only",
+    "providers.detail.localGatewayRuntimeSummary": "runtime health: {status} / {summary}",
+    "providers.detail.localGatewayReadOnly":
+      "This gateway is connected in read-only mode. Traffic and model listing still work, but runtime admin APIs are unavailable.",
     "providers.detail.capabilities": "Capabilities",
     "providers.detail.capability.models": "models",
     "providers.detail.capability.balance": "balance",
@@ -442,6 +448,12 @@ export const messages = {
       "本地 gateway 还没有添加任何模型来源。",
     "providers.detail.localGatewayClaudeHint":
       "等自研 gateway 的数据流完全替换旧 provider model 流程后，这里的 Claude 槽位映射会重新接回。",
+    "providers.detail.localGatewayRuntimeMode": "runtime：{mode}",
+    "providers.detail.localGatewayAdminEnabled": "admin 可写",
+    "providers.detail.localGatewayAdminReadOnly": "admin 只读",
+    "providers.detail.localGatewayRuntimeSummary": "runtime 健康：{status} / {summary}",
+    "providers.detail.localGatewayReadOnly":
+      "当前 gateway 以只读模式接入。流量转发和模型读取仍可用，但 runtime admin API 不可用。",
     "providers.detail.capabilities": "能力",
     "providers.detail.capability.models": "模型",
     "providers.detail.capability.balance": "余额",

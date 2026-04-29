@@ -6,6 +6,7 @@ import {
   createProvider,
   deleteProvider,
   getHealth,
+  getLocalGatewayRuntime,
   getProviderClaudeCodeModelMap,
   getProviderModels,
   getProviders,
@@ -13,6 +14,7 @@ import {
   updateProviderClaudeCodeModelMap,
   updateProvider
 } from "../services/api";
+import type { LocalGatewayRuntimeStatus } from "../types/local-gateway";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
 import {
@@ -39,6 +41,8 @@ import {
   splitLayoutClass,
   statusPillClass
 } from "../ui";
+
+const LOCAL_GATEWAY_PROVIDER_ID = "system-local-gateway";
 
 interface ProvidersPageProps {
   desktopState: {
@@ -85,6 +89,7 @@ export function ProvidersPage({
   const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
   const [draggedClaudeSlot, setDraggedClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
   const [dragOverClaudeSlot, setDragOverClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
+  const [localGatewayRuntime, setLocalGatewayRuntime] = useState<LocalGatewayRuntimeStatus | null>(null);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -258,6 +263,40 @@ export function ProvidersPage({
       cancelled = true;
     };
   }, [apiBase, selectedProvider]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLocalGatewayRuntime() {
+      if (selectedProvider?.id !== LOCAL_GATEWAY_PROVIDER_ID) {
+        setLocalGatewayRuntime(null);
+        return;
+      }
+
+      try {
+        const runtime = await getLocalGatewayRuntime(apiBase);
+        if (!cancelled) {
+          setLocalGatewayRuntime(runtime);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setLocalGatewayRuntime(null);
+          setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
+        }
+      }
+    }
+
+    void loadLocalGatewayRuntime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, selectedProvider?.id, t]);
+
+  const localGatewayAdminUnavailable =
+    selectedProvider?.id === LOCAL_GATEWAY_PROVIDER_ID &&
+    localGatewayRuntime !== null &&
+    !localGatewayRuntime.capabilities.supports_admin_api;
 
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
@@ -684,12 +723,20 @@ export function ProvidersPage({
                       <div className="space-y-1">
                         <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
                         <p className={sectionMetaClass}>
-                          {loadingModels
-                            ? t("common.loading")
-                            : t("providers.detail.modelsCount", { count: filteredModels.length })}
+                          {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
+                            ? t("providers.detail.localGatewayModelsMeta")
+                            : loadingModels
+                              ? t("common.loading")
+                              : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
                     </div>
+
+                    {localGatewayAdminUnavailable ? (
+                      <div className="mt-3 rounded-[16px] border [border-color:var(--success-border)] [background:color-mix(in_srgb,var(--success-soft)_70%,transparent)] px-3 py-2 text-sm text-[color:var(--accent)]">
+                        {t("providers.detail.localGatewayReadOnly")}
+                      </div>
+                    ) : null}
 
                     <div className="mt-3">
                       <label className={labelClass}>
@@ -709,7 +756,9 @@ export function ProvidersPage({
                           <p>
                             {loadingModels
                               ? t("common.loading")
-                              : t("providers.detail.modelsEmpty")}
+                              : selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
+                                ? t("providers.detail.localGatewayModelsEmpty")
+                                : t("providers.detail.modelsEmpty")}
                           </p>
                         </div>
                       </div>
@@ -759,9 +808,11 @@ export function ProvidersPage({
                     </div>
                     <>
                       <p className={`${metaClass} mt-3`}>
-                        {savingClaudeMap
-                          ? t("providers.detail.claudeSlotsSaving")
-                          : t("providers.detail.claudeSlotsAuto")}
+                        {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID
+                          ? t("providers.detail.localGatewayClaudeHint")
+                          : savingClaudeMap
+                            ? t("providers.detail.claudeSlotsSaving")
+                            : t("providers.detail.claudeSlotsAuto")}
                       </p>
 
                       <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -1016,6 +1067,28 @@ export function ProvidersPage({
                       <span className={statusPillClass("default")}>
                         {detailProvider.status.last_health_status}
                       </span>
+                      {detailProvider.id === LOCAL_GATEWAY_PROVIDER_ID && localGatewayRuntime ? (
+                        <>
+                          <span
+                            className={statusPillClass(
+                              localGatewayRuntime.runtime.embedded ? "warning" : "default"
+                            )}
+                          >
+                            {t("providers.detail.localGatewayRuntimeMode", {
+                              mode: localGatewayRuntime.runtime.mode
+                            })}
+                          </span>
+                          <span
+                            className={statusPillClass(
+                              localGatewayRuntime.capabilities.supports_admin_api ? "success" : "warning"
+                            )}
+                          >
+                            {localGatewayRuntime.capabilities.supports_admin_api
+                              ? t("providers.detail.localGatewayAdminEnabled")
+                              : t("providers.detail.localGatewayAdminReadOnly")}
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                     <p className={metaClass}>
                       {t("providers.detail.baseUrl")}{" "}
@@ -1056,6 +1129,14 @@ export function ProvidersPage({
                         </button>
                       ) : null}
                     </p>
+                    {detailProvider.id === LOCAL_GATEWAY_PROVIDER_ID && localGatewayRuntime ? (
+                      <p className={metaClass}>
+                        {t("providers.detail.localGatewayRuntimeSummary", {
+                          status: localGatewayRuntime.health.status,
+                          summary: localGatewayRuntime.health.summary
+                        })}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>
