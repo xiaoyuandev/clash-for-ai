@@ -23,13 +23,20 @@ type ExternalRuntimeAdapter struct {
 	mu          sync.Mutex
 	cachedProbe RuntimeCapabilities
 	hasProbe    bool
+	admin       runtimeAdminClient
 }
 
 func NewExternalRuntimeAdapter(baseURL string) *ExternalRuntimeAdapter {
+	trimmedBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
 	return &ExternalRuntimeAdapter{
-		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
-		client: &http.Client{
-			Timeout: 10 * time.Second,
+		baseURL: trimmedBaseURL,
+		client:  client,
+		admin: runtimeAdminClient{
+			baseURL: trimmedBaseURL,
+			client:  client,
 		},
 	}
 }
@@ -134,32 +141,32 @@ func (a *ExternalRuntimeAdapter) Capabilities(ctx context.Context) (RuntimeCapab
 	return a.probeCapabilities(ctx)
 }
 
-func (a *ExternalRuntimeAdapter) ListModelSources(context.Context) ([]modelsource.Source, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) ListModelSources(ctx context.Context) ([]modelsource.Source, error) {
+	return a.admin.ListModelSources(ctx)
 }
 
-func (a *ExternalRuntimeAdapter) CreateModelSource(context.Context, modelsource.CreateInput) (modelsource.Source, error) {
-	return modelsource.Source{}, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) CreateModelSource(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error) {
+	return a.admin.CreateModelSource(ctx, input)
 }
 
-func (a *ExternalRuntimeAdapter) UpdateModelSource(context.Context, string, modelsource.UpdateInput) (modelsource.Source, error) {
-	return modelsource.Source{}, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) UpdateModelSource(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error) {
+	return a.admin.UpdateModelSource(ctx, id, input)
 }
 
-func (a *ExternalRuntimeAdapter) DeleteModelSource(context.Context, string) error {
-	return ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) DeleteModelSource(ctx context.Context, id string) error {
+	return a.admin.DeleteModelSource(ctx, id)
 }
 
-func (a *ExternalRuntimeAdapter) ReplaceModelSourceOrder(context.Context, []modelsource.Source) ([]modelsource.Source, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) ReplaceModelSourceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error) {
+	return a.admin.ReplaceModelSourceOrder(ctx, items)
 }
 
-func (a *ExternalRuntimeAdapter) ListSelectedModels(context.Context) ([]provider.SelectedModel, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) ListSelectedModels(ctx context.Context) ([]provider.SelectedModel, error) {
+	return a.admin.ListSelectedModels(ctx)
 }
 
-func (a *ExternalRuntimeAdapter) ReplaceSelectedModels(context.Context, []provider.SelectedModel) ([]provider.SelectedModel, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *ExternalRuntimeAdapter) ReplaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
+	return a.admin.ReplaceSelectedModels(ctx, items)
 }
 
 func (a *ExternalRuntimeAdapter) probeCapabilities(ctx context.Context) (RuntimeCapabilities, error) {

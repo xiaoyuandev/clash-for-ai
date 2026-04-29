@@ -25,6 +25,7 @@ type EmbeddedLocalRuntimeAdapter struct {
 	dataDir      string
 	client       *http.Client
 	capabilities RuntimeCapabilities
+	admin        runtimeAdminClient
 
 	mu        sync.Mutex
 	process   *exec.Cmd
@@ -42,14 +43,16 @@ func NewEmbeddedLocalRuntimeAdapter(
 		listenPort = 8788
 	}
 
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
 	return &EmbeddedLocalRuntimeAdapter{
 		baseURL:    fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), listenPort),
 		listenAddr: fmt.Sprintf("%s:%d", listenHost, listenPort),
 		executable: executable,
 		dataDir:    dataDir,
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		client:     client,
 		capabilities: RuntimeCapabilities{
 			SupportsOpenAICompatible:    true,
 			SupportsAnthropicCompatible: true,
@@ -58,6 +61,10 @@ func NewEmbeddedLocalRuntimeAdapter(
 			SupportsAdminAPI:            true,
 			SupportsModelSourceAdmin:    true,
 			SupportsSelectedModelAdmin:  true,
+		},
+		admin: runtimeAdminClient{
+			baseURL: fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), listenPort),
+			client:  client,
 		},
 	}
 }
@@ -153,32 +160,53 @@ func (a *EmbeddedLocalRuntimeAdapter) Capabilities(context.Context) (RuntimeCapa
 	return a.capabilities, nil
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ListModelSources(context.Context) ([]modelsource.Source, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) ListModelSources(ctx context.Context) ([]modelsource.Source, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return nil, err
+	}
+	return a.admin.ListModelSources(ctx)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) CreateModelSource(context.Context, modelsource.CreateInput) (modelsource.Source, error) {
-	return modelsource.Source{}, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) CreateModelSource(ctx context.Context, input modelsource.CreateInput) (modelsource.Source, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return modelsource.Source{}, err
+	}
+	return a.admin.CreateModelSource(ctx, input)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) UpdateModelSource(context.Context, string, modelsource.UpdateInput) (modelsource.Source, error) {
-	return modelsource.Source{}, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) UpdateModelSource(ctx context.Context, id string, input modelsource.UpdateInput) (modelsource.Source, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return modelsource.Source{}, err
+	}
+	return a.admin.UpdateModelSource(ctx, id, input)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) DeleteModelSource(context.Context, string) error {
-	return ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) DeleteModelSource(ctx context.Context, id string) error {
+	if err := a.EnsureReady(ctx); err != nil {
+		return err
+	}
+	return a.admin.DeleteModelSource(ctx, id)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ReplaceModelSourceOrder(context.Context, []modelsource.Source) ([]modelsource.Source, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) ReplaceModelSourceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return nil, err
+	}
+	return a.admin.ReplaceModelSourceOrder(ctx, items)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ListSelectedModels(context.Context) ([]provider.SelectedModel, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) ListSelectedModels(ctx context.Context) ([]provider.SelectedModel, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return nil, err
+	}
+	return a.admin.ListSelectedModels(ctx)
 }
 
-func (a *EmbeddedLocalRuntimeAdapter) ReplaceSelectedModels(context.Context, []provider.SelectedModel) ([]provider.SelectedModel, error) {
-	return nil, ErrRuntimeAdminUnsupported
+func (a *EmbeddedLocalRuntimeAdapter) ReplaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
+	if err := a.EnsureReady(ctx); err != nil {
+		return nil, err
+	}
+	return a.admin.ReplaceSelectedModels(ctx, items)
 }
 
 func (a *EmbeddedLocalRuntimeAdapter) startProcess() error {

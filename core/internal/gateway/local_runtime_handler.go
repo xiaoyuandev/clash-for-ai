@@ -187,7 +187,7 @@ func (h *LocalRuntimeHandler) handleModelSourceActions(w http.ResponseWriter, re
 	path := strings.TrimPrefix(req.URL.Path, "/admin/model-sources/")
 	parts := strings.Split(path, "/")
 	switch {
-	case len(parts) == 2 && parts[1] == "order" && req.Method == http.MethodPut:
+	case len(parts) == 1 && parts[0] == "order" && req.Method == http.MethodPut:
 		service, ok := h.modelSources.(interface {
 			ReplaceOrder(ctx context.Context, items []modelsource.Source) ([]modelsource.Source, error)
 		})
