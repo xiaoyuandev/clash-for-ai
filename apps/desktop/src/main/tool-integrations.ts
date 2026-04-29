@@ -187,6 +187,29 @@ async function fetchActiveClaudeCodeModelMap(apiPort: number) {
   const activeProvider = providers.find((item) => item.status?.is_active);
   const modelMap = activeProvider?.claude_code_model_map;
 
+  if (!activeProvider) {
+    const localResponse = await fetch(
+      `http://127.0.0.1:${apiPort}/api/settings/local-gateway-claude-map`
+    );
+    if (!localResponse.ok) {
+      throw new Error(
+        `Failed to load local gateway Claude model map from local core with ${localResponse.status}.`
+      );
+    }
+
+    const localModelMap = (await localResponse.json()) as {
+      opus?: string;
+      sonnet?: string;
+      haiku?: string;
+    };
+
+    return {
+      opus: typeof localModelMap.opus === "string" ? localModelMap.opus.trim() : "",
+      sonnet: typeof localModelMap.sonnet === "string" ? localModelMap.sonnet.trim() : "",
+      haiku: typeof localModelMap.haiku === "string" ? localModelMap.haiku.trim() : ""
+    };
+  }
+
   return {
     opus: typeof modelMap?.opus === "string" ? modelMap.opus.trim() : "",
     sonnet: typeof modelMap?.sonnet === "string" ? modelMap.sonnet.trim() : "",

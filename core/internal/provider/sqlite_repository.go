@@ -295,6 +295,14 @@ WHERE id = ?`, id)
 	return &item, nil
 }
 
+func (r *SQLiteRepository) DeactivateAll(ctx context.Context) error {
+	if _, err := r.db.ExecContext(ctx, `UPDATE providers SET is_active = 0`); err != nil {
+		return fmt.Errorf("reset active provider: %w", err)
+	}
+
+	return nil
+}
+
 type providerScanner interface {
 	Scan(dest ...any) error
 }

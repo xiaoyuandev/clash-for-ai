@@ -50,27 +50,15 @@ import {
   statusPillClass,
   stickySearchClass
 } from "../ui";
-import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
+import {
+  decorateProvidersWithLocalGateway,
+  LOCAL_GATEWAY_PROVIDER_ID
+} from "../utils/local-gateway-provider";
 
 interface ModelsPageProps {
   apiBase?: string;
   selectedProvider: Provider | null;
   onSelectedProviderChange: (provider: Provider | null) => void;
-}
-
-function decorateProviders(items: Provider[], apiBase?: string): Provider[] {
-  const localProvider = buildLocalGatewayProvider(apiBase);
-  if (!localProvider) {
-    return items;
-  }
-
-  return [localProvider, ...items.map((provider) => ({
-    ...provider,
-    status: {
-      ...provider.status,
-      is_active: false
-    }
-  }))];
 }
 
 export function ModelsPage({
@@ -113,7 +101,7 @@ export function ModelsPage({
           return;
         }
 
-        const decoratedProviders = decorateProviders(items, apiBase);
+        const decoratedProviders = decorateProvidersWithLocalGateway(items, apiBase);
         setProviders(decoratedProviders);
         onSelectedProviderChange(
           decoratedProviders.find((provider) => provider.status.is_active) ??
@@ -172,7 +160,7 @@ export function ModelsPage({
           setSelectedModels(selected);
           setError(null);
           setLoading(false);
-          return
+          return;
         }
 
         const [available, selected] = await Promise.all([
@@ -433,27 +421,27 @@ export function ModelsPage({
     if (!dragged || fromIndex < 0 || toIndex < 0) {
       return;
     }
-    current.splice(fromIndex, 1)
-    current.splice(toIndex, 0, dragged)
+    current.splice(fromIndex, 1);
+    current.splice(toIndex, 0, dragged);
 
-    setSaving(true)
-    setFeedback(null)
-    setError(null)
+    setSaving(true);
+    setFeedback(null);
+    setError(null);
 
     try {
       const reordered = await updateModelSourceOrder(
         current.map((source, index) => ({ ...source, position: index })),
         apiBase
-      )
-      const currentByID = new Map(reordered.map((source) => [source.id, source]))
+      );
+      const currentByID = new Map(reordered.map((source) => [source.id, source]));
       setModelSources((previous) =>
         previous.map((source) => currentByID.get(source.id) ?? source)
-      )
-      setFeedback(t("models.feedback.orderUpdated"))
+      );
+      setFeedback(t("models.feedback.orderUpdated"));
     } catch (moveError) {
-      setError(moveError instanceof Error ? moveError.message : t("common.unknownError"))
+      setError(moveError instanceof Error ? moveError.message : t("common.unknownError"));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -595,6 +583,18 @@ export function ModelsPage({
                             <button
                               type="button"
                               className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
+                              aria-label={t("models.available.add", { id: model.id })}
+                              title={t("models.available.add", { id: model.id })}
+                              onClick={() => addModel(model.id)}
+                            >
+                              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M11 5h2v14h-2z" />
+                                <path d="M5 11h14v2H5z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={`${iconButtonClass} min-h-8 min-w-8 rounded-lg`}
                               aria-label={t("common.edit")}
                               title={t("common.edit")}
                               onClick={() => {
@@ -639,7 +639,11 @@ export function ModelsPage({
                             </svg>
                           </button>
                         )}
-                        <div className="flex items-start gap-2.5 pr-10">
+                        <div
+                          className={`flex items-start gap-2.5 ${
+                            isLocalGatewayProvider ? "pr-32" : "pr-10"
+                          }`}
+                        >
                           <span className={`${iconBadgeClass} mt-0.5`}>
                             <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                               <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
@@ -712,9 +716,9 @@ export function ModelsPage({
                         }}
                         onDrop={() => {
                           if (isLocalGatewayProvider) {
-                            void moveModelSource(item.model_id)
+                            void moveModelSource(item.model_id);
                           } else {
-                            moveModel(item.model_id)
+                            moveModel(item.model_id);
                           }
                         }}
                       >

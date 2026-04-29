@@ -17,7 +17,10 @@ import {
 import type { ModelSource } from "../types/model-source";
 import type { ClaudeCodeModelMap, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
-import { buildLocalGatewayProvider, LOCAL_GATEWAY_PROVIDER_ID } from "../utils/local-gateway-provider";
+import {
+  decorateProvidersWithLocalGateway,
+  LOCAL_GATEWAY_PROVIDER_ID
+} from "../utils/local-gateway-provider";
 import {
   buttonClass,
   columnCardClass,
@@ -53,21 +56,6 @@ interface ProvidersPageProps {
   apiBase?: string;
   selectedProviderId: string | null;
   onSelectedProviderChange: (provider: Provider | null) => void;
-}
-
-function decorateProviders(items: Provider[], apiBase?: string): Provider[] {
-  const localProvider = buildLocalGatewayProvider(apiBase);
-  if (!localProvider) {
-    return items;
-  }
-
-  return [localProvider, ...items.map((provider) => ({
-    ...provider,
-    status: {
-      ...provider.status,
-      is_active: false
-    }
-  }))];
 }
 
 export function ProvidersPage({
@@ -179,7 +167,7 @@ export function ProvidersPage({
         }
 
         setHealth(healthData.status);
-        const decoratedProviders = decorateProviders(providersData, apiBase);
+        const decoratedProviders = decorateProvidersWithLocalGateway(providersData, apiBase);
         setProviders(decoratedProviders);
         const nextSelected =
           decoratedProviders.find((provider) => provider.id === selectedProviderId) ??
@@ -325,7 +313,7 @@ export function ProvidersPage({
 
   async function refreshProviders(preferredProviderId?: string) {
     const providersData = await getProviders(apiBase);
-    const decoratedProviders = decorateProviders(providersData, apiBase);
+    const decoratedProviders = decorateProvidersWithLocalGateway(providersData, apiBase);
     setProviders(decoratedProviders);
     const nextSelected =
       decoratedProviders.find((provider) => provider.id === preferredProviderId) ??
@@ -637,13 +625,14 @@ export function ProvidersPage({
                     </button>
 
                     <div className="flex flex-wrap items-center gap-1.5">
+                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
+                        <span className={statusPillClass("default")}>
+                          {t("providers.status.system")}
+                        </span>
+                      ) : null}
                       {provider.status.is_active ? (
                         <span className={statusPillClass("success")}>
                           {t("providers.status.active")}
-                        </span>
-                      ) : provider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
-                        <span className={statusPillClass("default")}>
-                          {t("providers.status.system")}
                         </span>
                       ) : (
                         <button
@@ -671,25 +660,26 @@ export function ProvidersPage({
                           {t("providers.action.view")}
                         </span>
                       </div>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className={`${iconButtonSmallClass} peer`}
-                          aria-label={t("common.edit")}
-                          onClick={() => {
-                            onSelectedProviderChange(provider);
-                            startEditing(provider);
-                          }}
-                          disabled={provider.id === LOCAL_GATEWAY_PROVIDER_ID}
-                        >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
-                          </svg>
-                        </button>
-                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
-                          {t("common.edit")}
-                        </span>
-                      </div>
+                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? null : (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className={`${iconButtonSmallClass} peer`}
+                            aria-label={t("common.edit")}
+                            onClick={() => {
+                              onSelectedProviderChange(provider);
+                              startEditing(provider);
+                            }}
+                          >
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
+                            </svg>
+                          </button>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                            {t("common.edit")}
+                          </span>
+                        </div>
+                      )}
                       <div className="relative">
                         <button
                           type="button"
@@ -707,24 +697,25 @@ export function ProvidersPage({
                           {t("providers.action.test")}
                         </span>
                       </div>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className={`${iconButtonSmallClass} peer`}
-                          aria-label={t("common.delete")}
-                          onClick={() => {
-                            void handleDeleteProvider(provider.id);
-                          }}
-                          disabled={provider.id === LOCAL_GATEWAY_PROVIDER_ID}
-                        >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
-                          </svg>
-                        </button>
-                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
-                          {t("common.delete")}
-                        </span>
-                      </div>
+                      {provider.id === LOCAL_GATEWAY_PROVIDER_ID ? null : (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className={`${iconButtonSmallClass} peer`}
+                            aria-label={t("common.delete")}
+                            onClick={() => {
+                              void handleDeleteProvider(provider.id);
+                            }}
+                          >
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
+                            </svg>
+                          </button>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                            {t("common.delete")}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -850,126 +841,118 @@ export function ProvidersPage({
                         <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
                       </div>
                     </div>
-                    {selectedProvider.id === LOCAL_GATEWAY_PROVIDER_ID ? (
-                      <div className="mt-3">
-                        <div className={emptyStateClass}>
-                          <p>{t("providers.detail.localGatewayClaudeHint")}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className={`${metaClass} mt-3`}>
-                          {savingClaudeMap
-                            ? t("providers.detail.claudeSlotsSaving")
-                            : t("providers.detail.claudeSlotsAuto")}
-                        </p>
+                    <>
+                      <p className={`${metaClass} mt-3`}>
+                        {savingClaudeMap
+                          ? t("providers.detail.claudeSlotsSaving")
+                          : t("providers.detail.claudeSlotsAuto")}
+                      </p>
 
-                        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                          {(
-                            [
-                              ["opus", t("providers.detail.claudeSlot.opus")],
-                              ["sonnet", t("providers.detail.claudeSlot.sonnet")],
-                              ["haiku", t("providers.detail.claudeSlot.haiku")]
-                            ] as const
-                          ).map(([slot, label]) => {
-                            const assignedModelID = claudeCodeModelMap[slot];
-                            const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
-                            const isDragOver = dragOverClaudeSlot === slot;
+                      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                        {(
+                          [
+                            ["opus", t("providers.detail.claudeSlot.opus")],
+                            ["sonnet", t("providers.detail.claudeSlot.sonnet")],
+                            ["haiku", t("providers.detail.claudeSlot.haiku")]
+                          ] as const
+                        ).map(([slot, label]) => {
+                          const assignedModelID = claudeCodeModelMap[slot];
+                          const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
+                          const isDragOver = dragOverClaudeSlot === slot;
 
-                            return (
-                              <article
-                                key={slot}
-                                className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
-                                  isDragOver
-                                    ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
-                                    : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
-                                }`}
-                                onDragOver={(event) => {
-                                  event.preventDefault();
-                                  setDragOverClaudeSlot(slot);
-                                }}
-                                onDragLeave={() => {
-                                  setDragOverClaudeSlot((current) => (current === slot ? null : current));
-                                }}
-                                onDrop={() => {
-                                  if (draggedProviderModelId) {
-                                    assignClaudeSlot(slot, draggedProviderModelId);
-                                  } else if (draggedClaudeSlot) {
-                                    const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
-                                    if (nextModelID) {
-                                      const nextMap = {
-                                        ...claudeCodeModelMap,
-                                        [slot]: nextModelID
-                                      };
-                                      if (draggedClaudeSlot !== slot) {
-                                        nextMap[draggedClaudeSlot] = "";
-                                      }
-                                      void persistClaudeCodeModelMap(nextMap);
+                          return (
+                            <article
+                              key={slot}
+                              className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
+                                isDragOver
+                                  ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                  : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                              }`}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                setDragOverClaudeSlot(slot);
+                              }}
+                              onDragLeave={() => {
+                                setDragOverClaudeSlot((current) => (current === slot ? null : current));
+                              }}
+                              onDrop={() => {
+                                if (draggedProviderModelId) {
+                                  assignClaudeSlot(slot, draggedProviderModelId);
+                                } else if (draggedClaudeSlot) {
+                                  const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
+                                  if (nextModelID) {
+                                    const nextMap = {
+                                      ...claudeCodeModelMap,
+                                      [slot]: nextModelID
+                                    };
+                                    if (draggedClaudeSlot !== slot) {
+                                      nextMap[draggedClaudeSlot] = "";
                                     }
+                                    void persistClaudeCodeModelMap(nextMap);
                                   }
-                                  resetClaudeDragState();
-                                }}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className={fieldLabelClass}>{label}</p>
-                                    <p className={`${metaClass} mt-1.5`}>
-                                      {assignedModelID
-                                        ? t("providers.detail.claudeSlot.ready")
-                                        : t("providers.detail.claudeSlot.dropHint")}
-                                    </p>
-                                  </div>
-                                  {assignedModelID ? (
-                                    <button
-                                      type="button"
-                                      className={buttonClass("ghost")}
-                                      onClick={() => clearClaudeSlot(slot)}
-                                    >
-                                      {t("providers.detail.claudeSlot.clear")}
-                                    </button>
-                                  ) : null}
+                                }
+                                resetClaudeDragState();
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className={fieldLabelClass}>{label}</p>
+                                  <p className={`${metaClass} mt-1.5`}>
+                                    {assignedModelID
+                                      ? t("providers.detail.claudeSlot.ready")
+                                      : t("providers.detail.claudeSlot.dropHint")}
+                                  </p>
                                 </div>
+                                {assignedModelID ? (
+                                  <button
+                                    type="button"
+                                    className={buttonClass("ghost")}
+                                    onClick={() => clearClaudeSlot(slot)}
+                                  >
+                                    {t("providers.detail.claudeSlot.clear")}
+                                  </button>
+                                ) : null}
+                              </div>
 
-                                <div className="mt-4 rounded-[18px] border border-dashed p-4">
-                                  {assignedModelID ? (
-                                    <div
-                                      className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
-                                      draggable
-                                      onDragStart={() => {
-                                        setDraggedProviderModelId(null);
-                                        setDraggedClaudeSlot(slot);
-                                      }}
-                                      onDragEnd={() => {
-                                        resetClaudeDragState();
-                                      }}
-                                    >
-                                      <span className={iconBadgeClass}>
-                                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                          <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
-                                        </svg>
-                                      </span>
-                                      <div className="min-w-0">
-                                        <p className={monoClass}>{assignedModelID}</p>
-                                        <p className={`${metaClass} mt-1.5`}>
-                                          {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
-                                        </p>
-                                      </div>
-                                      <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
-                                        :::
-                                      </span>
+                              <div className="mt-4 rounded-[18px] border border-dashed p-4">
+                                {assignedModelID ? (
+                                  <div
+                                    className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
+                                    draggable
+                                    onDragStart={() => {
+                                      setDraggedProviderModelId(null);
+                                      setDraggedClaudeSlot(slot);
+                                    }}
+                                    onDragEnd={() => {
+                                      resetClaudeDragState();
+                                    }}
+                                  >
+                                    <span className={iconBadgeClass}>
+                                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                      </svg>
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className={monoClass}>{assignedModelID}</p>
+                                      <p className={`${metaClass} mt-1.5`}>
+                                        {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                      </p>
                                     </div>
-                                  ) : (
-                                    <div className="py-3 text-center">
-                                      <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </article>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
+                                    <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                      :::
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="py-3 text-center">
+                                    <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </>
                   </section>
               </div>
             </div>

@@ -24,6 +24,8 @@ type Router struct {
 	gateway   http.Handler
 }
 
+const localGatewayProviderID = "system-local-gateway"
+
 func NewRouter(providers *provider.Service, modelSources *modelsource.Service, settingsService *settings.Service, healthService *health.Service, loggingService *logging.Service, gatewayHandler *gateway.Handler) http.Handler {
 	router := &Router{
 		providers: providers,
@@ -245,6 +247,40 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 	parts := strings.Split(path, "/")
 	switch {
 	case len(parts) == 2 && parts[1] == "activate" && req.Method == http.MethodPost:
+		if parts[0] == localGatewayProviderID {
+			if err := r.providers.DeactivateAll(req.Context()); err != nil {
+				http.Error(w, "failed to activate local gateway provider", http.StatusInternalServerError)
+				return
+			}
+
+			localClaudeMap, _ := r.settings.GetLocalGatewayClaudeMap(req.Context())
+			writeJSON(w, http.StatusOK, provider.Provider{
+				ID:           localGatewayProviderID,
+				Name:         "Clash Local Gateway",
+				BaseURL:      "http://" + req.Host,
+				AuthMode:     provider.AuthModeBearer,
+				ExtraHeaders: map[string]string{},
+				Capabilities: provider.Capabilities{
+					SupportsOpenAICompatible:    true,
+					SupportsAnthropicCompatible: true,
+					SupportsModelsAPI:           true,
+					SupportsBalanceAPI:          false,
+					SupportsStream:              true,
+				},
+				Status: provider.Status{
+					IsActive:         true,
+					LastHealthStatus: "ok",
+				},
+				APIKeyMasked: "system-managed",
+				ClaudeCodeModelMap: provider.ClaudeCodeModelMap{
+					Opus:   localClaudeMap.Opus,
+					Sonnet: localClaudeMap.Sonnet,
+					Haiku:  localClaudeMap.Haiku,
+				},
+			})
+			return
+		}
+
 		item, err := r.providers.Activate(req.Context(), parts[0])
 		if err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {

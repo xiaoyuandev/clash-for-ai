@@ -2,7 +2,13 @@ import type { Provider } from "../types/provider";
 
 export const LOCAL_GATEWAY_PROVIDER_ID = "system-local-gateway";
 
-export function buildLocalGatewayProvider(apiBase?: string): Provider | null {
+export function buildLocalGatewayProvider(
+  apiBase?: string,
+  options?: {
+    isActive?: boolean;
+    claudeCodeModelMap?: Provider["claude_code_model_map"];
+  }
+): Provider | null {
   if (!apiBase) {
     return null;
   }
@@ -22,15 +28,27 @@ export function buildLocalGatewayProvider(apiBase?: string): Provider | null {
       supports_stream: true
     },
     status: {
-      is_active: true,
+      is_active: options?.isActive ?? false,
       last_health_status: "ok"
     },
     api_key_masked: "system-managed",
-    claude_code_model_map: {
+    claude_code_model_map: options?.claudeCodeModelMap ?? {
       opus: "",
       sonnet: "",
       haiku: ""
     },
     is_system: true
   };
+}
+
+export function decorateProvidersWithLocalGateway(items: Provider[], apiBase?: string): Provider[] {
+  const hasActiveRemoteProvider = items.some((provider) => provider.status.is_active);
+  const localProvider = buildLocalGatewayProvider(apiBase, {
+    isActive: !hasActiveRemoteProvider
+  });
+  if (!localProvider) {
+    return items;
+  }
+
+  return [localProvider, ...items];
 }

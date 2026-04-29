@@ -18,6 +18,7 @@ type Repository interface {
 	Update(ctx context.Context, item Provider) (Provider, error)
 	Delete(ctx context.Context, id string) error
 	Activate(ctx context.Context, id string) (*Provider, error)
+	DeactivateAll(ctx context.Context) error
 }
 
 type InMemoryRepository struct {
@@ -133,4 +134,15 @@ func (r *InMemoryRepository) Activate(_ context.Context, id string) (*Provider, 
 	r.items[index].Status.IsActive = true
 	provider := r.items[index]
 	return &provider, nil
+}
+
+func (r *InMemoryRepository) DeactivateAll(_ context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.items {
+		r.items[i].Status.IsActive = false
+	}
+
+	return nil
 }

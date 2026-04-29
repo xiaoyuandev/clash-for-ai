@@ -200,6 +200,10 @@ func (s *Service) Activate(ctx context.Context, id string) (*Provider, error) {
 	return s.repository.Activate(ctx, id)
 }
 
+func (s *Service) DeactivateAll(ctx context.Context) error {
+	return s.repository.DeactivateAll(ctx)
+}
+
 func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Provider, error) {
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
