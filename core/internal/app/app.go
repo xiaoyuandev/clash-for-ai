@@ -182,10 +182,24 @@ func resolveLocalRuntimeAdapter(
 		return gatewayadapter.NewExternalRuntimeAdapter(externalBaseURL), nil
 	}
 
-	executablePath, err := os.Executable()
+	currentExecutablePath, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
 
-	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(localSettings, executablePath, runtimeDataDir), nil
+	executablePath := resolveEmbeddedRuntimeExecutablePath(currentExecutablePath)
+	return gatewayadapter.NewEmbeddedLocalRuntimeAdapter(
+		localSettings,
+		executablePath,
+		runtimeDataDir,
+		executablePath == currentExecutablePath,
+	), nil
+}
+
+func resolveEmbeddedRuntimeExecutablePath(currentExecutablePath string) string {
+	if runtimeExecutable := strings.TrimSpace(os.Getenv("LOCAL_GATEWAY_RUNTIME_EXECUTABLE")); runtimeExecutable != "" {
+		return runtimeExecutable
+	}
+
+	return currentExecutablePath
 }

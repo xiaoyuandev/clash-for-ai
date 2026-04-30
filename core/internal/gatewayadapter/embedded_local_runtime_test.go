@@ -18,7 +18,7 @@ func TestEmbeddedLocalRuntimeAdapterAdminOperations(t *testing.T) {
 	adapter := NewEmbeddedLocalRuntimeAdapter(settings.LocalGatewaySettings{
 		ListenHost: "127.0.0.1",
 		ListenPort: 8788,
-	}, "/bin/echo", t.TempDir())
+	}, "/bin/echo", t.TempDir(), true)
 	adapter.client = &http.Client{
 		Transport: externalRoundTripFunc(func(req *http.Request) (*http.Response, error) {
 			switch req.Method + " " + req.URL.Path {

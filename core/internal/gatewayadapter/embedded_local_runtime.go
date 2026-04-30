@@ -23,6 +23,7 @@ type EmbeddedLocalRuntimeAdapter struct {
 	listenAddr   string
 	executable   string
 	dataDir      string
+	selfManaged  bool
 	client       *http.Client
 	capabilities RuntimeCapabilities
 	admin        runtimeAdminClient
@@ -36,6 +37,7 @@ func NewEmbeddedLocalRuntimeAdapter(
 	localSettings settings.LocalGatewaySettings,
 	executable string,
 	dataDir string,
+	selfManaged bool,
 ) *EmbeddedLocalRuntimeAdapter {
 	listenHost := resolveListenHost(localSettings.ListenHost)
 	listenPort := localSettings.ListenPort
@@ -48,11 +50,12 @@ func NewEmbeddedLocalRuntimeAdapter(
 	}
 
 	return &EmbeddedLocalRuntimeAdapter{
-		baseURL:    fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), listenPort),
-		listenAddr: fmt.Sprintf("%s:%d", listenHost, listenPort),
-		executable: executable,
-		dataDir:    dataDir,
-		client:     client,
+		baseURL:     fmt.Sprintf("http://%s:%d", normalizeBaseURLHost(listenHost), listenPort),
+		listenAddr:  fmt.Sprintf("%s:%d", listenHost, listenPort),
+		executable:  executable,
+		dataDir:     dataDir,
+		selfManaged: selfManaged,
+		client:      client,
 		capabilities: RuntimeCapabilities{
 			SupportsOpenAICompatible:    true,
 			SupportsAnthropicCompatible: true,
@@ -220,12 +223,15 @@ func (a *EmbeddedLocalRuntimeAdapter) startProcess() error {
 	cmd := exec.Command(a.executable)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(),
-		"CLASH_FOR_AI_MODE=local-gateway-runtime",
+	env := append(os.Environ(),
 		"CORE_DATA_DIR="+a.dataDir,
 		"LOCAL_GATEWAY_RUNTIME_HOST="+runtimeHostFromListenAddr(a.listenAddr),
 		"LOCAL_GATEWAY_RUNTIME_PORT="+runtimePortFromListenAddr(a.listenAddr),
 	)
+	if a.selfManaged {
+		env = append(env, "CLASH_FOR_AI_MODE=local-gateway-runtime")
+	}
+	cmd.Env = env
 
 	if err := cmd.Start(); err != nil {
 		return err
