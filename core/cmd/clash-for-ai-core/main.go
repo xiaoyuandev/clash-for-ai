@@ -5,11 +5,12 @@ import (
 	"os"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/app"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime"
 )
 
 func main() {
 	if os.Getenv("CLASH_FOR_AI_MODE") == "local-gateway-runtime" {
-		if err := app.RunLocalGatewayRuntime(); err != nil {
+		if err := localgatewayruntime.Run(); err != nil {
 			log.Fatal(err)
 		}
 		return
