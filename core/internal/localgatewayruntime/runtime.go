@@ -12,7 +12,6 @@ import (
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/config"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
@@ -48,7 +47,7 @@ func Run() error {
 	}
 	localSettings := resolveRuntimeLocalGatewaySettings(currentSettings.LocalGateway)
 
-	handler := gateway.NewLocalRuntimeHandler(
+	handler := NewHandler(
 		modelSourceService,
 		localGatewayStateService,
 		localGatewayExecutor,
@@ -63,6 +62,10 @@ func Run() error {
 	}
 
 	return server.ListenAndServe()
+}
+
+func RuntimeDataDir(coreDataDir string) string {
+	return filepath.Join(coreDataDir, "local-gateway-runtime")
 }
 
 func resolveRuntimeLocalGatewaySettings(input settings.LocalGatewaySettings) settings.LocalGatewaySettings {

@@ -1,10 +1,12 @@
-package gateway
+package localgatewayruntime
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -16,9 +18,9 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
 
-type LocalRuntimeHandler struct {
+type Handler struct {
 	modelSources ModelSourceResolver
-	selected     LocalRuntimeSelectedModelStore
+	selected     SelectedModelStore
 	executor     localgateway.Service
 }
 
@@ -26,17 +28,17 @@ type ModelSourceResolver interface {
 	List(ctx context.Context) ([]modelsource.Source, error)
 }
 
-type LocalRuntimeSelectedModelStore interface {
+type SelectedModelStore interface {
 	ListSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error)
 	ReplaceSelectedModels(ctx context.Context, items []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error)
 }
 
-func NewLocalRuntimeHandler(
+func NewHandler(
 	modelSources ModelSourceResolver,
-	selected LocalRuntimeSelectedModelStore,
+	selected SelectedModelStore,
 	executor localgateway.Service,
 ) http.Handler {
-	handler := &LocalRuntimeHandler{
+	handler := &Handler{
 		modelSources: modelSources,
 		selected:     selected,
 		executor:     executor,
@@ -52,15 +54,13 @@ func NewLocalRuntimeHandler(
 	return mux
 }
 
-func (h *LocalRuntimeHandler) handleHealth(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-	})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleV1(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/v1" && !strings.HasPrefix(r.URL.Path, "/v1/") {
 		http.NotFound(w, r)
 		return
@@ -152,7 +152,7 @@ func (h *LocalRuntimeHandler) handleV1(w http.ResponseWriter, r *http.Request) {
 	writeLocalRuntimeError(w, http.StatusBadGateway, fmt.Errorf("no enabled model source available"))
 }
 
-func (h *LocalRuntimeHandler) handleModelSources(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) handleModelSources(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		items, err := h.modelSources.List(req.Context())
@@ -187,7 +187,7 @@ func (h *LocalRuntimeHandler) handleModelSources(w http.ResponseWriter, req *htt
 	}
 }
 
-func (h *LocalRuntimeHandler) handleModelSourceActions(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) handleModelSourceActions(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/admin/model-sources/")
 	parts := strings.Split(path, "/")
 	switch {
@@ -260,7 +260,7 @@ func (h *LocalRuntimeHandler) handleModelSourceActions(w http.ResponseWriter, re
 	}
 }
 
-func (h *LocalRuntimeHandler) handleSelectedModels(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) handleSelectedModels(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		items, err := h.listSelectedModels(req.Context())
@@ -287,12 +287,26 @@ func (h *LocalRuntimeHandler) handleSelectedModels(w http.ResponseWriter, req *h
 	}
 }
 
+type attemptSpec struct {
+	model *string
+	body  []byte
+}
+
+type forwardResult struct {
+	statusCode   int
+	header       http.Header
+	body         []byte
+	streamBody   io.ReadCloser
+	firstByteAt  time.Time
+	errorMessage *string
+	errorSnippet *string
+	finalModel   *string
+	networkError error
+}
+
 func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
 	models := provider.BuildSystemLocalGatewayModelInfo(sources)
-	payload := map[string]any{
-		"data": models,
-	}
-
+	payload := map[string]any{"data": models}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return forwardResult{networkError: err}
@@ -306,11 +320,7 @@ func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
 	}
 }
 
-func chooseModelSource(
-	sources []modelsource.Source,
-	requestModel string,
-	selected []localgatewaystate.SelectedModel,
-) *localgateway.ModelSource {
+func chooseModelSource(sources []modelsource.Source, requestModel string, selected []localgatewaystate.SelectedModel) *localgateway.ModelSource {
 	byModelID := make(map[string]modelsource.Source, len(sources))
 	var firstEnabled *modelsource.Source
 	for _, source := range sources {
@@ -384,19 +394,11 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func (h *LocalRuntimeHandler) listSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error) {
-	items, err := h.selected.ListSelectedModels(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
+func (h *Handler) listSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error) {
+	return h.selected.ListSelectedModels(ctx)
 }
 
-func buildSelectedModelAttempts(
-	r *http.Request,
-	body []byte,
-	selected []localgatewaystate.SelectedModel,
-) ([]attemptSpec, *string) {
+func buildSelectedModelAttempts(r *http.Request, body []byte, selected []localgatewaystate.SelectedModel) ([]attemptSpec, *string) {
 	currentModel, payload := extractModelFromBody(body)
 	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
 		return []attemptSpec{{model: currentModel, body: body}}, currentModel
@@ -434,7 +436,7 @@ func buildSelectedModelAttempts(
 	return attempts, currentModel
 }
 
-func (h *LocalRuntimeHandler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
+func (h *Handler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
 	runtimeItems := make([]localgatewaystate.SelectedModel, 0, len(items))
 	for _, item := range items {
 		runtimeItems = append(runtimeItems, localgatewaystate.SelectedModel{
@@ -456,4 +458,113 @@ func (h *LocalRuntimeHandler) replaceSelectedModels(ctx context.Context, items [
 		})
 	}
 	return result, nil
+}
+
+func readRequestBody(r *http.Request) ([]byte, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, nil
+}
+
+func extractModelFromBody(body []byte) (*string, map[string]any) {
+	if len(body) == 0 {
+		return nil, nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, nil
+	}
+	modelValue, ok := payload["model"].(string)
+	if !ok || strings.TrimSpace(modelValue) == "" {
+		return nil, payload
+	}
+	return &modelValue, payload
+}
+
+func extractStreamFlag(body []byte) *bool {
+	if len(body) == 0 {
+		return nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil
+	}
+	value, ok := payload["stream"].(bool)
+	if !ok {
+		return nil
+	}
+	return &value
+}
+
+func isStreamingRequest(r *http.Request, body []byte) bool {
+	if strings.Contains(strings.ToLower(r.Header.Get("Accept")), "text/event-stream") {
+		return true
+	}
+	streamFlag := extractStreamFlag(body)
+	return streamFlag != nil && *streamFlag
+}
+
+func bodyWithModel(payload map[string]any, modelID string, fallback []byte) []byte {
+	clone := make(map[string]any, len(payload))
+	for key, value := range payload {
+		clone[key] = value
+	}
+	clone["model"] = modelID
+	encoded, err := json.Marshal(clone)
+	if err != nil {
+		return fallback
+	}
+	return encoded
+}
+
+func writeResponse(w http.ResponseWriter, result forwardResult) {
+	copyHeaders(w.Header(), result.header)
+	w.WriteHeader(result.statusCode)
+	if result.streamBody != nil {
+		defer result.streamBody.Close()
+		if flusher, ok := w.(http.Flusher); ok {
+			_, _ = io.Copy(flushWriter{writer: w, flusher: flusher}, result.streamBody)
+			flusher.Flush()
+			return
+		}
+		_, _ = io.Copy(w, result.streamBody)
+		return
+	}
+	if len(result.body) > 0 {
+		_, _ = w.Write(result.body)
+	}
+}
+
+type flushWriter struct {
+	writer  io.Writer
+	flusher http.Flusher
+}
+
+func (w flushWriter) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
+	if err == nil {
+		w.flusher.Flush()
+	}
+	return n, err
+}
+
+func isRetryableStatus(statusCode int) bool {
+	return statusCode == http.StatusTooManyRequests || statusCode >= 500
+}
+
+func copyHeaders(target http.Header, source http.Header) {
+	for key := range target {
+		target.Del(key)
+	}
+	for key, values := range source {
+		for _, value := range values {
+			target.Add(key, value)
+		}
+	}
 }

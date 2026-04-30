@@ -1,4 +1,4 @@
-package gateway
+package localgatewayruntime
 
 import (
 	"context"
@@ -13,40 +13,40 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 )
 
-type stubLocalRuntimeModelSources struct {
+type stubModelSources struct {
 	replaceOrderCalled bool
 	replaceOrderInput  []modelsource.Source
 }
 
-func (s *stubLocalRuntimeModelSources) List(context.Context) ([]modelsource.Source, error) {
+func (s *stubModelSources) List(context.Context) ([]modelsource.Source, error) {
 	return nil, nil
 }
 
-func (s *stubLocalRuntimeModelSources) ReplaceOrder(_ context.Context, items []modelsource.Source) ([]modelsource.Source, error) {
+func (s *stubModelSources) ReplaceOrder(_ context.Context, items []modelsource.Source) ([]modelsource.Source, error) {
 	s.replaceOrderCalled = true
 	s.replaceOrderInput = items
 	return items, nil
 }
 
-type stubLocalRuntimeSelectedStore struct{}
+type stubSelectedStore struct{}
 
-func (s *stubLocalRuntimeSelectedStore) ListSelectedModels(context.Context) ([]localgatewaystate.SelectedModel, error) {
+func (s *stubSelectedStore) ListSelectedModels(context.Context) ([]localgatewaystate.SelectedModel, error) {
 	return nil, nil
 }
 
-func (s *stubLocalRuntimeSelectedStore) ReplaceSelectedModels(context.Context, []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error) {
+func (s *stubSelectedStore) ReplaceSelectedModels(context.Context, []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error) {
 	return nil, nil
 }
 
-type stubLocalRuntimeExecutor struct{}
+type stubExecutor struct{}
 
-func (s *stubLocalRuntimeExecutor) Handle(context.Context, localgateway.Request, localgateway.ModelSource) (localgateway.Response, error) {
+func (s *stubExecutor) Handle(context.Context, localgateway.Request, localgateway.ModelSource) (localgateway.Response, error) {
 	return localgateway.Response{}, nil
 }
 
-func TestLocalRuntimeHandlerSupportsModelSourceReorderContractPath(t *testing.T) {
-	modelSources := &stubLocalRuntimeModelSources{}
-	handler := NewLocalRuntimeHandler(modelSources, &stubLocalRuntimeSelectedStore{}, &stubLocalRuntimeExecutor{})
+func TestHandlerSupportsModelSourceReorderContractPath(t *testing.T) {
+	modelSources := &stubModelSources{}
+	handler := NewHandler(modelSources, &stubSelectedStore{}, &stubExecutor{})
 
 	req := httptest.NewRequest(http.MethodPut, "/admin/model-sources/order", strings.NewReader(`[{"id":"source-1"}]`))
 	req.Header.Set("Content-Type", "application/json")

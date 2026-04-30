@@ -1,4 +1,4 @@
-package app
+package localgatewayruntime
 
 import (
 	"context"
@@ -7,17 +7,16 @@ import (
 	"testing"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
 )
 
-func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
+func TestPrepareStateIfNeededMigratesAndCleansLegacyState(t *testing.T) {
 	root := t.TempDir()
 	coreDataDir := filepath.Join(root, "core-data")
-	runtimeDataDir := resolveLocalRuntimeDataDir(coreDataDir)
+	runtimeDataDir := RuntimeDataDir(coreDataDir)
 
 	coreStore, err := storage.NewSQLite(filepath.Join(coreDataDir, "clash-for-ai.db"))
 	if err != nil {
@@ -31,7 +30,6 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 	}
 
 	coreModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(coreStore.DB), coreCredentials)
-	coreLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(coreStore.DB))
 	coreSettings := settings.NewService(settings.NewSQLiteRepository(coreStore.DB))
 	providers := provider.NewService(provider.NewSQLiteRepository(coreStore.DB), coreCredentials)
 
@@ -56,16 +54,16 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 		t.Fatalf("Save core settings returned error: %v", err)
 	}
 
-	if err := prepareLocalRuntimeState(
+	if err := PrepareStateIfNeeded(
 		context.Background(),
 		runtimeDataDir,
-		coreModelSources,
-		coreLocalGatewayState,
+		coreStore.DB,
+		coreCredentials,
 		coreSettings,
 		providers,
 		initialSettings,
 	); err != nil {
-		t.Fatalf("prepareLocalRuntimeState returned error: %v", err)
+		t.Fatalf("PrepareStateIfNeeded returned error: %v", err)
 	}
 
 	runtimeStore, err := storage.NewSQLite(filepath.Join(runtimeDataDir, "clash-for-ai.db"))
@@ -80,8 +78,6 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 	}
 
 	runtimeModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(runtimeStore.DB), runtimeCredentials)
-	runtimeLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(runtimeStore.DB))
-
 	runtimeSources, err := runtimeModelSources.List(context.Background())
 	if err != nil {
 		t.Fatalf("List runtime model sources returned error: %v", err)
@@ -90,12 +86,12 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 		t.Fatalf("unexpected runtime model sources: %+v", runtimeSources)
 	}
 
-	selected, err := runtimeLocalGatewayState.ListSelectedModels(context.Background())
+	providerSelected, err := providers.ListSelectedModels(context.Background(), provider.LocalGatewayProviderID)
 	if err != nil {
 		t.Fatalf("ListSelectedModels returned error: %v", err)
 	}
-	if len(selected) != 1 || selected[0].ModelID != "gpt-4.1" {
-		t.Fatalf("unexpected runtime selected models: %+v", selected)
+	if len(providerSelected) != 0 {
+		t.Fatalf("expected provider selected models to be cleared, got %+v", providerSelected)
 	}
 
 	coreSourcesAfter, err := coreModelSources.List(context.Background())
@@ -114,15 +110,15 @@ func TestPrepareLocalRuntimeStateMigratesAndCleansLegacyState(t *testing.T) {
 		t.Fatalf("expected core selected models to be cleared, got %+v", coreSettingsAfter.LocalGatewaySelected)
 	}
 
-	if _, err := os.Stat(localRuntimeStateMarkerPath(runtimeDataDir)); err != nil {
+	if _, err := os.Stat(StateMarkerPath(runtimeDataDir)); err != nil {
 		t.Fatalf("expected runtime migration marker to exist: %v", err)
 	}
 }
 
-func TestPrepareLocalRuntimeStateRunsOnlyOnceAfterMarker(t *testing.T) {
+func TestPrepareStateIfNeededRunsOnlyOnceAfterMarker(t *testing.T) {
 	root := t.TempDir()
 	coreDataDir := filepath.Join(root, "core-data")
-	runtimeDataDir := resolveLocalRuntimeDataDir(coreDataDir)
+	runtimeDataDir := RuntimeDataDir(coreDataDir)
 
 	coreStore, err := storage.NewSQLite(filepath.Join(coreDataDir, "clash-for-ai.db"))
 	if err != nil {
@@ -136,7 +132,6 @@ func TestPrepareLocalRuntimeStateRunsOnlyOnceAfterMarker(t *testing.T) {
 	}
 
 	coreModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(coreStore.DB), coreCredentials)
-	coreLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(coreStore.DB))
 	coreSettings := settings.NewService(settings.NewSQLiteRepository(coreStore.DB))
 	providers := provider.NewService(provider.NewSQLiteRepository(coreStore.DB), coreCredentials)
 
@@ -145,16 +140,16 @@ func TestPrepareLocalRuntimeStateRunsOnlyOnceAfterMarker(t *testing.T) {
 	}
 
 	initialSettings := settings.DefaultSettings()
-	if err := prepareLocalRuntimeState(
+	if err := PrepareStateIfNeeded(
 		context.Background(),
 		runtimeDataDir,
-		coreModelSources,
-		coreLocalGatewayState,
+		coreStore.DB,
+		coreCredentials,
 		coreSettings,
 		providers,
 		initialSettings,
 	); err != nil {
-		t.Fatalf("first prepareLocalRuntimeState returned error: %v", err)
+		t.Fatalf("first PrepareStateIfNeeded returned error: %v", err)
 	}
 
 	if _, err := coreModelSources.Create(context.Background(), modelsource.CreateInput{
@@ -168,16 +163,16 @@ func TestPrepareLocalRuntimeStateRunsOnlyOnceAfterMarker(t *testing.T) {
 		t.Fatalf("Create late core model source returned error: %v", err)
 	}
 
-	if err := prepareLocalRuntimeState(
+	if err := PrepareStateIfNeeded(
 		context.Background(),
 		runtimeDataDir,
-		coreModelSources,
-		coreLocalGatewayState,
+		coreStore.DB,
+		coreCredentials,
 		coreSettings,
 		providers,
 		initialSettings,
 	); err != nil {
-		t.Fatalf("second prepareLocalRuntimeState returned error: %v", err)
+		t.Fatalf("second PrepareStateIfNeeded returned error: %v", err)
 	}
 
 	runtimeStore, err := storage.NewSQLite(filepath.Join(runtimeDataDir, "clash-for-ai.db"))
