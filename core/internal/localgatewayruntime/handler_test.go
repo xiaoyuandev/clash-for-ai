@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
+	runtimestate "github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime/state"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 )
 
@@ -30,11 +30,11 @@ func (s *stubModelSources) ReplaceOrder(_ context.Context, items []modelsource.S
 
 type stubSelectedStore struct{}
 
-func (s *stubSelectedStore) ListSelectedModels(context.Context) ([]localgatewaystate.SelectedModel, error) {
+func (s *stubSelectedStore) ListSelectedModels(context.Context) ([]runtimestate.SelectedModel, error) {
 	return nil, nil
 }
 
-func (s *stubSelectedStore) ReplaceSelectedModels(context.Context, []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error) {
+func (s *stubSelectedStore) ReplaceSelectedModels(context.Context, []runtimestate.SelectedModel) ([]runtimestate.SelectedModel, error) {
 	return nil, nil
 }
 

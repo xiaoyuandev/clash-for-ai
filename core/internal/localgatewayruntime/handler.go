@@ -13,7 +13,7 @@ import (
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
 	dispatcher "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/inbound/dispatcher"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
+	runtimestate "github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime/state"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 )
@@ -29,8 +29,8 @@ type ModelSourceResolver interface {
 }
 
 type SelectedModelStore interface {
-	ListSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error)
-	ReplaceSelectedModels(ctx context.Context, items []localgatewaystate.SelectedModel) ([]localgatewaystate.SelectedModel, error)
+	ListSelectedModels(ctx context.Context) ([]runtimestate.SelectedModel, error)
+	ReplaceSelectedModels(ctx context.Context, items []runtimestate.SelectedModel) ([]runtimestate.SelectedModel, error)
 }
 
 func NewHandler(
@@ -320,7 +320,7 @@ func buildLocalModelsResponse(sources []modelsource.Source) forwardResult {
 	}
 }
 
-func chooseModelSource(sources []modelsource.Source, requestModel string, selected []localgatewaystate.SelectedModel) *localgateway.ModelSource {
+func chooseModelSource(sources []modelsource.Source, requestModel string, selected []runtimestate.SelectedModel) *localgateway.ModelSource {
 	byModelID := make(map[string]modelsource.Source, len(sources))
 	var firstEnabled *modelsource.Source
 	for _, source := range sources {
@@ -394,11 +394,11 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func (h *Handler) listSelectedModels(ctx context.Context) ([]localgatewaystate.SelectedModel, error) {
+func (h *Handler) listSelectedModels(ctx context.Context) ([]runtimestate.SelectedModel, error) {
 	return h.selected.ListSelectedModels(ctx)
 }
 
-func buildSelectedModelAttempts(r *http.Request, body []byte, selected []localgatewaystate.SelectedModel) ([]attemptSpec, *string) {
+func buildSelectedModelAttempts(r *http.Request, body []byte, selected []runtimestate.SelectedModel) ([]attemptSpec, *string) {
 	currentModel, payload := extractModelFromBody(body)
 	if len(selected) == 0 || payload == nil || r.Method != http.MethodPost {
 		return []attemptSpec{{model: currentModel, body: body}}, currentModel
@@ -437,9 +437,9 @@ func buildSelectedModelAttempts(r *http.Request, body []byte, selected []localga
 }
 
 func (h *Handler) replaceSelectedModels(ctx context.Context, items []provider.SelectedModel) ([]provider.SelectedModel, error) {
-	runtimeItems := make([]localgatewaystate.SelectedModel, 0, len(items))
+	runtimeItems := make([]runtimestate.SelectedModel, 0, len(items))
 	for _, item := range items {
-		runtimeItems = append(runtimeItems, localgatewaystate.SelectedModel{
+		runtimeItems = append(runtimeItems, runtimestate.SelectedModel{
 			ModelID:  item.ModelID,
 			Position: item.Position,
 		})

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
+	runtimestate "github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime/state"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
@@ -47,7 +47,7 @@ func PrepareStateIfNeeded(
 	}
 
 	coreModelSources := modelsource.NewService(modelsource.NewSQLiteRepository(coreDB), coreCredentials)
-	coreLocalGatewayState := localgatewaystate.NewService(localgatewaystate.NewSQLiteRepository(coreDB))
+	coreLocalGatewayState := runtimestate.NewService(runtimestate.NewSQLiteRepository(coreDB))
 
 	return prepareState(
 		ctx,
@@ -85,7 +85,7 @@ func prepareState(
 	ctx context.Context,
 	runtimeDataDir string,
 	coreModelSources *modelsource.Service,
-	coreLocalGatewayState *localgatewaystate.Service,
+	coreLocalGatewayState *runtimestate.Service,
 	coreSettings SettingsStore,
 	providers ProviderSelectedModelsReader,
 	currentSettings settings.AppSettings,
@@ -110,9 +110,9 @@ func prepareState(
 	}
 
 	runtimeModelSourceRepository := modelsource.NewSQLiteRepository(runtimeStore.DB)
-	runtimeLocalGatewayStateRepository := localgatewaystate.NewSQLiteRepository(runtimeStore.DB)
+	runtimeLocalGatewayStateRepository := runtimestate.NewSQLiteRepository(runtimeStore.DB)
 	runtimeModelSources := modelsource.NewService(runtimeModelSourceRepository, runtimeCredentialStore)
-	runtimeLocalGatewayState := localgatewaystate.NewService(runtimeLocalGatewayStateRepository)
+	runtimeLocalGatewayState := runtimestate.NewService(runtimeLocalGatewayStateRepository)
 
 	runtimeSources, err := runtimeModelSources.List(ctx)
 	if err != nil {
@@ -145,9 +145,9 @@ func prepareState(
 	}
 	migratedSelected := false
 	if len(runtimeSelected) == 0 {
-		legacySelected := make([]localgatewaystate.SelectedModel, 0, len(currentSettings.LocalGatewaySelected))
+		legacySelected := make([]runtimestate.SelectedModel, 0, len(currentSettings.LocalGatewaySelected))
 		for _, item := range currentSettings.LocalGatewaySelected {
-			legacySelected = append(legacySelected, localgatewaystate.SelectedModel{
+			legacySelected = append(legacySelected, runtimestate.SelectedModel{
 				ModelID:  item.ModelID,
 				Position: item.Position,
 			})
@@ -157,9 +157,9 @@ func prepareState(
 			if listErr != nil {
 				return listErr
 			}
-			legacySelected = make([]localgatewaystate.SelectedModel, 0, len(providerSelected))
+			legacySelected = make([]runtimestate.SelectedModel, 0, len(providerSelected))
 			for _, item := range providerSelected {
-				legacySelected = append(legacySelected, localgatewaystate.SelectedModel{
+				legacySelected = append(legacySelected, runtimestate.SelectedModel{
 					ModelID:  item.ModelID,
 					Position: item.Position,
 				})

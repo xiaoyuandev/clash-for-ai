@@ -12,8 +12,8 @@ import (
 
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/config"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway/executor"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewaystate"
+	localgatewayexecutor "github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime/executor"
+	runtimestate "github.com/xiaoyuandev/clash-for-ai/core/internal/localgatewayruntime/state"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/modelsource"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/settings"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
@@ -34,10 +34,10 @@ func Run() error {
 	}
 
 	modelSourceRepository := modelsource.NewSQLiteRepository(sqliteStore.DB)
-	localGatewayStateRepository := localgatewaystate.NewSQLiteRepository(sqliteStore.DB)
+	localGatewayStateRepository := runtimestate.NewSQLiteRepository(sqliteStore.DB)
 	settingsRepository := settings.NewSQLiteRepository(sqliteStore.DB)
 	modelSourceService := modelsource.NewService(modelSourceRepository, credentialStore)
-	localGatewayStateService := localgatewaystate.NewService(localGatewayStateRepository)
+	localGatewayStateService := runtimestate.NewService(localGatewayStateRepository)
 	settingsService := settings.NewService(settingsRepository)
 	localGatewayExecutor := localgatewayexecutor.New(nil)
 

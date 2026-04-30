@@ -1,4 +1,4 @@
-package localgatewaystate
+package state
 
 import (
 	"context"

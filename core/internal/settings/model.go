@@ -19,7 +19,7 @@ type ClaudeCodeModelMap struct {
 
 type AppSettings struct {
 	LocalGateway LocalGatewaySettings `json:"local_gateway"`
-	// Legacy migration-only field. Runtime selected models now live in localgatewaystate.
+	// Legacy migration-only field. Runtime selected models now live in localgatewayruntime/state.
 	LocalGatewaySelected []SelectedModel `json:"local_gateway_selected_models"`
 	// Legacy migration-only field. Provider-scoped Claude model slots now live on provider metadata.
 	LocalGatewayClaude ClaudeCodeModelMap `json:"local_gateway_claude_code_model_map"`
