@@ -201,6 +201,10 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 				http.Error(w, "provider not found", http.StatusNotFound)
 				return
 			}
+			if errors.Is(err, provider.ErrProviderNotDeletable) {
+				http.Error(w, "provider is not deletable", http.StatusForbidden)
+				return
+			}
 
 			http.Error(w, "failed to delete provider", http.StatusInternalServerError)
 			return
@@ -222,6 +226,10 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 		if err != nil {
 			if errors.Is(err, provider.ErrProviderNotFound) {
 				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+			if errors.Is(err, provider.ErrProviderNotEditable) {
+				http.Error(w, "provider is not editable", http.StatusForbidden)
 				return
 			}
 

@@ -126,7 +126,7 @@ func NewService(repository Repository, credentials credential.Store) *Service {
 
 func normalizeProviderManagement(item Provider) Provider {
 	if item.RuntimeKind == "" {
-		item.RuntimeKind = "external"
+		item.RuntimeKind = RuntimeKindExternal
 	}
 	if !item.IsSystemManaged {
 		item.IsEditable = true
@@ -221,6 +221,9 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 	if err != nil {
 		return Provider{}, err
 	}
+	if item.IsSystemManaged && !item.IsEditable {
+		return Provider{}, ErrProviderNotEditable
+	}
 
 	if input.AuthMode == "" {
 		input.AuthMode = InferAuthMode(input.Name, input.BaseURL)
@@ -307,12 +310,95 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if item.IsSystemManaged && !item.IsDeletable {
+		return ErrProviderNotDeletable
+	}
 
 	if err := s.credentials.Delete(ctx, item.APIKeyRef); err != nil {
 		return err
 	}
 
 	return s.repository.Delete(ctx, id)
+}
+
+func (s *Service) EnsureManagedLocalGateway(ctx context.Context, name string, baseURL string, apiKey string) (Provider, error) {
+	items, err := s.repository.List(ctx)
+	if err != nil {
+		return Provider{}, err
+	}
+
+	for _, item := range items {
+		if !item.IsSystemManaged || item.RuntimeKind != RuntimeKindManagedLocalGate {
+			continue
+		}
+
+		item.Name = strings.TrimSpace(name)
+		item.BaseURL = strings.TrimSpace(baseURL)
+		item.AuthMode = AuthModeBearer
+		item.ExtraHeaders = map[string]string{}
+		item.IsSystemManaged = true
+		item.IsEditable = false
+		item.IsDeletable = false
+		item.RuntimeKind = RuntimeKindManagedLocalGate
+		item.Capabilities = Capabilities{
+			SupportsOpenAICompatible:    true,
+			SupportsAnthropicCompatible: true,
+			SupportsModelsAPI:           true,
+			SupportsBalanceAPI:          false,
+			SupportsStream:              true,
+		}
+
+		if strings.TrimSpace(apiKey) != "" {
+			if err := s.credentials.Delete(ctx, item.APIKeyRef); err != nil {
+				return Provider{}, err
+			}
+
+			apiKeyRef, err := s.credentials.Save(ctx, fmt.Sprintf("provider/%s/api-key", item.ID), apiKey)
+			if err != nil {
+				return Provider{}, err
+			}
+
+			item.APIKeyRef = apiKeyRef
+			item.APIKeyMasked = maskAPIKey(apiKey)
+		}
+
+		return s.repository.Update(ctx, normalizeProviderManagement(item))
+	}
+
+	id := "provider-local-gateway"
+	apiKeyRef, err := s.credentials.Save(ctx, fmt.Sprintf("provider/%s/api-key", id), apiKey)
+	if err != nil {
+		return Provider{}, err
+	}
+
+	item := normalizeProviderManagement(Provider{
+		ID:           id,
+		Name:         strings.TrimSpace(name),
+		BaseURL:      strings.TrimSpace(baseURL),
+		APIKeyRef:    apiKeyRef,
+		APIKey:       apiKey,
+		AuthMode:     AuthModeBearer,
+		ExtraHeaders: map[string]string{},
+		Capabilities: Capabilities{
+			SupportsOpenAICompatible:    true,
+			SupportsAnthropicCompatible: true,
+			SupportsModelsAPI:           true,
+			SupportsBalanceAPI:          false,
+			SupportsStream:              true,
+		},
+		Status: Status{
+			IsActive:         false,
+			LastHealthStatus: "pending",
+		},
+		APIKeyMasked:    maskAPIKey(apiKey),
+		IsSystemManaged: true,
+		IsEditable:      false,
+		IsDeletable:     false,
+		RuntimeKind:     RuntimeKindManagedLocalGate,
+	})
+	item.Status.LastHealthcheckAt = time.Now().UTC().Format(time.RFC3339)
+
+	return s.repository.Create(ctx, item)
 }
 
 func (s *Service) UpdateStatus(ctx context.Context, id string, status Status) (Provider, error) {

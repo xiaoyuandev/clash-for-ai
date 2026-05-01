@@ -3,9 +3,11 @@ package provider
 type AuthMode string
 
 const (
-	AuthModeBearer AuthMode = "bearer"
-	AuthModeAPIKey AuthMode = "x-api-key"
-	AuthModeBoth   AuthMode = "both"
+	AuthModeBearer              AuthMode = "bearer"
+	AuthModeAPIKey              AuthMode = "x-api-key"
+	AuthModeBoth                AuthMode = "both"
+	RuntimeKindExternal                  = "external"
+	RuntimeKindManagedLocalGate          = "local-gateway"
 )
 
 type Capabilities struct {

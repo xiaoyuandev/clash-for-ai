@@ -49,6 +49,15 @@ func Run() error {
 	healthService := health.NewService(providerService, credentialStore)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
 
+	if _, err := providerService.EnsureManagedLocalGateway(
+		context.Background(),
+		"Local Gateway",
+		localGatewayProviderBaseURL(cfg.LocalGatewayRuntimeHost, cfg.LocalGatewayRuntimePort),
+		"dummy",
+	); err != nil {
+		log.Printf("ensure managed local gateway provider: %v", err)
+	}
+
 	if err := localGatewayManager.Bootstrap(context.Background()); err != nil {
 		log.Printf("bootstrap local gateway runtime: %v", err)
 	}
@@ -64,4 +73,14 @@ func Run() error {
 	}
 
 	return server.ListenAndServe()
+}
+
+func localGatewayProviderBaseURL(host string, port int) string {
+	clientHost := host
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		clientHost = "127.0.0.1"
+	}
+
+	return fmt.Sprintf("http://%s:%d/v1", clientHost, port)
 }

@@ -7,6 +7,8 @@ import (
 )
 
 var ErrProviderNotFound = errors.New("provider not found")
+var ErrProviderNotEditable = errors.New("provider is not editable")
+var ErrProviderNotDeletable = errors.New("provider is not deletable")
 
 type Repository interface {
 	List(ctx context.Context) ([]Provider, error)
