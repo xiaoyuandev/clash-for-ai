@@ -31,4 +31,8 @@ export interface Provider {
   status: ProviderStatus;
   api_key_masked: string;
   claude_code_model_map: ClaudeCodeModelMap;
+  is_system_managed: boolean;
+  is_editable: boolean;
+  is_deletable: boolean;
+  runtime_kind: string;
 }

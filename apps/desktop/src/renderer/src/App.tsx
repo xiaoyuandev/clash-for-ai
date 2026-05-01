@@ -99,6 +99,15 @@ export default function App() {
       )
     },
     {
+      id: "models",
+      label: t("app.nav.models"),
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+        </svg>
+      )
+    },
+    {
       id: "logs",
       label: t("app.nav.logs"),
       icon: (
@@ -293,11 +302,7 @@ export default function App() {
               onSelectedProviderChange={setSelectedProvider}
             />
           ) : view === "models" ? (
-            <ModelsPage
-              apiBase={desktopState?.apiBase}
-              selectedProvider={selectedProvider}
-              onSelectedProviderChange={setSelectedProvider}
-            />
+            <ModelsPage apiBase={desktopState?.apiBase} />
           ) : view === "tools" ? (
             <ToolsPage
               desktopState={desktopState}

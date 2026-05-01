@@ -555,24 +555,26 @@ export function ProvidersPage({
                           {t("providers.action.view")}
                         </span>
                       </div>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className={`${iconButtonSmallClass} peer`}
-                          aria-label={t("common.edit")}
-                          onClick={() => {
-                            onSelectedProviderChange(provider);
-                            startEditing(provider);
-                          }}
-                        >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
-                          </svg>
-                        </button>
-                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
-                          {t("common.edit")}
-                        </span>
-                      </div>
+                      {provider.is_editable ? (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className={`${iconButtonSmallClass} peer`}
+                            aria-label={t("common.edit")}
+                            onClick={() => {
+                              onSelectedProviderChange(provider);
+                              startEditing(provider);
+                            }}
+                          >
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
+                            </svg>
+                          </button>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                            {t("common.edit")}
+                          </span>
+                        </div>
+                      ) : null}
                       <div className="relative">
                         <button
                           type="button"
@@ -590,23 +592,25 @@ export function ProvidersPage({
                           {t("providers.action.test")}
                         </span>
                       </div>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className={`${iconButtonSmallClass} peer`}
-                          aria-label={t("common.delete")}
-                          onClick={() => {
-                            void handleDeleteProvider(provider.id);
-                          }}
-                        >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
-                          </svg>
-                        </button>
-                        <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
-                          {t("common.delete")}
-                        </span>
-                      </div>
+                      {provider.is_deletable ? (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className={`${iconButtonSmallClass} peer`}
+                            aria-label={t("common.delete")}
+                            onClick={() => {
+                              void handleDeleteProvider(provider.id);
+                            }}
+                          >
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v8h-2zm4 0h2v8h-2zM7 9h2v8H7zm1 12a2 2 0 0 1-2-2V8h12v11a2 2 0 0 1-2 2z" />
+                            </svg>
+                          </button>
+                          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] text-[color:var(--color-text)] shadow-[var(--shadow-soft)] peer-hover:block">
+                            {t("common.delete")}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </article>
