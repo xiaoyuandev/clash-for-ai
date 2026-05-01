@@ -69,6 +69,18 @@ type RuntimeModelSourceInput struct {
 	Position        int      `json:"position"`
 }
 
+type SyncModelSource struct {
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	BaseURL         string   `json:"base_url"`
+	APIKey          string   `json:"api_key"`
+	ProviderType    string   `json:"provider_type"`
+	DefaultModelID  string   `json:"default_model_id"`
+	ExposedModelIDs []string `json:"exposed_model_ids"`
+	Enabled         bool     `json:"enabled"`
+	Position        int      `json:"position"`
+}
+
 type ModelSourceCapability struct {
 	SourceID                      string `json:"source_id"`
 	Name                          string `json:"name"`
@@ -88,8 +100,8 @@ type ModelSourceCapability struct {
 }
 
 type SyncInput struct {
-	Sources        []ModelSource   `json:"sources"`
-	SelectedModels []SelectedModel `json:"selected_models"`
+	Sources        []SyncModelSource `json:"sources"`
+	SelectedModels []SelectedModel   `json:"selected_models"`
 }
 
 type SyncResult struct {

@@ -144,6 +144,43 @@ func (s *Service) ListSelectedModels(ctx context.Context) ([]SelectedModel, erro
 	return s.repository.ListSelectedModels(ctx)
 }
 
+func (s *Service) BuildSyncInput(ctx context.Context) (SyncInput, error) {
+	sources, err := s.repository.ListSources(ctx)
+	if err != nil {
+		return SyncInput{}, err
+	}
+
+	resolvedSources := make([]SyncModelSource, 0, len(sources))
+	for _, source := range sources {
+		apiKey, err := s.credentials.Get(ctx, source.APIKeyRef)
+		if err != nil {
+			return SyncInput{}, err
+		}
+
+		resolvedSources = append(resolvedSources, SyncModelSource{
+			ID:              source.ID,
+			Name:            source.Name,
+			BaseURL:         source.BaseURL,
+			APIKey:          apiKey,
+			ProviderType:    source.ProviderType,
+			DefaultModelID:  source.DefaultModelID,
+			ExposedModelIDs: append([]string(nil), source.ExposedModelIDs...),
+			Enabled:         source.Enabled,
+			Position:        source.Position,
+		})
+	}
+
+	selectedModels, err := s.repository.ListSelectedModels(ctx)
+	if err != nil {
+		return SyncInput{}, err
+	}
+
+	return SyncInput{
+		Sources:        resolvedSources,
+		SelectedModels: selectedModels,
+	}, nil
+}
+
 func (s *Service) ReplaceSelectedModels(ctx context.Context, items []SelectedModel) ([]SelectedModel, error) {
 	normalized := make([]SelectedModel, 0, len(items))
 	for index, item := range items {

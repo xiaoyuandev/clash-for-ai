@@ -113,3 +113,57 @@ func TestServiceReplaceSelectedModels(t *testing.T) {
 		t.Fatalf("unexpected second selected model: %+v", items[1])
 	}
 }
+
+func TestServiceBuildSyncInput(t *testing.T) {
+	t.Parallel()
+
+	sqliteStore, err := storage.NewSQLite(filepath.Join(t.TempDir(), "phase1.db"))
+	if err != nil {
+		t.Fatalf("create sqlite store: %v", err)
+	}
+	defer sqliteStore.Close()
+
+	service := NewService(
+		NewSQLiteRepository(sqliteStore.DB),
+		credential.NewInMemoryStore(),
+	)
+
+	ctx := context.Background()
+	source, err := service.CreateSource(ctx, CreateModelSourceInput{
+		Name:            "OpenAI Direct",
+		BaseURL:         "https://api.openai.com/v1",
+		APIKey:          "sk-test-openai",
+		ProviderType:    "openai-compatible",
+		DefaultModelID:  "gpt-4.1",
+		ExposedModelIDs: []string{"gpt-4.1-mini"},
+		Enabled:         true,
+		Position:        0,
+	})
+	if err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+
+	if _, err := service.ReplaceSelectedModels(ctx, []SelectedModel{
+		{ModelID: "gpt-4.1", Position: 0},
+	}); err != nil {
+		t.Fatalf("replace selected models: %v", err)
+	}
+
+	input, err := service.BuildSyncInput(ctx)
+	if err != nil {
+		t.Fatalf("build sync input: %v", err)
+	}
+
+	if len(input.Sources) != 1 {
+		t.Fatalf("unexpected sync source count: %d", len(input.Sources))
+	}
+	if input.Sources[0].ID != source.ID {
+		t.Fatalf("unexpected sync source id: %s", input.Sources[0].ID)
+	}
+	if input.Sources[0].APIKey != "sk-test-openai" {
+		t.Fatalf("unexpected sync api key: %s", input.Sources[0].APIKey)
+	}
+	if len(input.SelectedModels) != 1 || input.SelectedModels[0].ModelID != "gpt-4.1" {
+		t.Fatalf("unexpected sync selected models: %+v", input.SelectedModels)
+	}
+}
