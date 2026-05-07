@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "IBM Plex Mono", monospace;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-text: #0f172a;
+    --color-heading: #0b1220;
+    --color-muted: #526072;
+    --color-subtle: #7b8aa0;
+    --app-background:
+      radial-gradient(circle at top left, rgba(45, 212, 191, 0.12), transparent 0, transparent 26%),
+      radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 0, transparent 22%),
+      linear-gradient(180deg, #f8fbfd 0%, #f2f7fb 46%, #edf3f8 100%);
+    --overlay-sheen: linear-gradient(140deg, rgba(255, 255, 255, 0.2), transparent 24%, transparent 76%, rgba(255, 255, 255, 0.08));
+    --panel-glass: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 252, 0.88));
+    --panel-soft: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(243, 247, 250, 0.94));
+    --panel-hero: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 252, 0.88));
+    --panel-solid: rgba(255, 255, 255, 0.84);
+    --panel-input: rgba(255, 255, 255, 0.95);
+    --panel-input-focus: rgba(255, 255, 255, 1);
+    --border-soft: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.28);
+    --shadow-panel: 0 12px 30px rgba(15, 23, 42, 0.07);
+    --shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.05);
+    --accent: #0f766e;
+    --accent-soft: rgba(20, 184, 166, 0.14);
+    --accent-strong: #14b8a6;
+    --accent-text: #f8fafc;
+    --danger-soft: rgba(239, 68, 68, 0.12);
+    --danger-border: rgba(248, 113, 113, 0.25);
+    --danger-text: #991b1b;
+    --success-soft: rgba(20, 184, 166, 0.14);
+    --success-border: rgba(45, 212, 191, 0.28);
+    --success-text: #115e59;
+    --selection-bg: rgba(20, 184, 166, 0.24);
+    --selection-text: #0f172a;
+    --scrollbar-thumb: rgba(148, 163, 184, 0.35);
+    --scrollbar-thumb-hover: rgba(100, 116, 139, 0.5);
+    --modal-backdrop: rgba(236, 243, 248, 0.68);
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-text: #e5eef5;
+    --color-heading: #f8fafc;
+    --color-muted: #93a4b8;
+    --color-subtle: #6c7b90;
+    --app-background:
+      radial-gradient(circle at top left, rgba(45, 212, 191, 0.15), transparent 0, transparent 28%),
+      radial-gradient(circle at top right, rgba(20, 184, 166, 0.14), transparent 0, transparent 24%),
+      radial-gradient(circle at bottom, rgba(15, 23, 42, 0.42), transparent 0, transparent 32%),
+      linear-gradient(180deg, #020617 0%, #06101d 44%, #020617 100%);
+    --overlay-sheen: linear-gradient(140deg, rgba(255, 255, 255, 0.08), transparent 22%, transparent 72%, rgba(255, 255, 255, 0.03));
+    --panel-glass: linear-gradient(145deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.56));
+    --panel-soft: linear-gradient(145deg, rgba(15, 23, 42, 0.56), rgba(15, 23, 42, 0.44));
+    --panel-hero: linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.5));
+    --panel-solid: rgba(15, 23, 42, 0.52);
+    --panel-input: rgba(2, 6, 23, 0.36);
+    --panel-input-focus: rgba(2, 6, 23, 0.5);
+    --border-soft: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.28);
+    --shadow-panel: 0 16px 44px rgba(0, 0, 0, 0.28);
+    --shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.22);
+    --accent: #14b8a6;
+    --accent-soft: rgba(20, 184, 166, 0.12);
+    --accent-strong: #2dd4bf;
+    --accent-text: #f8fafc;
+    --danger-soft: rgba(248, 113, 113, 0.12);
+    --danger-border: rgba(248, 113, 113, 0.24);
+    --danger-text: #fecaca;
+    --success-soft: rgba(45, 212, 191, 0.12);
+    --success-border: rgba(45, 212, 191, 0.24);
+    --success-text: #ccfbf1;
+    --selection-bg: rgba(20, 184, 166, 0.22);
+    --selection-text: #ccfbf1;
+    --scrollbar-thumb: rgba(100, 116, 139, 0.4);
+    --scrollbar-thumb-hover: rgba(148, 163, 184, 0.56);
+    --modal-backdrop: rgba(2, 6, 23, 0.62);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow: hidden;
+    background: var(--app-background);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition:
+      background-color 240ms ease,
+      color 240ms ease,
+      background 240ms ease;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3,
+  p,
+  pre {
+    margin: 0;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-text);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--scrollbar-thumb);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .pane-resizer {
+    @apply hidden xl:flex xl:items-stretch xl:justify-center;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .pane-resizer-line {
+    @apply my-2 w-px rounded-full;
+    background: var(--border-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

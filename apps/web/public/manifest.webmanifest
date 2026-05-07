@@ -1,0 +1,16 @@
+{
+  "name": "Clash for AI Web",
+  "short_name": "Clash for AI",
+  "description": "Supplementary web management UI for WSL and Linux server.",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#f8fbfd",
+  "theme_color": "#14b8a6",
+  "icons": [
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
