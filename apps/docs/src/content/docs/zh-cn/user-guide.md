@@ -31,6 +31,93 @@ Clash for AI 位于客户端工具和上游中转 Provider 之间。
 
 这也是为什么你的工具可以始终只配置一个本地入口，而上游切换由桌面应用统一控制。
 
+## 桌面端与 Web 端的关系
+
+Clash for AI 现在有两类管理入口：
+
+1. `Electron` 桌面端
+2. `Web / PWA` 补充入口
+
+它们的职责不是对等的。
+
+必须按下面的原则理解：
+
+1. `Electron` 仍然是本地主入口
+2. `Web / PWA` 主要用于 `WSL` 和 `Linux server`
+3. `Web / PWA` 不是桌面端替代品
+
+桌面端继续负责：
+
+1. 本地 core 生命周期
+2. 托盘和窗口
+3. 本地桌面集成
+4. 桌面应用更新
+
+Web / PWA 主要负责：
+
+1. 在浏览器里管理运行中的 core
+2. 为无桌面环境提供页面入口
+3. 为 WSL 和 Linux server 提供更方便的管理体验
+
+## WSL 使用方式
+
+如果你主要在 `WSL` 里运行 `Codex CLI`、`Claude Code` 或其他命令行工具，推荐这样使用：
+
+1. 在 `WSL` 内启动 `clash-for-ai-core`
+2. 让浏览器访问这个 WSL 实例暴露的地址
+3. 在 Web 页面中管理 `Providers`、`Models`、`Logs`、`Tools`
+
+这样做的关键好处是：
+
+1. 工具配置文件写入发生在 `WSL` 自己的 Linux 用户目录
+2. 不需要 Windows 桌面端跨环境替 WSL 写配置
+3. 一键配置和真实运行环境一致
+
+## Linux server 使用方式
+
+如果你把 Clash for AI 跑在 Linux server、云主机、家庭服务器或 NAS 上，推荐这样使用：
+
+1. 在目标 Linux 环境中启动 `clash-for-ai-core`
+2. 通过浏览器访问该实例暴露的地址
+3. 在 Web 页面中完成 `Providers`、`Models`、`Logs`、`Tools` 管理
+
+这个模式适合：
+
+1. 没有桌面环境的机器
+2. 持续运行的开发服务器
+3. 需要在浏览器里远程查看运行状态的场景
+
+## PWA 的定位
+
+如果你在 Chrome 或兼容浏览器中安装了 PWA，需要明确它的定位：
+
+1. PWA 只是 Web 管理端的安装形态
+2. PWA 提供的是“更像应用”的浏览器入口
+3. PWA 不是 Electron 桌面端的替代品
+
+PWA 可以提供：
+
+1. 独立窗口
+2. 快捷入口
+3. 静态资源缓存
+
+PWA 不负责：
+
+1. 拉起本地 Go core
+2. 托盘、自启动、桌面通知
+3. 桌面应用更新
+
+## 补充入口下的工具一键配置
+
+当你通过 WSL 或 Linux server 的 Web 页面进入 `Tools` 页时，一键配置会直接作用于当前 core 所在环境。
+
+这意味着：
+
+1. 在 WSL 里打开的 Web 页面，会写 WSL 里的 `~/.codex`、`~/.claude`
+2. 在 Linux server 里打开的 Web 页面，会写 server 自己的用户目录
+
+这也是为什么 Web 端更适合作为 WSL 和 Linux server 的补充入口。
+
 ## Provider 配置检查清单
 
 添加 Provider 时，重点确认这三个字段：

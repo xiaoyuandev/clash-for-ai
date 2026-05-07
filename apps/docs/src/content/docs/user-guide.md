@@ -31,6 +31,93 @@ The normal request path is:
 
 This is why your tools can keep one stable local Base URL while the desktop app switches the upstream provider.
 
+## Desktop vs Web
+
+Clash for AI now has two kinds of management entry:
+
+1. the `Electron` desktop app,
+2. the `Web / PWA` supplementary entry.
+
+They are not equal in product role.
+
+The rule is:
+
+1. `Electron` remains the primary local entry,
+2. `Web / PWA` mainly serves `WSL` and `Linux server` users,
+3. `Web / PWA` does not replace the desktop app.
+
+The desktop app still owns:
+
+1. local core lifecycle,
+2. tray and window integration,
+3. local desktop integration,
+4. desktop update flow.
+
+The Web / PWA entry mainly provides:
+
+1. browser-based management for a running core,
+2. a usable UI for headless environments,
+3. a better path for WSL and Linux server setups.
+
+## How to use it with WSL
+
+If you mainly run `Codex CLI`, `Claude Code`, or other CLI tools inside `WSL`, the recommended path is:
+
+1. start `clash-for-ai-core` inside WSL,
+2. open the Web UI exposed by that WSL instance in your browser,
+3. manage `Providers`, `Models`, `Logs`, and `Tools` from that Web page.
+
+The important effect is:
+
+1. tool configuration files are written into the WSL Linux home directory,
+2. you do not need the Windows desktop app to cross-configure WSL files,
+3. one-click configuration matches the real runtime environment.
+
+## How to use it on a Linux server
+
+If Clash for AI runs on a Linux server, cloud VM, home server, or NAS, the recommended path is:
+
+1. start `clash-for-ai-core` on that machine,
+2. open the exposed Web UI from your browser,
+3. manage `Providers`, `Models`, `Logs`, and `Tools` there.
+
+This mode is intended for:
+
+1. machines without a desktop environment,
+2. long-running development servers,
+3. remote browser-based management.
+
+## PWA positioning
+
+If you install the Web app as a PWA in Chrome or another compatible browser, keep its role clear:
+
+1. PWA is only an installation form of the Web UI,
+2. PWA gives you a more app-like browser entry,
+3. PWA does not replace the Electron desktop app.
+
+PWA can provide:
+
+1. a standalone window,
+2. a shortcut entry,
+3. static asset caching.
+
+PWA does not provide:
+
+1. local Go core startup,
+2. tray, auto-launch, or native desktop integration,
+3. desktop update flow.
+
+## One-click tool setup in supplementary mode
+
+When you open the `Tools` page from the WSL or Linux server Web UI, one-click configuration applies to the environment where that core instance is actually running.
+
+That means:
+
+1. a Web page served from WSL writes into WSL paths like `~/.codex` and `~/.claude`,
+2. a Web page served from a Linux server writes into that server's own user directory.
+
+This is exactly why the Web / PWA entry is a better supplementary path for WSL and Linux server users.
+
 ## Provider setup checklist
 
 When you add a provider, check these fields carefully:

@@ -547,6 +547,8 @@ core/internal/tooling/
 
 ## Phase 4：补充 PWA 能力与部署文档
 
+状态：`已完成`
+
 ## 目标
 
 为 WSL 和 Linux server 用户提供更接近应用体验的 Web 入口，但不改变产品主次关系。
@@ -599,6 +601,13 @@ core/internal/tooling/
 1. WSL 和 Linux server 用户可以通过浏览器或 PWA 使用管理界面
 2. PWA 体验成立，但不承担 Electron 职责
 3. 文档清晰说明桌面主入口和 Web 补充入口的关系
+
+完成说明：
+
+1. `apps/web` 已具备 `manifest`、图标和 `vite-plugin-pwa`
+2. Web 构建产物已包含 PWA 所需文件
+3. 已补充公开使用文档，明确 WSL、Linux server 和 PWA 的使用方式
+4. 已在文档中再次明确 `Electron` 是本地主入口，`Web / PWA` 只是补充入口
 
 ## 实际开发顺序
 
