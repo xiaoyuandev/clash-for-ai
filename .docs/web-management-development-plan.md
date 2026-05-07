@@ -541,7 +541,7 @@ core/internal/tooling/
 1. Web 端 `Tools` 页已切到 Go core `/api/tools` 和 `/api/runtime`
 2. 桌面端 `Tools` 页已切到 Go core `/api/tools` 和 `/api/runtime`
 3. 桌面端与 Web 端的工具能力语义已统一
-4. Electron 主进程旧工具实现仍保留为过渡代码，但已不再是前端主调用链路
+4. Electron 主进程旧工具实现已经从主调用链路移除，并完成过渡代码清理
 5. 已通过 `pnpm --filter web build`
 6. 已通过 `pnpm --filter desktop typecheck`
 

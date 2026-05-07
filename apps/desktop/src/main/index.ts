@@ -4,13 +4,6 @@ import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { loadWorkspaceEnvLocal } from "./dev-env";
 import { startCoreProcess, type CoreRuntimeHandle } from "./core-process";
 import {
-  applyToolIntegration,
-  buildCherryStudioImportUrl,
-  listToolIntegrations,
-  restoreToolIntegration,
-  type ToolIntegrationId
-} from "./tool-integrations";
-import {
   loadDesktopConfig,
   normalizePort,
   resolveConfiguredPort,
@@ -96,6 +89,19 @@ let updateState: UpdateState = {
     ? undefined
     : "Update checks are only available in packaged builds."
 };
+
+function buildCherryStudioImportUrl(apiPort: number) {
+  const payload = {
+    id: "custom-provider",
+    name: "Clash for AI",
+    type: "openai",
+    apiKey: "dummy",
+    baseUrl: `http://127.0.0.1:${apiPort}/v1`
+  };
+
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  return `cherrystudio://providers/api-keys?v=1&data=${encodeURIComponent(encoded)}`;
+}
 
 function resolveIconPath() {
   const iconFile = process.platform === "win32" ? "icon.ico" : "icon.png";
@@ -575,16 +581,6 @@ app.whenReady().then(() => {
     pendingDeepLinkEvent = null;
     return nextEvent;
   });
-
-  ipcMain.handle("tools:list", async () => listToolIntegrations(coreRuntime.state.port));
-
-  ipcMain.handle("tools:configure", async (_, toolId: ToolIntegrationId) =>
-    applyToolIntegration(toolId, coreRuntime.state.port)
-  );
-
-  ipcMain.handle("tools:restore", async (_, toolId: ToolIntegrationId) =>
-    restoreToolIntegration(toolId, coreRuntime.state.port)
-  );
 
   ipcMain.handle("tools:open-cherry-studio-import", async () => {
     const url = buildCherryStudioImportUrl(coreRuntime.state.port);

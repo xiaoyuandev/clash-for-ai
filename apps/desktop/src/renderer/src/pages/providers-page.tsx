@@ -3,10 +3,12 @@ import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   activateProvider,
+  configureTool,
   createProvider,
   deleteProvider,
   getHealth,
   getLocalGatewayRuntime,
+  getTools,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
@@ -436,17 +438,13 @@ export function ProvidersPage({
   }
 
   async function syncClaudeCodeIntegrationIfConfigured() {
-    if (!window.desktopBridge) {
-      return;
-    }
-
-    const tools = await window.desktopBridge.listTools();
+    const tools = await getTools(apiBase);
     const claudeTool = tools.find((item) => item.id === "claude-code");
     if (!claudeTool?.configured) {
       return;
     }
 
-    await window.desktopBridge.configureTool("claude-code");
+    await configureTool("claude-code", apiBase);
   }
 
   function openProviderDetail(provider: Provider) {

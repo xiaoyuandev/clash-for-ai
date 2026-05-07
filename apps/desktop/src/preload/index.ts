@@ -33,9 +33,6 @@ const api = {
   }) =>
     ipcRenderer.invoke("app:update-launch-settings", settings),
   copyText: (text: string) => ipcRenderer.invoke("app:copy-text", text),
-  listTools: () => ipcRenderer.invoke("tools:list"),
-  configureTool: (toolId: string) => ipcRenderer.invoke("tools:configure", toolId),
-  restoreTool: (toolId: string) => ipcRenderer.invoke("tools:restore", toolId),
   openCherryStudioImport: () => ipcRenderer.invoke("tools:open-cherry-studio-import"),
   checkUpdates: () => ipcRenderer.invoke("app:check-updates"),
   downloadUpdate: () => ipcRenderer.invoke("app:download-update"),
