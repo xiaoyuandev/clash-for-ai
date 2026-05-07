@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   configureTool as configureToolRequest,
+  getHealth,
   getTools,
   type ToolIntegrationState,
   restoreTool as restoreToolRequest
@@ -96,6 +97,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   const [restoreBusy, setRestoreBusy] = useState<ToolPreset | null>(null);
   const [cherryBusy, setCherryBusy] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [coreAvailable, setCoreAvailable] = useState<boolean | null>(null);
 
   const toolCatalog = useMemo(
     () =>
@@ -162,20 +164,31 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     let cancelled = false;
 
     async function syncToolStates() {
-      const states = await getTools(desktopState?.apiBase);
-      if (cancelled) {
-        return;
-      }
+      try {
+        const [health, states] = await Promise.all([
+          getHealth(desktopState?.apiBase),
+          getTools(desktopState?.apiBase)
+        ]);
+        if (cancelled) {
+          return;
+        }
 
-      setToolStates(
-        states.reduce(
-          (accumulator, item) => {
-            accumulator[item.id as ToolPreset] = item;
-            return accumulator;
-          },
-          {} as Record<ToolPreset, ToolIntegrationState>
-        )
-      );
+        setCoreAvailable(health.status === "ok");
+        setToolStates(
+          states.reduce(
+            (accumulator, item) => {
+              accumulator[item.id as ToolPreset] = item;
+              return accumulator;
+            },
+            {} as Record<ToolPreset, ToolIntegrationState>
+          )
+        );
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        setCoreAvailable(false);
+      }
     }
 
     void syncToolStates();
@@ -434,8 +447,16 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           <p className={heroCopyClass}>{t("tools.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className={statusPillClass(desktopState?.core.running ? "success" : "danger")}>
-            {desktopState?.core.running ? t("app.coreRunning") : t("app.coreStopped")}
+          <span
+            className={statusPillClass(
+              coreAvailable == null ? "warning" : coreAvailable ? "success" : "danger"
+            )}
+          >
+            {coreAvailable == null
+              ? t("common.loading")
+              : coreAvailable
+                ? t("app.coreRunning")
+                : t("app.coreStopped")}
           </span>
           <button
             type="button"

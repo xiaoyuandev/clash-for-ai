@@ -10,7 +10,7 @@ export const softPanelClass =
   "rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] shadow-[var(--shadow-soft)] backdrop-blur-lg transition-[background,border-color,box-shadow] duration-300";
 
 export const pageShellClass =
-  "relative mx-auto flex min-h-full w-full max-w-[1600px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 xl:px-6";
+  "relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-4 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 xl:px-6";
 
 export const heroClass =
   "flex flex-col gap-3 rounded-[22px] border [border-color:var(--border-soft)] [background:var(--panel-hero)] px-4 py-4 shadow-[var(--shadow-panel)] backdrop-blur-2xl transition-[background,border-color,box-shadow] duration-300 lg:flex-row lg:items-start lg:justify-between lg:px-5 lg:py-4";
