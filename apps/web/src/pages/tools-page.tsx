@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
+  configureTool as configureToolRequest,
+  getTools,
+  type ToolIntegrationState,
+  restoreTool as restoreToolRequest
+} from "../services/api";
+import {
   buttonClass,
   emptyStateClass,
   fieldLabelClass,
@@ -70,18 +76,6 @@ type ToolPreset =
 type PlatformPreset = "unix" | "windows-cmd" | "powershell";
 type ConnectMode = "command" | "manual";
 type ToolCategory = "cli" | "desktop" | "sdk";
-
-type ToolIntegrationState = {
-  id: ToolPreset;
-  detected: boolean;
-  configured: boolean;
-  supportsAdapter: boolean;
-  configPath?: string;
-  secondaryConfigPath?: string;
-  executablePath?: string;
-  backupPath?: string;
-  message?: string;
-};
 
 interface ToolsPageProps {
   desktopState: DesktopState;
@@ -165,24 +159,35 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   );
 
   useEffect(() => {
-    setToolStates(
-      toolCatalog.reduce(
-        (accumulator, item) => {
-          accumulator[item.id] = {
-            id: item.id,
-            detected: false,
-            configured: false,
-            supportsAdapter: item.supportsAdapter,
-            message: item.supportsAdapter
-              ? "Automatic configuration will be enabled after Go core tooling APIs are integrated."
-              : "This preset currently provides guidance only."
-          };
-          return accumulator;
-        },
-        {} as Record<ToolPreset, ToolIntegrationState>
-      )
-    );
-  }, []);
+    let cancelled = false;
+
+    async function syncToolStates() {
+      const states = await getTools(desktopState?.apiBase);
+      if (cancelled) {
+        return;
+      }
+
+      setToolStates(
+        states.reduce(
+          (accumulator, item) => {
+            accumulator[item.id as ToolPreset] = item;
+            return accumulator;
+          },
+          {} as Record<ToolPreset, ToolIntegrationState>
+        )
+      );
+    }
+
+    void syncToolStates();
+    const intervalId = window.setInterval(() => {
+      void syncToolStates();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [desktopState?.apiBase]);
 
   const selectedTool = toolCatalog.find((tool) => tool.id === toolPreset) ?? toolCatalog[0];
   const selectedState = toolStates[toolPreset];
@@ -329,9 +334,9 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      setActionFeedback(
-        "Web supplementary mode currently provides command guidance. One-click configuration will move to Go core in the next phase."
-      );
+      const nextState = await configureToolRequest(toolId, desktopState?.apiBase);
+      setToolStates((current) => ({ ...current, [toolId]: nextState }));
+      setActionFeedback(nextState.message ?? t("tools.action.configured"));
     } catch (error) {
       setActionFeedback(error instanceof Error ? error.message : t("tools.action.failed"));
     } finally {
@@ -344,9 +349,9 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      setActionFeedback(
-        "Restore from backup is not available in web supplementary mode yet. It will be provided by Go core tooling APIs."
-      );
+      const nextState = await restoreToolRequest(toolId, desktopState?.apiBase);
+      setToolStates((current) => ({ ...current, [toolId]: nextState }));
+      setActionFeedback(nextState.message ?? t("tools.action.restored"));
     } catch (error) {
       setActionFeedback(error instanceof Error ? error.message : t("tools.action.restoreFailed"));
     } finally {
@@ -599,7 +604,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   <span className={statusPillClass("success")}>{t("tools.state.configured")}</span>
                 )}
               </div>
-              {selectedState?.backupPath ? (
+              {selectedState?.backup_path ? (
                   <div className="mb-3 flex items-center justify-end">
                   <button
                     type="button"
@@ -754,26 +759,26 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               <div>
                 <p className={fieldLabelClass}>{t("tools.detail.configPath")}</p>
                 <p className={`${monoClass} mt-2`}>
-                  {selectedState?.configPath ?? t("tools.detail.notAvailable")}
+                  {selectedState?.config_path ?? t("tools.detail.notAvailable")}
                 </p>
               </div>
               <div>
                 <p className={fieldLabelClass}>{t("tools.detail.executable")}</p>
                 <p className={`${monoClass} mt-2`}>
-                  {selectedState?.executablePath ?? t("tools.detail.notDetected")}
+                  {selectedState?.executable_path ?? t("tools.detail.notDetected")}
                 </p>
               </div>
             </div>
-            {selectedState?.secondaryConfigPath ? (
+            {selectedState?.secondary_config_path ? (
               <div className="mt-4">
                 <p className={fieldLabelClass}>{t("tools.detail.secondaryConfigPath")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.secondaryConfigPath}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.secondary_config_path}</p>
               </div>
             ) : null}
-            {selectedState?.backupPath ? (
+            {selectedState?.backup_path ? (
               <div className="mt-4">
                 <p className={fieldLabelClass}>{t("tools.detail.lastBackup")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.backupPath}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.backup_path}</p>
               </div>
             ) : null}
             {selectedState?.message ? <p className={`${metaClass} mt-4`}>{selectedState.message}</p> : null}

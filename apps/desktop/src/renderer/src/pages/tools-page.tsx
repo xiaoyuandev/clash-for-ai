@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
+  configureTool as configureToolRequest,
+  getTools,
+  restoreTool as restoreToolRequest,
+  type ToolIntegrationState
+} from "../services/api";
+import {
   buttonClass,
   emptyStateClass,
   fieldLabelClass,
@@ -83,8 +89,8 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   const [connectMode, setConnectMode] = useState<ConnectMode>("command");
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [manualCopyFeedback, setManualCopyFeedback] = useState<string | null>(null);
-  const [toolStates, setToolStates] = useState<Record<ToolPreset, DesktopToolIntegrationState>>(
-    {} as Record<ToolPreset, DesktopToolIntegrationState>
+  const [toolStates, setToolStates] = useState<Record<ToolPreset, ToolIntegrationState>>(
+    {} as Record<ToolPreset, ToolIntegrationState>
   );
   const [configureBusy, setConfigureBusy] = useState<ToolPreset | null>(null);
   const [restoreBusy, setRestoreBusy] = useState<ToolPreset | null>(null);
@@ -156,11 +162,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     let cancelled = false;
 
     async function syncToolStates() {
-      if (!window.desktopBridge) {
-        return;
-      }
-
-      const states = await window.desktopBridge.listTools();
+      const states = await getTools(desktopState?.apiBase);
       if (cancelled) {
         return;
       }
@@ -168,10 +170,10 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
       setToolStates(
         states.reduce(
           (accumulator, item) => {
-            accumulator[item.id] = item;
+            accumulator[item.id as ToolPreset] = item;
             return accumulator;
           },
-          {} as Record<ToolPreset, DesktopToolIntegrationState>
+          {} as Record<ToolPreset, ToolIntegrationState>
         )
       );
     }
@@ -185,7 +187,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [desktopState?.apiBase]);
 
   const selectedTool = toolCatalog.find((tool) => tool.id === toolPreset) ?? toolCatalog[0];
   const selectedState = toolStates[toolPreset];
@@ -328,15 +330,11 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   }
 
   async function handleConfigureTool(toolId: ToolPreset) {
-    if (!window.desktopBridge) {
-      return;
-    }
-
     setConfigureBusy(toolId);
     setActionFeedback(null);
 
     try {
-      const nextState = await window.desktopBridge.configureTool(toolId);
+      const nextState = await configureToolRequest(toolId, desktopState?.apiBase);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.configured"));
     } catch (error) {
@@ -347,15 +345,11 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
   }
 
   async function handleRestoreTool(toolId: ToolPreset) {
-    if (!window.desktopBridge) {
-      return;
-    }
-
     setRestoreBusy(toolId);
     setActionFeedback(null);
 
     try {
-      const nextState = await window.desktopBridge.restoreTool(toolId);
+      const nextState = await restoreToolRequest(toolId, desktopState?.apiBase);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.restored"));
     } catch (error) {
@@ -408,7 +402,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     return tool.fallbackSetupType;
   }
 
-  function getStateLabel(tool: (typeof toolCatalog)[number], state?: DesktopToolIntegrationState) {
+  function getStateLabel(tool: (typeof toolCatalog)[number], state?: ToolIntegrationState) {
     if (state?.configured) {
       return t("tools.state.configured");
     }
@@ -420,7 +414,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     return tool.supportsAdapter ? t("tools.state.notDetected") : t("tools.state.guideOnly");
   }
 
-  function getStateVariant(tool: (typeof toolCatalog)[number], state?: DesktopToolIntegrationState) {
+  function getStateVariant(tool: (typeof toolCatalog)[number], state?: ToolIntegrationState) {
     if (state?.configured) {
       return "success" as const;
     }
@@ -613,7 +607,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   <span className={statusPillClass("success")}>{t("tools.state.configured")}</span>
                 )}
               </div>
-              {selectedState?.backupPath ? (
+              {selectedState?.backup_path ? (
                   <div className="mb-3 flex items-center justify-end">
                   <button
                     type="button"
@@ -768,26 +762,26 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               <div>
                 <p className={fieldLabelClass}>{t("tools.detail.configPath")}</p>
                 <p className={`${monoClass} mt-2`}>
-                  {selectedState?.configPath ?? t("tools.detail.notAvailable")}
+                  {selectedState?.config_path ?? t("tools.detail.notAvailable")}
                 </p>
               </div>
               <div>
                 <p className={fieldLabelClass}>{t("tools.detail.executable")}</p>
                 <p className={`${monoClass} mt-2`}>
-                  {selectedState?.executablePath ?? t("tools.detail.notDetected")}
+                  {selectedState?.executable_path ?? t("tools.detail.notDetected")}
                 </p>
               </div>
             </div>
-            {selectedState?.secondaryConfigPath ? (
+            {selectedState?.secondary_config_path ? (
               <div className="mt-4">
                 <p className={fieldLabelClass}>{t("tools.detail.secondaryConfigPath")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.secondaryConfigPath}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.secondary_config_path}</p>
               </div>
             ) : null}
-            {selectedState?.backupPath ? (
+            {selectedState?.backup_path ? (
               <div className="mt-4">
                 <p className={fieldLabelClass}>{t("tools.detail.lastBackup")}</p>
-                <p className={`${monoClass} mt-2`}>{selectedState.backupPath}</p>
+                <p className={`${monoClass} mt-2`}>{selectedState.backup_path}</p>
               </div>
             ) : null}
             {selectedState?.message ? <p className={`${metaClass} mt-4`}>{selectedState.message}</p> : null}

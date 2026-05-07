@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/tooling"
 )
 
 type Router struct {
@@ -20,6 +22,8 @@ type Router struct {
 	health    *health.Service
 	logs      *logging.Service
 	local     *localgateway.Manager
+	tools     *tooling.Service
+	httpPort  int
 	gateway   http.Handler
 }
 
@@ -28,6 +32,8 @@ func NewRouter(
 	healthService *health.Service,
 	loggingService *logging.Service,
 	localGatewayManager *localgateway.Manager,
+	toolingService *tooling.Service,
+	httpPort int,
 	gatewayHandler *gateway.Handler,
 ) http.Handler {
 	router := &Router{
@@ -35,12 +41,17 @@ func NewRouter(
 		health:    healthService,
 		logs:      loggingService,
 		local:     localGatewayManager,
+		tools:     toolingService,
+		httpPort:  httpPort,
 		gateway:   gatewayHandler,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", router.handleHealth)
 	mux.HandleFunc("/api/logs", router.handleLogs)
+	mux.HandleFunc("/api/runtime", router.handleRuntime)
+	mux.HandleFunc("/api/tools", router.handleTools)
+	mux.HandleFunc("/api/tools/", router.handleToolActions)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
 	mux.HandleFunc("/api/local-gateway/capabilities", router.handleLocalGatewayCapabilities)
 	mux.HandleFunc("/api/local-gateway/source-capabilities", router.handleLocalGatewaySourceCapabilities)
@@ -121,6 +132,79 @@ func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleRuntime(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.tools == nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"os":       runtime.GOOS,
+			"arch":     runtime.GOARCH,
+			"is_wsl":   false,
+			"home_dir": "",
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, r.tools.Runtime())
+}
+
+func (r *Router) handleTools(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.tools == nil {
+		writeJSON(w, http.StatusOK, []tooling.ToolIntegrationState{})
+		return
+	}
+
+	items, err := r.tools.List(req.Context(), r.httpPort)
+	if err != nil {
+		http.Error(w, "failed to list tools", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleToolActions(w http.ResponseWriter, req *http.Request) {
+	if r.tools == nil {
+		http.Error(w, "tooling service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	path := strings.TrimPrefix(req.URL.Path, "/api/tools/")
+	parts := strings.Split(path, "/")
+	if len(parts) != 2 {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	toolID := tooling.ToolIntegrationID(parts[0])
+	switch {
+	case parts[1] == "configure" && req.Method == http.MethodPost:
+		state, err := r.tools.Configure(req.Context(), toolID, r.httpPort)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	case parts[1] == "restore" && req.Method == http.MethodPost:
+		state, err := r.tools.Restore(req.Context(), toolID, r.httpPort)
+		if err != nil {
+			if errors.Is(err, tooling.ErrNoBackupAvailable) {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {

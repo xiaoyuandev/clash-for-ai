@@ -344,6 +344,8 @@ apps/web/
 
 ## Phase 2：将工具一键配置能力迁移到 Go core
 
+状态：`已完成`
+
 ## 目标
 
 让工具一键配置能力脱离 Electron 宿主机限制，天然适配：
@@ -449,7 +451,19 @@ core/internal/tooling/
 4. Electron 和 Web 都可以通过统一 API 使用工具能力
 5. Electron 仍然是本地桌面用户进入工具能力的主入口
 
+完成说明：
+
+1. 已新增 `core/internal/tooling`
+2. 已将 Codex CLI 与 Claude Code 的检测、配置、备份、恢复逻辑迁移到 Go core
+3. 已新增 `/api/tools`
+4. 已新增 `/api/tools/{id}/configure`
+5. 已新增 `/api/tools/{id}/restore`
+6. 已新增 `/api/runtime`
+7. 已通过 `go test ./...`
+
 ## Phase 3：让桌面端与 Web 端收敛到统一 API 和部分共享页面能力
+
+状态：`已完成`
 
 ## 目标
 
@@ -521,6 +535,15 @@ core/internal/tooling/
 2. 桌面端工具能力不回退
 3. Electron 主进程不再是工具配置能力中心
 4. 页面复用增加，但 Electron 主入口定位不变
+
+完成说明：
+
+1. Web 端 `Tools` 页已切到 Go core `/api/tools` 和 `/api/runtime`
+2. 桌面端 `Tools` 页已切到 Go core `/api/tools` 和 `/api/runtime`
+3. 桌面端与 Web 端的工具能力语义已统一
+4. Electron 主进程旧工具实现仍保留为过渡代码，但已不再是前端主调用链路
+5. 已通过 `pnpm --filter web build`
+6. 已通过 `pnpm --filter desktop typecheck`
 
 ## Phase 4：补充 PWA 能力与部署文档
 

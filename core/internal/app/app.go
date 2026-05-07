@@ -17,6 +17,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/tooling"
 )
 
 func Run() error {
@@ -47,6 +48,7 @@ func Run() error {
 		DataDir:    cfg.LocalGatewayRuntimeDataDir,
 	})
 	healthService := health.NewService(providerService, credentialStore)
+	toolingService := tooling.NewService(providerService)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
 
 	if _, err := providerService.EnsureManagedLocalGateway(
@@ -62,7 +64,15 @@ func Run() error {
 		log.Printf("bootstrap local gateway runtime: %v", err)
 	}
 
-	handler := api.NewRouter(providerService, healthService, logService, localGatewayManager, gatewayHandler)
+	handler := api.NewRouter(
+		providerService,
+		healthService,
+		logService,
+		localGatewayManager,
+		toolingService,
+		cfg.HTTPPort,
+		gatewayHandler,
+	)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.GatewayBind, cfg.HTTPPort),

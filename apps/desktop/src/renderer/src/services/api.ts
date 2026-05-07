@@ -76,11 +76,68 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface RuntimeInfo {
+  os: string;
+  arch: string;
+  is_wsl: boolean;
+  home_dir: string;
+}
+
+export interface ToolIntegrationState {
+  id: "codex-cli" | "claude-code" | "cursor" | "cherry-studio" | "open-code" | "openai-sdk";
+  detected: boolean;
+  configured: boolean;
+  supports_adapter: boolean;
+  config_path?: string;
+  secondary_config_path?: string;
+  executable_path?: string;
+  backup_path?: string;
+  message?: string;
+}
+
 export async function getHealth(apiBase?: string): Promise<HealthResponse> {
   return fetchJson<HealthResponse>(
     `${getApiBase(apiBase)}/health`,
     {},
     "Health request failed"
+  );
+}
+
+export async function getRuntime(apiBase?: string): Promise<RuntimeInfo> {
+  return fetchJson<RuntimeInfo>(
+    `${getApiBase(apiBase)}/api/runtime`,
+    {},
+    "Runtime request failed"
+  );
+}
+
+export async function getTools(apiBase?: string): Promise<ToolIntegrationState[]> {
+  return fetchJson<ToolIntegrationState[]>(
+    `${getApiBase(apiBase)}/api/tools`,
+    {},
+    "Tool request failed"
+  );
+}
+
+export async function configureTool(
+  id: ToolIntegrationState["id"],
+  apiBase?: string
+): Promise<ToolIntegrationState> {
+  return fetchJson<ToolIntegrationState>(
+    `${getApiBase(apiBase)}/api/tools/${id}/configure`,
+    { method: "POST" },
+    "Tool configure failed"
+  );
+}
+
+export async function restoreTool(
+  id: ToolIntegrationState["id"],
+  apiBase?: string
+): Promise<ToolIntegrationState> {
+  return fetchJson<ToolIntegrationState>(
+    `${getApiBase(apiBase)}/api/tools/${id}/restore`,
+    { method: "POST" },
+    "Tool restore failed"
   );
 }
 
