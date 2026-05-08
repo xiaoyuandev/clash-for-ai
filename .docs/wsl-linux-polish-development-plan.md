@@ -125,6 +125,8 @@
 
 ## Phase 1：统一运行状态总览
 
+状态：`已完成`
+
 ## 目标
 
 让 WSL / Linux 用户进入 Web 页面后，可以直接知道：
@@ -150,7 +152,16 @@
 1. Web 首页或关键页面可直接看到运行状态总览
 2. 用户不需要先看终端日志就能知道系统当前状态
 
+完成说明：
+
+1. 已在 Web 侧边栏增加统一 runtime 状态总览
+2. 已汇总 core 状态、environment 信息和 local gateway 状态
+3. 已将运行模式继续明确为 WSL / Linux server 补充入口
+4. 已通过 `pnpm --filter web build`
+
 ## Phase 2：Tools 页状态语义修正
+
+状态：`已完成`
 
 ## 目标
 
@@ -173,6 +184,12 @@
 
 1. `Tools` 页顶部状态不会误导用户
 2. 用户能够区分 core 状态和 local gateway 状态
+
+完成说明：
+
+1. 已让 Web `Tools` 页顶部状态同时展示 core 和 local gateway
+2. 已避免继续把“core 可连接”笼统表达成“全部运行中”
+3. 已通过 `pnpm --filter web build`
 
 ## Phase 3：小屏 / 窄屏导航优化
 
