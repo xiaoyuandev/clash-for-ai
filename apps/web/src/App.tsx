@@ -22,10 +22,9 @@ import {
   metaClass,
   navButtonClass,
   pageShellClass,
+  statusDotClass,
   statusPillClass
 } from "./ui";
-
-const navIDs = ["providers", "models", "logs", "settings", "tools"] as const;
 
 export default function App() {
   const { locale, localeLabels, setLocale, t } = useI18n();
@@ -49,9 +48,9 @@ export default function App() {
     () => [
       { id: "providers", path: "/providers", label: t("app.nav.providers") },
       { id: "models", path: "/models", label: t("app.nav.models") },
+      { id: "tools", path: "/tools", label: t("app.nav.tools") },
       { id: "logs", path: "/logs", label: t("app.nav.logs") },
       { id: "settings", path: "/settings", label: t("app.nav.settings") },
-      { id: "tools", path: "/tools", label: t("app.nav.tools") }
     ],
     [t]
   );
@@ -153,43 +152,6 @@ export default function App() {
               <span className={statusPillClass()}>{t("settings.value.browser")}</span>
             </div>
 
-            <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
-              <div>
-                <p className={fieldLabelClass}>Runtime</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={statusPillClass(runtimeOverview.core.available ? "success" : "danger")}>
-                  {runtimeOverview.core.available ? "Core ready" : "Core unavailable"}
-                </span>
-                <span className={statusPillClass(localGatewayTone)}>
-                  {runtimeOverview.localGateway.running && runtimeOverview.localGateway.healthy
-                    ? "Gateway ready"
-                    : runtimeOverview.localGateway.last_error
-                      ? "Gateway error"
-                      : runtimeOverview.localGateway.configured
-                        ? "Gateway starting"
-                        : "Gateway not configured"}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <p className={metaClass}>
-                  {runtimeOverview.environment
-                    ? `${runtimeOverview.environment.os} / ${runtimeOverview.environment.arch}${
-                        runtimeOverview.environment.is_wsl ? " / WSL" : ""
-                      }`
-                    : "Runtime information unavailable"}
-                </p>
-                {runtimeOverview.localGateway.api_base ? (
-                  <p className={metaClass}>Gateway: {runtimeOverview.localGateway.api_base}</p>
-                ) : null}
-                {runtimeOverview.localGateway.last_error ? (
-                  <p className="text-sm text-[color:var(--danger-text)]">
-                    {runtimeOverview.localGateway.last_error}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
             <nav className="grid gap-2">
               {navItems.map((item) => (
                 <button
@@ -245,6 +207,36 @@ export default function App() {
                       )}
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+                <div>
+                  <p className={fieldLabelClass}>Runtime</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+                    <span className={statusDotClass(runtimeOverview.core.available ? "success" : "danger")} />
+                    Core
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+                    <span className={statusDotClass(localGatewayTone === "success" ? "success" : "danger")} />
+                    Gateway
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className={metaClass}>
+                    {runtimeOverview.environment
+                      ? `${runtimeOverview.environment.os} / ${runtimeOverview.environment.arch}${
+                        runtimeOverview.environment.is_wsl ? " / WSL" : ""
+                      }`
+                      : "Runtime information unavailable"}
+                  </p>
+                  {runtimeOverview.localGateway.last_error ? (
+                    <p className="text-sm text-[color:var(--danger-text)]">
+                      {runtimeOverview.localGateway.last_error}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
