@@ -32,6 +32,7 @@ export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [runtimeOverview, setRuntimeOverview] = useState<WebRuntimeOverview>({
     core: {
       available: false
@@ -54,6 +55,10 @@ export default function App() {
     ],
     [t]
   );
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,8 +119,27 @@ export default function App() {
     <div className={appShellClass}>
       <div className={appBackdropClass} />
       <div className="relative mx-auto h-full min-h-0 w-full max-w-[1600px] px-3 py-3 sm:px-4 sm:py-4 xl:px-6">
+        <div className={`${glassPanelClass} mb-4 flex items-center justify-between gap-3 px-4 py-3 xl:hidden`}>
+          <div className="min-w-0">
+            <p className={fieldLabelClass}>Clash for AI</p>
+            <p className="text-base font-semibold text-[color:var(--color-heading)]">Clash for AI Web</p>
+          </div>
+          <button
+            type="button"
+            className={buttonClass("secondary")}
+            onClick={() => setMobileNavOpen((current) => !current)}
+            aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"}
+            title={mobileNavOpen ? "Close navigation" : "Open navigation"}
+          >
+            {mobileNavOpen ? "Close" : "Menu"}
+          </button>
+        </div>
         <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className={`${glassPanelClass} flex min-h-0 flex-col gap-4 overflow-y-auto p-4`}>
+          <aside
+            className={`${glassPanelClass} ${
+              mobileNavOpen ? "flex" : "hidden"
+            } min-h-0 flex-col gap-4 overflow-y-auto p-4 xl:flex`}
+          >
             <div className="space-y-2">
               <p className={fieldLabelClass}>Clash for AI</p>
               <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)]">
