@@ -30,44 +30,6 @@ import {
   statusPillClass
 } from "../ui";
 
-type DesktopState = {
-  ok: boolean;
-  runtime: string;
-  platform: string;
-  apiBase: string;
-  config: {
-    apiPort: number;
-    apiPortSource: "default" | "config" | "env";
-  };
-  updates: {
-    currentVersion: string;
-    status:
-      | "idle"
-      | "checking"
-      | "available"
-      | "not-available"
-      | "downloading"
-      | "downloaded"
-      | "error"
-      | "unsupported";
-    availableVersion?: string;
-    downloadedVersion?: string;
-    progressPercent?: number;
-    message?: string;
-  };
-  core: {
-    managed: boolean;
-    running: boolean;
-    apiBase: string;
-    port: number;
-    pid?: number;
-    logRetentionDays: number;
-    logMaxRecords: number;
-    lastError?: string;
-    command?: string;
-  };
-} | null;
-
 type ToolPreset =
   | "codex-cli"
   | "claude-code"
@@ -80,11 +42,10 @@ type ConnectMode = "command" | "manual";
 type ToolCategory = "cli" | "desktop" | "sdk";
 
 interface ToolsPageProps {
-  desktopState: DesktopState;
   onCopyText: (text: string) => Promise<void>;
 }
 
-export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
+export function ToolsPage({ onCopyText }: ToolsPageProps) {
   const { t } = useI18n();
   const [toolPreset, setToolPreset] = useState<ToolPreset>("codex-cli");
   const [platformPreset, setPlatformPreset] = useState<PlatformPreset>("unix");
@@ -172,9 +133,9 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     async function syncToolStates() {
       try {
         const [health, states, localGateway] = await Promise.all([
-          getHealth(desktopState?.apiBase),
-          getTools(desktopState?.apiBase),
-          getLocalGatewayRuntime(desktopState?.apiBase).catch(() => null)
+          getHealth(),
+          getTools(),
+          getLocalGatewayRuntime().catch(() => null)
         ]);
         if (cancelled) {
           return;
@@ -217,11 +178,11 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [desktopState?.apiBase]);
+  }, []);
 
   const selectedTool = toolCatalog.find((tool) => tool.id === toolPreset) ?? toolCatalog[0];
   const selectedState = toolStates[toolPreset];
-  const port = desktopState?.core.port ?? desktopState?.config.apiPort ?? 3456;
+  const port = 3456;
   const openAIBase = `http://127.0.0.1:${port}/v1`;
   const anthropicBase = `http://127.0.0.1:${port}`;
   const localGatewayTone =
@@ -372,7 +333,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      const nextState = await configureToolRequest(toolId, desktopState?.apiBase);
+      const nextState = await configureToolRequest(toolId);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.configured"));
     } catch (error) {
@@ -387,7 +348,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      const nextState = await restoreToolRequest(toolId, desktopState?.apiBase);
+      const nextState = await restoreToolRequest(toolId);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.restored"));
     } catch (error) {

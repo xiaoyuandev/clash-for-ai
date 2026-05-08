@@ -254,18 +254,18 @@ export default function App() {
             <Routes>
               <Route
                 path="/"
-                element={<ProvidersPage desktopState={null} selectedProviderId={null} onSelectedProviderChange={() => {}} />}
+                element={<ProvidersPage selectedProviderId={null} onSelectedProviderChange={() => {}} />}
               />
               <Route
                 path="/providers"
-                element={<ProvidersPage desktopState={null} selectedProviderId={null} onSelectedProviderChange={() => {}} />}
+                element={<ProvidersPage selectedProviderId={null} onSelectedProviderChange={() => {}} />}
               />
               <Route path="/models" element={<ModelsPage />} />
               <Route path="/logs" element={<LogsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route
                 path="/tools"
-                element={<ToolsPage desktopState={null} onCopyText={(text) => navigator.clipboard.writeText(text)} />}
+                element={<ToolsPage onCopyText={(text) => navigator.clipboard.writeText(text)} />}
               />
             </Routes>
           </main>

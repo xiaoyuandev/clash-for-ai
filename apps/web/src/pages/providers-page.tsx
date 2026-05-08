@@ -41,12 +41,6 @@ import {
 } from "../ui";
 
 interface ProvidersPageProps {
-  desktopState: {
-    ok: boolean;
-    runtime: string;
-    platform: string;
-    apiBase: string;
-  } | null;
   apiBase?: string;
   refreshToken?: number;
   selectedProviderId: string | null;
@@ -54,7 +48,6 @@ interface ProvidersPageProps {
 }
 
 export function ProvidersPage({
-  desktopState,
   apiBase,
   refreshToken = 0,
   selectedProviderId,
@@ -483,7 +476,7 @@ export function ProvidersPage({
             </span>
             <span className={statusPillClass("default")}>
               <span className={monoClass}>
-                {desktopState?.apiBase ?? apiBase ?? "http://127.0.0.1:3456"}
+                {apiBase ?? "http://127.0.0.1:3456"}
               </span>
             </span>
             <span className={statusPillClass(localGatewayReady ? "success" : "default")}>
