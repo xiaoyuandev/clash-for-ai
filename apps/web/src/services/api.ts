@@ -83,6 +83,22 @@ export interface RuntimeInfo {
   home_dir: string;
 }
 
+export interface WebRuntimeOverview {
+  core: {
+    available: boolean;
+    version?: string;
+  };
+  environment: RuntimeInfo | null;
+  localGateway: {
+    configured: boolean;
+    running: boolean;
+    healthy: boolean;
+    state?: string;
+    api_base?: string;
+    last_error?: string;
+  };
+}
+
 export interface ToolIntegrationState {
   id: "codex-cli" | "claude-code" | "cursor" | "cherry-studio" | "open-code" | "openai-sdk";
   detected: boolean;

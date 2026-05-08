@@ -1,5 +1,5 @@
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "./i18n/i18n-provider";
 import { useTheme } from "./theme/theme-provider";
 import { ProvidersPage } from "./pages/providers-page";
@@ -7,6 +7,12 @@ import { ModelsPage } from "./pages/models-page";
 import { LogsPage } from "./pages/logs-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
+import {
+  getHealth,
+  getLocalGatewayRuntime,
+  getRuntime,
+  type WebRuntimeOverview
+} from "./services/api";
 import {
   appBackdropClass,
   appShellClass,
@@ -26,6 +32,17 @@ export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [runtimeOverview, setRuntimeOverview] = useState<WebRuntimeOverview>({
+    core: {
+      available: false
+    },
+    environment: null,
+    localGateway: {
+      configured: false,
+      running: false,
+      healthy: false
+    }
+  });
 
   const navItems = useMemo(
     () => [
@@ -37,6 +54,61 @@ export default function App() {
     ],
     [t]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncRuntimeOverview() {
+      try {
+        const [health, environment, localGateway] = await Promise.all([
+          getHealth().catch(() => null),
+          getRuntime().catch(() => null),
+          getLocalGatewayRuntime().catch(() => null)
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setRuntimeOverview({
+          core: {
+            available: health?.status === "ok",
+            version: health?.version
+          },
+          environment,
+          localGateway: {
+            configured: Boolean(localGateway?.runtime.runtime_kind),
+            running: localGateway?.runtime.running ?? false,
+            healthy: localGateway?.runtime.healthy ?? false,
+            state: localGateway?.runtime.state,
+            api_base: localGateway?.runtime.api_base,
+            last_error: localGateway?.runtime.last_error
+          }
+        });
+      } catch {
+        if (cancelled) {
+          return;
+        }
+      }
+    }
+
+    void syncRuntimeOverview();
+    const intervalId = window.setInterval(() => {
+      void syncRuntimeOverview();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const localGatewayTone =
+    runtimeOverview.localGateway.running && runtimeOverview.localGateway.healthy
+      ? "success"
+      : runtimeOverview.localGateway.last_error
+        ? "danger"
+        : "warning";
 
   return (
     <div className={appShellClass}>
@@ -55,6 +127,43 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-2">
               <span className={statusPillClass("warning")}>WSL / Linux server</span>
               <span className={statusPillClass()}>{t("settings.value.browser")}</span>
+            </div>
+
+            <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+              <div>
+                <p className={fieldLabelClass}>Runtime</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={statusPillClass(runtimeOverview.core.available ? "success" : "danger")}>
+                  {runtimeOverview.core.available ? "Core ready" : "Core unavailable"}
+                </span>
+                <span className={statusPillClass(localGatewayTone)}>
+                  {runtimeOverview.localGateway.running && runtimeOverview.localGateway.healthy
+                    ? "Gateway ready"
+                    : runtimeOverview.localGateway.last_error
+                      ? "Gateway error"
+                      : runtimeOverview.localGateway.configured
+                        ? "Gateway starting"
+                        : "Gateway not configured"}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className={metaClass}>
+                  {runtimeOverview.environment
+                    ? `${runtimeOverview.environment.os} / ${runtimeOverview.environment.arch}${
+                        runtimeOverview.environment.is_wsl ? " / WSL" : ""
+                      }`
+                    : "Runtime information unavailable"}
+                </p>
+                {runtimeOverview.localGateway.api_base ? (
+                  <p className={metaClass}>Gateway: {runtimeOverview.localGateway.api_base}</p>
+                ) : null}
+                {runtimeOverview.localGateway.last_error ? (
+                  <p className="text-sm text-[color:var(--danger-text)]">
+                    {runtimeOverview.localGateway.last_error}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <nav className="grid gap-2">
