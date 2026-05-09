@@ -20,6 +20,32 @@ export default defineConfig({
     starlight({
       title: "Clash for AI Docs",
       description: "Documentation for Clash for AI, a local desktop gateway for switching AI relay providers behind one stable endpoint.",
+      head: [
+        {
+          tag: "meta",
+          attrs: {
+            "http-equiv": "refresh",
+            content: "0; url=https://www.airelaybox.com/"
+          }
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "canonical",
+            href: "https://www.airelaybox.com/"
+          }
+        },
+        {
+          tag: "script",
+          content: `(() => {
+  const target = new URL(
+    window.location.pathname + window.location.search + window.location.hash,
+    "https://www.airelaybox.com"
+  );
+  window.location.replace(target.toString());
+})();`
+        }
+      ],
       customCss: ["/src/styles/site.css"],
       defaultLocale: "root",
       locales: {

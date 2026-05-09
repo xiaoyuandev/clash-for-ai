@@ -65,6 +65,17 @@ const previewMeta =
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clash for AI Docs</title>
     <meta name="description" content={props.description} />
+    <meta http-equiv="refresh" content="0; url=https://www.airelaybox.com/" />
+    <link rel="canonical" href="https://www.airelaybox.com/" />
+    <script is:inline>
+      (() => {
+        const target = new URL(
+          window.location.pathname + window.location.search + window.location.hash,
+          "https://www.airelaybox.com"
+        );
+        window.location.replace(target.toString());
+      })();
+    </script>
   </head>
   <body
     class="min-h-screen text-slate-100 antialiased"
