@@ -1,5 +1,15 @@
 # Clash for AI
 
+> This project has moved.
+>
+> Clash for AI has been restarted as **AI Relay Box**.
+>
+> New repository: https://github.com/xiaoyuandev/ai-relay-box
+>
+> New website: https://www.airelaybox.com
+>
+> This repository is kept for historical reference and will not receive new feature development.
+
 [English README](./README.md) | [中文 README](./README.zh-CN.md)
 
 <a href="https://www.clashforai.com/" target="_blank" rel="noopener noreferrer">Public Docs</a> | <a href="https://www.clashforai.com/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link Import Guide</a>
