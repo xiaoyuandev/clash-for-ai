@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
-import { getLatestGitHubRelease, getReleaseMetadata, type GitHubRelease } from "../services/api";
+import { getReleaseMetadata, type GitHubRelease, type ReleaseMetadata } from "../services/api";
 import { copyText } from "../bridge/platform-bridge";
+import { compareVersions } from "../utils/version";
 import {
   actionRowClass,
   buttonClass,
@@ -24,41 +25,24 @@ import {
 const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
 const latestReleaseUrl = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
 
-function normalizeVersion(value?: string) {
-  return (value ?? "").trim().replace(/^v/i, "");
+interface SettingsPageProps {
+  releaseMetadata?: ReleaseMetadata | null;
+  latestRelease?: GitHubRelease | null;
+  latestReleaseError?: string | null;
 }
 
-function compareVersions(current?: string, latest?: string) {
-  const currentParts = normalizeVersion(current).split(".").map((part) => Number.parseInt(part, 10));
-  const latestParts = normalizeVersion(latest).split(".").map((part) => Number.parseInt(part, 10));
-
-  if (!currentParts.length || !latestParts.length || currentParts.some(Number.isNaN) || latestParts.some(Number.isNaN)) {
-    return 0;
-  }
-
-  const length = Math.max(currentParts.length, latestParts.length);
-  for (let index = 0; index < length; index += 1) {
-    const currentValue = currentParts[index] ?? 0;
-    const latestValue = latestParts[index] ?? 0;
-
-    if (latestValue > currentValue) {
-      return 1;
-    }
-
-    if (latestValue < currentValue) {
-      return -1;
-    }
-  }
-
-  return 0;
-}
-
-export function SettingsPage() {
+export function SettingsPage({
+  releaseMetadata: initialReleaseMetadata = null,
+  latestRelease,
+  latestReleaseError
+}: SettingsPageProps) {
   const { t } = useI18n();
-  const [releaseMetadata, setReleaseMetadata] = useState<Awaited<ReturnType<typeof getReleaseMetadata>> | null>(null);
-  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(null);
-  const [latestReleaseError, setLatestReleaseError] = useState<string | null>(null);
+  const [releaseMetadata, setReleaseMetadata] = useState<ReleaseMetadata | null>(initialReleaseMetadata);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReleaseMetadata(initialReleaseMetadata);
+  }, [initialReleaseMetadata]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,28 +63,6 @@ export function SettingsPage() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void getLatestGitHubRelease()
-      .then((payload) => {
-        if (!cancelled) {
-          setLatestRelease(payload);
-          setLatestReleaseError(null);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLatestRelease(null);
-          setLatestReleaseError(error instanceof Error ? error.message : t("settings.updates.latestError"));
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [t]);
 
   const currentVersion = releaseMetadata?.available ? releaseMetadata.release?.release_version : undefined;
   const latestVersion = latestRelease?.tag_name;

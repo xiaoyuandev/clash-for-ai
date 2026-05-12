@@ -15,6 +15,8 @@ import type {
   SyncLocalGatewayResponse
 } from "../types/local-gateway";
 
+export type { ReleaseMetadata } from "../types/local-gateway";
+
 function getApiBase(apiBase?: string) {
   return apiBase ?? "http://127.0.0.1:3456";
 }

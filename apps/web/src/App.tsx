@@ -7,12 +7,18 @@ import { ModelsPage } from "./pages/models-page";
 import { LogsPage } from "./pages/logs-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
+import { ToastRegion, type ToastItem } from "./components/toast-region";
 import {
   getHealth,
+  getLatestGitHubRelease,
   getLocalGatewayRuntime,
+  getReleaseMetadata,
   getRuntime,
+  type GitHubRelease,
+  type ReleaseMetadata,
   type WebRuntimeOverview
 } from "./services/api";
+import { compareVersions } from "./utils/version";
 import {
   appBackdropClass,
   appShellClass,
@@ -32,6 +38,10 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [releaseMetadata, setReleaseMetadata] = useState<ReleaseMetadata | null>(null);
+  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(null);
+  const [latestReleaseError, setLatestReleaseError] = useState<string | null>(null);
   const [runtimeOverview, setRuntimeOverview] = useState<WebRuntimeOverview>({
     core: {
       available: false
@@ -44,6 +54,21 @@ export default function App() {
     }
   });
   const ignoreSelectedProviderChange = useCallback(() => {}, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  const pushToast = useCallback((message: string, tone: ToastItem["tone"]) => {
+    setToasts((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        message,
+        tone
+      }
+    ]);
+  }, []);
 
   const navItems = useMemo(
     () => [
@@ -59,6 +84,43 @@ export default function App() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkLatestRelease() {
+      const [localRelease, remoteRelease] = await Promise.all([
+        getReleaseMetadata().catch(() => null),
+        getLatestGitHubRelease()
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setReleaseMetadata(localRelease);
+      setLatestRelease(remoteRelease);
+      setLatestReleaseError(null);
+
+      const currentVersion = localRelease?.available ? localRelease.release?.release_version : undefined;
+      if (compareVersions(currentVersion, remoteRelease.tag_name) > 0) {
+        pushToast(t("updates.toast.available", { version: remoteRelease.tag_name }), "success");
+      }
+    }
+
+    void checkLatestRelease().catch((error) => {
+      if (cancelled) {
+        return;
+      }
+
+      setLatestRelease(null);
+      setLatestReleaseError(error instanceof Error ? error.message : t("settings.updates.latestError"));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pushToast, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +179,7 @@ export default function App() {
 
   return (
     <div className={appShellClass}>
+      <ToastRegion items={toasts} onDismiss={dismissToast} />
       <div className={appBackdropClass} />
       <div className="relative mx-auto h-full min-h-0 w-full max-w-[1600px] px-3 py-3 sm:px-4 sm:py-4 xl:px-6">
         <div className={`${glassPanelClass} mb-4 flex items-center justify-between gap-3 px-4 py-3 xl:hidden`}>
@@ -265,7 +328,16 @@ export default function App() {
               />
               <Route path="/models" element={<ModelsPage />} />
               <Route path="/logs" element={<LogsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route
+                path="/settings"
+                element={
+                  <SettingsPage
+                    releaseMetadata={releaseMetadata}
+                    latestRelease={latestRelease}
+                    latestReleaseError={latestReleaseError}
+                  />
+                }
+              />
               <Route
                 path="/tools"
                 element={<ToolsPage onCopyText={(text) => navigator.clipboard.writeText(text)} />}

@@ -20,7 +20,7 @@ export function ToastRegion({ items, onDismiss }: ToastRegionProps) {
     const timers = items.map((item) =>
       window.setTimeout(() => {
         onDismiss(item.id);
-      }, 3200)
+      }, 6400)
     );
 
     return () => {
@@ -55,7 +55,15 @@ export function ToastRegion({ items, onDismiss }: ToastRegionProps) {
                     : "bg-[color:var(--color-subtle)]"
               }`}
             />
-            <p className="text-sm leading-6">{item.message}</p>
+            <p className="min-w-0 flex-1 text-sm leading-6">{item.message}</p>
+            <button
+              type="button"
+              className="shrink-0 text-sm opacity-70 transition hover:opacity-100"
+              onClick={() => onDismiss(item.id)}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
           </div>
         </div>
       ))}
