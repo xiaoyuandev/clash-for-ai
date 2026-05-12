@@ -74,6 +74,7 @@ interface SettingsPageProps {
   onCheckUpdates: () => Promise<void>;
   onDownloadUpdate: () => Promise<void>;
   onQuitAndInstallUpdate: () => Promise<void>;
+  onOpenReleasePage: () => Promise<void>;
   onCoreRestart: () => Promise<void>;
   onUpdateCorePort: (port: number) => Promise<void>;
   onUpdateLocalGatewayPort: (port: number) => Promise<void>;
@@ -158,6 +159,7 @@ export function SettingsPage({
   onCheckUpdates,
   onDownloadUpdate,
   onQuitAndInstallUpdate,
+  onOpenReleasePage,
   onCoreRestart,
   onUpdateCorePort,
   onUpdateLocalGatewayPort,
@@ -374,8 +376,30 @@ export function SettingsPage({
     }
   }
 
+  async function handleOpenReleasePage() {
+    setUpdateBusy(true);
+    setFeedback(null);
+
+    try {
+      await onOpenReleasePage();
+    } catch (error) {
+      setFeedbackTone("error");
+      setFeedback(
+        error instanceof Error ? error.message : t("settings.feedback.updateOpenReleaseFailed")
+      );
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
   const portLocked = desktopState?.config.apiPortSource === "env";
   const localGatewayPortLocked = desktopState?.config.localGatewayPortSource === "env";
+  const isMacOS = desktopState?.platform === "darwin";
+  const hasAvailableMacUpdate =
+    isMacOS &&
+    (desktopState?.updates.status === "available" ||
+      desktopState?.updates.status === "downloaded" ||
+      desktopState?.updates.status === "downloading");
   const updateStatusLabel =
     desktopState?.updates.status === "checking"
       ? t("updates.status.checking")
@@ -627,6 +651,12 @@ export function SettingsPage({
           />
         </div>
 
+        {hasAvailableMacUpdate ? (
+          <p className="mt-4 rounded-2xl border [border-color:var(--success-border)] [background:var(--success-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--success-text)]">
+            {t("settings.meta.macManualUpdate")}
+          </p>
+        ) : null}
+
         <div className={`${actionRowClass} mt-4`}>
           <button
             type="button"
@@ -638,30 +668,45 @@ export function SettingsPage({
               ? t("settings.button.checking")
               : t("settings.button.checkUpdates")}
           </button>
-          <button
-            type="button"
-            className={buttonClass("secondary")}
-            onClick={() => void handleDownloadUpdate()}
-            disabled={
-              updateBusy ||
-              (desktopState?.updates.status !== "available" &&
-                desktopState?.updates.status !== "downloading")
-            }
-          >
-            {desktopState?.updates.status === "downloading"
-              ? t("settings.button.downloading", {
-                  progress: Math.round(desktopState.updates.progressPercent ?? 0)
-                })
-              : t("settings.button.downloadUpdate")}
-          </button>
-          <button
-            type="button"
-            className={buttonClass("primary")}
-            onClick={() => void handleQuitAndInstallUpdate()}
-            disabled={updateBusy || desktopState?.updates.status !== "downloaded"}
-          >
-            {t("settings.button.installUpdate")}
-          </button>
+          {isMacOS ? (
+            <button
+              type="button"
+              className={buttonClass(hasAvailableMacUpdate ? "primary" : "secondary")}
+              onClick={() => void handleOpenReleasePage()}
+              disabled={updateBusy || !hasAvailableMacUpdate}
+            >
+              {hasAvailableMacUpdate
+                ? t("settings.button.openReleasePage")
+                : t("settings.button.manualInstallOnly")}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={() => void handleDownloadUpdate()}
+                disabled={
+                  updateBusy ||
+                  (desktopState?.updates.status !== "available" &&
+                    desktopState?.updates.status !== "downloading")
+                }
+              >
+                {desktopState?.updates.status === "downloading"
+                  ? t("settings.button.downloading", {
+                      progress: Math.round(desktopState.updates.progressPercent ?? 0)
+                    })
+                  : t("settings.button.downloadUpdate")}
+              </button>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => void handleQuitAndInstallUpdate()}
+                disabled={updateBusy || desktopState?.updates.status !== "downloaded"}
+              >
+                {t("settings.button.installUpdate")}
+              </button>
+            </>
+          )}
         </div>
       </section>
     </main>

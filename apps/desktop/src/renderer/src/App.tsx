@@ -478,6 +478,14 @@ export default function App() {
     setDesktopState((current) => (current ? { ...current, updates: nextUpdates } : current));
   }
 
+  async function handleOpenReleasePage() {
+    if (!window.desktopBridge) {
+      return;
+    }
+
+    await window.desktopBridge.openReleasePage();
+  }
+
   async function handleConfirmImport() {
     if (!desktopState || !pendingImportRequest) {
       return;
@@ -750,16 +758,24 @@ export default function App() {
                 <div className="mt-2">
                   <button
                     type="button"
-                    className={buttonClass(updates.status === "downloaded" ? "primary" : "secondary")}
+                    className={buttonClass(
+                      desktopState?.platform === "darwin" || updates.status === "downloaded"
+                        ? "primary"
+                        : "secondary"
+                    )}
                     onClick={() =>
-                      void (updates.status === "downloaded"
-                        ? handleQuitAndInstallUpdate()
-                        : handleDownloadUpdate())
+                      void (desktopState?.platform === "darwin"
+                        ? handleOpenReleasePage()
+                        : updates.status === "downloaded"
+                          ? handleQuitAndInstallUpdate()
+                          : handleDownloadUpdate())
                     }
                   >
-                    {updates.status === "downloaded"
-                      ? t("settings.button.installUpdate")
-                      : t("settings.button.downloadUpdate")}
+                    {desktopState?.platform === "darwin"
+                      ? t("settings.button.openReleasePage")
+                      : updates.status === "downloaded"
+                        ? t("settings.button.installUpdate")
+                        : t("settings.button.downloadUpdate")}
                   </button>
                 </div>
               </div>
@@ -880,6 +896,9 @@ export default function App() {
               }}
               onQuitAndInstallUpdate={async () => {
                 await handleQuitAndInstallUpdate();
+              }}
+              onOpenReleasePage={async () => {
+                await handleOpenReleasePage();
               }}
               onCoreRestart={async () => {
                 if (!window.desktopBridge) {
