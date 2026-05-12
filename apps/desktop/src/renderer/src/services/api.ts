@@ -248,6 +248,16 @@ export async function getLogs(limit = 100, apiBase?: string): Promise<RequestLog
   );
 }
 
+export async function clearLogs(apiBase?: string): Promise<void> {
+  return fetchVoid(
+    `${getApiBase(apiBase)}/api/logs`,
+    {
+      method: "DELETE"
+    },
+    "Clear logs failed"
+  );
+}
+
 export async function getProviderModels(
   id: string,
   apiBase?: string

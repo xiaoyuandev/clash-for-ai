@@ -644,7 +644,9 @@ app.whenReady().then(() => {
     });
 
   app.on("activate", function () {
-    if (isBootstrapped && BrowserWindow.getAllWindows().length === 0) createWindow(true);
+    if (isBootstrapped) {
+      showMainWindow();
+    }
   });
 });
 

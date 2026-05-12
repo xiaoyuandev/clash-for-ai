@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
-import { getLogs } from "../services/api";
+import { clearLogs, getLogs } from "../services/api";
 import type { RequestLog } from "../types/request-log";
 import {
   actionRowClass,
@@ -34,6 +34,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [refreshTick, setRefreshTick] = useState(0);
   const [providerFilter, setProviderFilter] = useState("all");
@@ -128,6 +129,29 @@ export function LogsPage({ apiBase }: LogsPageProps) {
 
   const canLoadMore = logs.length >= limit;
 
+  async function handleClearLogs() {
+    setClearing(true);
+    setError(null);
+
+    try {
+      await clearLogs(apiBase);
+      setLogs([]);
+      setLimit(PAGE_SIZE);
+      setProviderFilter("all");
+      setErrorFilter("all");
+      setSearch("");
+      setToasts((current) => [
+        ...current,
+        { id: `${Date.now()}-clear-logs`, message: t("logs.feedback.cleared"), tone: "success" }
+      ]);
+      setRefreshTick((current) => current + 1);
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : t("common.unknownError"));
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <main className={pageShellClass}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
@@ -139,6 +163,9 @@ export function LogsPage({ apiBase }: LogsPageProps) {
             <h1 className={heroTitleClass}>{t("logs.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("logs.subtitle")}</p>
+          <p className="max-w-2xl rounded-[16px] border [border-color:var(--success-border)] [background:var(--success-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--success-text)]">
+            {t("logs.privacy.localOnly")}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className={statusPillClass(loading ? "warning" : "default")}>
@@ -159,12 +186,21 @@ export function LogsPage({ apiBase }: LogsPageProps) {
             <button
               type="button"
               className={buttonClass("secondary")}
+              disabled={clearing}
               onClick={() => {
                 setLimit(PAGE_SIZE);
                 setRefreshTick((current) => current + 1);
               }}
             >
               {t("common.refresh")}
+            </button>
+            <button
+              type="button"
+              className={buttonClass("danger")}
+              disabled={clearing || logs.length === 0}
+              onClick={() => void handleClearLogs()}
+            >
+              {clearing ? t("logs.button.clearing") : t("logs.button.clear")}
             </button>
           </div>
         </div>

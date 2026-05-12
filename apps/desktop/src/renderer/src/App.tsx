@@ -31,6 +31,7 @@ import {
   modalBackdropClass,
   modalPanelClass,
   metaClass,
+  monoClass,
   navButtonClass,
   pageShellClass,
   sectionMetaClass,
@@ -146,6 +147,19 @@ function readOptionalString(payload: Record<string, unknown>, keys: string[]) {
   }
 
   return "";
+}
+
+function maskImportAPIKey(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length <= 4) {
+    return "****";
+  }
+
+  if (trimmed.length <= 12) {
+    return `${trimmed.slice(0, trimmed.length - 4)}****`;
+  }
+
+  return `${trimmed.slice(0, 8)}••••${trimmed.slice(-4)}`;
 }
 
 function normalizeImportRequest(event: DeepLinkImportEvent): ImportRequest {
@@ -343,7 +357,14 @@ export default function App() {
 
     autoUpdateCheckStartedRef.current = true;
     const timeoutId = window.setTimeout(() => {
-      void window.desktopBridge.checkUpdates().catch(() => undefined);
+      void window.desktopBridge
+        .checkUpdates()
+        .then((nextUpdates) => {
+          setDesktopState((current) =>
+            current ? { ...current, updates: nextUpdates } : current
+          );
+        })
+        .catch(() => undefined);
     }, 4000);
 
     return () => {
@@ -584,13 +605,9 @@ export default function App() {
                 </div>
               ) : null}
               <div>
-                <p className={fieldLabelClass}>
-                  {pendingImportRequest.resource === "provider"
-                    ? t("providers.form.apiKey")
-                    : t("models.form.apiKey")}
-                </p>
-                <p className="mt-1 text-sm text-[color:var(--color-text)]">
-                  {t("importDeepLink.fields.apiKeyMasked")}
+                <p className={fieldLabelClass}>{t("importDeepLink.fields.apiKeyMasked")}</p>
+                <p className={`${monoClass} mt-1 break-all text-sm text-[color:var(--color-text)]`}>
+                  {maskImportAPIKey(pendingImportRequest.data.apiKey)}
                 </p>
               </div>
             </div>
