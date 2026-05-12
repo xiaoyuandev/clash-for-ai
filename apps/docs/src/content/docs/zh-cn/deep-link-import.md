@@ -30,6 +30,61 @@ clash-for-ai://v1/import?resource=provider&payload=BASE64URL_JSON
 
 <a href="../../deeplink.html" target="_blank" rel="noreferrer">/deeplink.html</a>
 
+## 快速接入函数
+
+如果你的中转站网站只想增加一个 Provider 导入按钮，可以直接使用这个函数。
+
+必填输入：
+
+1. `name`
+2. `baseUrl`
+3. `apiKey`
+
+```js
+function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+  const payload = { name, baseUrl, apiKey };
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  const encodedPayload = btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+  return `clash-for-ai://v1/import?resource=provider&payload=${encodedPayload}`;
+}
+
+// 在按钮点击事件中使用：
+const url = createClashForAIProviderImportUrl({
+  name: "OpenRouter",
+  baseUrl: "https://openrouter.ai/api/v1",
+  apiKey: "sk-or-example"
+});
+
+window.location.href = url;
+```
+
+对第三方中转站来说，一个常见接入方式是：
+
+```html
+<button id="import-to-clash-for-ai">导入到 Clash for AI</button>
+
+<script>
+  document.getElementById("import-to-clash-for-ai").addEventListener("click", () => {
+    window.location.href = createClashForAIProviderImportUrl({
+      name: "Your Relay Name",
+      baseUrl: "https://relay.example.com/v1",
+      apiKey: "USER_VISIBLE_OR_USER_GENERATED_API_KEY"
+    });
+  });
+</script>
+```
+
 ## URL 格式
 
 请使用下面的结构：

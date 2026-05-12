@@ -249,6 +249,21 @@
         display: block;
       }
 
+      .snippet-card {
+        margin-top: 18px;
+      }
+
+      .snippet-card h2 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+
+      .snippet-card .lead {
+        margin-top: 8px;
+        font-size: 14px;
+      }
+
       .back-link {
         display: inline-flex;
         align-items: center;
@@ -361,9 +376,38 @@ claude-3-7-sonnet</textarea>
           </p>
         </div>
       </section>
+
+      <section class="card stack snippet-card">
+        <div>
+          <h2>Provider import helper</h2>
+          <p class="lead">
+            Third-party relay websites can copy this function and call it with only the required
+            Provider fields: <code>name</code>, <code>baseUrl</code>, and <code>apiKey</code>.
+          </p>
+        </div>
+        <pre id="helper-function-code"></pre>
+      </section>
     </main>
 
     <script>
+      const providerImportHelperCode = `function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+  const payload = { name, baseUrl, apiKey };
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  const encodedPayload = btoa(binary)
+    .replace(/\\+/g, "-")
+    .replace(/\\//g, "_")
+    .replace(/=+$/g, "");
+
+  return \`clash-for-ai://v1/import?resource=provider&payload=\${encodedPayload}\`;
+}`;
+
       const providerTab = document.getElementById("provider-tab");
       const modelTab = document.getElementById("model-tab");
       const providerForm = document.getElementById("provider-form");
@@ -373,6 +417,7 @@ claude-3-7-sonnet</textarea>
       const openLink = document.getElementById("open-link");
       const generateButton = document.getElementById("generate-button");
       const launchStatus = document.getElementById("launch-status");
+      const helperFunctionCode = document.getElementById("helper-function-code");
 
       let activeResource = "provider";
       let launchReminderTimer = null;
@@ -382,6 +427,24 @@ claude-3-7-sonnet</textarea>
           .replace(/\+/g, "-")
           .replace(/\//g, "_")
           .replace(/=+$/g, "");
+      }
+
+      function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+        const payload = { name, baseUrl, apiKey };
+        const json = JSON.stringify(payload);
+        const bytes = new TextEncoder().encode(json);
+        let binary = "";
+
+        for (const byte of bytes) {
+          binary += String.fromCharCode(byte);
+        }
+
+        const encodedPayload = btoa(binary)
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/g, "");
+
+        return `clash-for-ai://v1/import?resource=provider&payload=${encodedPayload}`;
       }
 
       function setActiveResource(resource) {
@@ -438,8 +501,10 @@ claude-3-7-sonnet</textarea>
 
       function updateOutput() {
         const { resource, payload } = getCurrentPayload();
-        const encoded = toBase64Url(payload);
-        const url = `clash-for-ai://v1/import?resource=${resource}&payload=${encoded}`;
+        const url =
+          resource === "provider"
+            ? createClashForAIProviderImportUrl(payload)
+            : `clash-for-ai://v1/import?resource=${resource}&payload=${toBase64Url(payload)}`;
         payloadJson.textContent = JSON.stringify(payload, null, 2);
         deepLinkUrl.textContent = url;
         openLink.href = url;
@@ -480,6 +545,7 @@ claude-3-7-sonnet</textarea>
         element.addEventListener("change", updateOutput);
       });
 
+      helperFunctionCode.textContent = providerImportHelperCode;
       updateOutput();
     </script>
   </body>
