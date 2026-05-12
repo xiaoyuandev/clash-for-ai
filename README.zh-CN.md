@@ -12,6 +12,7 @@ Clash for AI 把多个 AI 中转 API、原生大模型来源和本地工具接�
 
 - [为什么需要 Clash for AI，解决了哪些痛点？](#为什么需要-clash-for-ai解决了哪些痛点)
 - [它能帮你做什么](#它能帮你做什么)
+- [Screenshot](#screenshot)
 - [安装 & 快速开始](#安装--快速开始)
 - [桌面端模块说明](#桌面端模块说明)
 - [使用指南](#使用指南)
@@ -45,6 +46,18 @@ http://127.0.0.1:3456/v1
 3. 提供统一的本地接口 `http://127.0.0.1:3456`，让多个 CLI、桌面客户端和编程工具共用同一个入口
 4. 通过可视化界面管理 Provider、Models、健康检查和请求日志，减少手动编辑配置文件的成本
 5. 支持从网页一键导入 Provider 或 Model 配置，可以直接体验 [Deep Link 导入](https://www.clashforai.com/deeplink.html)
+
+## Screenshot
+
+<p align="center">
+  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 49%; height: auto;">
+  <img src="./docs/images/readme/connectatool.png" style="width: 49%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="./docs/images/readme/models-config.png" style="width: 49%; height: auto;">
+  <img src="./docs/images/readme/tools-config.png" style="width: 49%; height: auto;">
+</p>
 
 ## 安装 & 快速开始
 
@@ -198,18 +211,6 @@ Clash for AI 支持通过 Deep Link 从网页导入 Provider 或 Model 配置。
 ```text
 https://www.clashforai.com/deeplink.html
 ```
-
-## Screenshot
-
-<p align="center">
-  <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 49%; height: auto;">
-  <img src="./docs/images/readme/connectatool.png" style="width: 49%; height: auto;">
-</p>
-
-<p align="center">
-  <img src="./docs/images/readme/models-config.png" style="width: 49%; height: auto;">
-  <img src="./docs/images/readme/tools-config.png" style="width: 49%; height: auto;">
-</p>
 
 ## 桌面端模块说明
 
