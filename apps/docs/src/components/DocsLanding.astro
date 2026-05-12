@@ -46,30 +46,28 @@ const siteUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const canonicalUrl = siteUrl.toString();
 const alternateLinks = getAlternateLinks(Astro.site, Astro.url.pathname);
 const releaseVersion = rootPackage.version;
-const releaseTag = `v${releaseVersion}`;
-const releaseBase = `https://github.com/xiaoyuandev/clash-for-ai/releases/download/${releaseTag}`;
 const latestReleaseHref = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
 const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
 const downloadLinks = [
   {
     label: props.lang === "zh-CN" ? "macOS Apple Silicon" : "macOS Apple Silicon",
-    meta: props.lang === "zh-CN" ? "DMG, arm64" : "DMG, arm64",
-    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-arm64.dmg`
+    meta: props.lang === "zh-CN" ? "在 Release 页面选择 DMG, arm64" : "Choose DMG, arm64 from Releases",
+    href: latestReleaseHref
   },
   {
     label: props.lang === "zh-CN" ? "macOS Intel" : "macOS Intel",
-    meta: props.lang === "zh-CN" ? "DMG, x64" : "DMG, x64",
-    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64.dmg`
+    meta: props.lang === "zh-CN" ? "在 Release 页面选择 DMG, x64" : "Choose DMG, x64 from Releases",
+    href: latestReleaseHref
   },
   {
     label: props.lang === "zh-CN" ? "Windows" : "Windows",
-    meta: props.lang === "zh-CN" ? "安装程序, x64" : "Installer, x64",
-    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64-setup.exe`
+    meta: props.lang === "zh-CN" ? "在 Release 页面选择安装程序, x64" : "Choose Installer, x64 from Releases",
+    href: latestReleaseHref
   },
   {
     label: props.lang === "zh-CN" ? "Linux Desktop" : "Linux Desktop",
-    meta: props.lang === "zh-CN" ? "AppImage, x64" : "AppImage, x64",
-    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64.AppImage`
+    meta: props.lang === "zh-CN" ? "在 Release 页面选择 AppImage, x64" : "Choose AppImage, x64 from Releases",
+    href: latestReleaseHref
   }
 ];
 const seoMeta =
