@@ -19,6 +19,9 @@ export default defineConfig({
     starlight({
       title: "Clash for AI Docs",
       description: "Documentation for Clash for AI, a local desktop gateway for switching AI relay providers behind one stable endpoint.",
+      components: {
+        Head: "./src/components/StarlightHead.astro"
+      },
       customCss: ["/src/styles/site.css"],
       defaultLocale: "root",
       locales: {

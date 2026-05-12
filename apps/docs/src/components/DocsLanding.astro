@@ -35,6 +35,7 @@ interface Props {
 const props = Astro.props as Props;
 import logo from "../assets/logo.svg";
 import rootPackage from "../../../../package.json";
+import { getAlternateLinks } from "./seo-links";
 import "../styles/site.css";
 const withBase = (path: string) => {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
@@ -43,6 +44,7 @@ const withBase = (path: string) => {
 };
 const siteUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const canonicalUrl = siteUrl.toString();
+const alternateLinks = getAlternateLinks(Astro.site, Astro.url.pathname);
 const releaseVersion = rootPackage.version;
 const releaseTag = `v${releaseVersion}`;
 const releaseBase = `https://github.com/xiaoyuandev/clash-for-ai/releases/download/${releaseTag}`;
@@ -185,6 +187,9 @@ const galleryImages = [
     <meta name="description" content={seoMeta.description} />
     <meta name="keywords" content={seoMeta.keywords} />
     <link rel="canonical" href={canonicalUrl} />
+    {alternateLinks.map((link) => (
+      <link rel="alternate" hreflang={link.hreflang} href={link.href} />
+    ))}
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Clash for AI" />
     <meta property="og:title" content={seoMeta.title} />

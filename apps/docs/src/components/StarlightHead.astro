@@ -1,0 +1,10 @@
+---
+import DefaultHead from "@astrojs/starlight/components/Head.astro";
+import { getAlternateLinks } from "./seo-links";
+
+const alternateLinks = getAlternateLinks(Astro.site, Astro.url.pathname);
+const defaultLink = alternateLinks.find((link) => link.hreflang === "x-default");
+---
+
+<DefaultHead />
+{defaultLink && <link rel="alternate" hreflang={defaultLink.hreflang} href={defaultLink.href} />}
