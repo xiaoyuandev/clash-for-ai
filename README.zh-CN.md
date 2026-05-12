@@ -394,9 +394,21 @@ Provider 模型列表获取已经实现，但它更适合被理解为“兼容�
 3. 找到 Clash for AI 的安全拦截提示
 4. 点击 `仍要打开`
 
+如果你熟悉命令行，并且已经确认应用来自官方 release 页面，也可以用 `xattr` 移除 macOS quarantine 标记：
+
+```bash
+sudo xattr -rd com.apple.quarantine "/Applications/Clash for AI.app"
+```
+
+之后从 Finder 或 Launchpad 启动 `Clash for AI.app`。
+
 通常第一次成功打开之后，后续再启动就不会反复出现相同的拦截提示。
 
 如果某个 release 同时提供了 `.pkg` 安装包，优先使用 `.pkg` 安装，通常体验会比手动拖拽裸 `.app` 更稳定。
+
+### 请求日志会上传到远程服务吗？
+
+不会。请求日志只保存在你的本机。Clash for AI 不会把请求日志记录上传到任何远程服务。
 
 ## 本地开发
 
@@ -417,6 +429,27 @@ pnpm install
 ```bash
 pnpm dev
 ```
+
+启动 Web UI 开发模式：
+
+```bash
+pnpm dev:web
+```
+
+`pnpm dev:web` 会同时启动 core 服务和 Web dev server，主要用于本地调试 Web UI。默认端口是：
+
+1. core API：`3456`
+2. local gateway runtime：`3457`
+
+如果这些端口和本机其他程序冲突，或者你想使用本地构建的 `ai-mini-gateway`，可以在仓库根目录的 `.env.local` 中覆盖：
+
+```bash
+HTTP_PORT=3456
+LOCAL_GATEWAY_RUNTIME_PORT=3457
+LOCAL_GATEWAY_RUNTIME_EXECUTABLE=/path/to/ai-mini-gateway/bin/ai-mini-gateway
+```
+
+这些值只用于本地开发。如果不配置，会使用默认端口。
 
 构建桌面应用：
 

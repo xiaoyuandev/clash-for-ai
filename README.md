@@ -393,9 +393,21 @@ If the `Open` action still does not appear, use:
 3. Scroll to the security warning area for Clash for AI
 4. Click `Open Anyway`
 
+If you are comfortable with the command line and have confirmed the app came from the official release page, you can also remove the macOS quarantine attribute with `xattr`:
+
+```bash
+sudo xattr -rd com.apple.quarantine "/Applications/Clash for AI.app"
+```
+
+After that, launch `Clash for AI.app` from Finder or Launchpad.
+
 After the first successful open, later launches normally stop showing the same warning.
 
 If a `.pkg` installer is attached to the release, prefer the `.pkg` build over dragging a raw `.app` bundle manually.
+
+### Are request logs uploaded to any remote service?
+
+No. Request logs are stored locally on your machine only. Clash for AI does not upload request log records to any remote service.
 
 ## Local Development
 
@@ -416,6 +428,27 @@ Run the desktop app in development mode:
 ```bash
 pnpm dev
 ```
+
+Run the Web UI development mode:
+
+```bash
+pnpm dev:web
+```
+
+`pnpm dev:web` starts both the core service and the Web dev server. It is intended for local Web UI debugging. The default ports are:
+
+1. core API: `3456`
+2. local gateway runtime: `3457`
+
+If those ports conflict with other local programs, or if you want to use a locally built `ai-mini-gateway`, override them in the repository root `.env.local`:
+
+```bash
+HTTP_PORT=3456
+LOCAL_GATEWAY_RUNTIME_PORT=3457
+LOCAL_GATEWAY_RUNTIME_EXECUTABLE=/path/to/ai-mini-gateway/bin/ai-mini-gateway
+```
+
+These values are only local development helpers. If they are omitted, the default ports are used.
 
 Build the desktop app:
 
