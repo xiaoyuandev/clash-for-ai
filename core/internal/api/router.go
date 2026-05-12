@@ -206,25 +206,33 @@ func (r *Router) handleProviders(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleLogs(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
+	switch req.Method {
+	case http.MethodGet:
+		limit := 100
+		if rawLimit := req.URL.Query().Get("limit"); rawLimit != "" {
+			if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+
+		items, err := r.logs.List(req.Context(), limit)
+		if err != nil {
+			http.Error(w, "failed to list request logs", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodDelete:
+		if err := r.logs.Clear(req.Context()); err != nil {
+			http.Error(w, "failed to clear request logs", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	limit := 100
-	if rawLimit := req.URL.Query().Get("limit"); rawLimit != "" {
-		if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-
-	items, err := r.logs.List(req.Context(), limit)
-	if err != nil {
-		http.Error(w, "failed to list request logs", http.StatusInternalServerError)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, items)
 }
 
 func (r *Router) handleRuntime(w http.ResponseWriter, req *http.Request) {

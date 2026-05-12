@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, item RequestLog) error
 	List(ctx context.Context, limit int) ([]RequestLog, error)
+	Clear(ctx context.Context) error
 	Prune(ctx context.Context, cutoffTimestamp string, keepLatest int) error
 }
 
@@ -105,6 +106,14 @@ LIMIT ?`, limit)
 	}
 
 	return items, nil
+}
+
+func (r *SQLiteRepository) Clear(ctx context.Context) error {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM request_logs`); err != nil {
+		return fmt.Errorf("clear request logs: %w", err)
+	}
+
+	return nil
 }
 
 func (r *SQLiteRepository) Prune(ctx context.Context, cutoffTimestamp string, keepLatest int) error {

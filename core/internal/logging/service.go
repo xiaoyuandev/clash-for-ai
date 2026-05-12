@@ -8,9 +8,9 @@ import (
 )
 
 type Service struct {
-	repository        Repository
-	retentionDays     int
-	maxRecordsToKeep  int
+	repository       Repository
+	retentionDays    int
+	maxRecordsToKeep int
 }
 
 func NewService(repository Repository, retentionDays int, maxRecordsToKeep int) *Service {
@@ -55,6 +55,10 @@ func (s *Service) Record(ctx context.Context, entry Entry) error {
 
 func (s *Service) List(ctx context.Context, limit int) ([]RequestLog, error) {
 	return s.repository.List(ctx, limit)
+}
+
+func (s *Service) Clear(ctx context.Context) error {
+	return s.repository.Clear(ctx)
 }
 
 type Entry struct {

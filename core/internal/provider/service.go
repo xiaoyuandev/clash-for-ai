@@ -511,12 +511,12 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	var openAIResponse struct {
 		Data []ModelInfo `json:"data"`
 	}
-	if err := json.Unmarshal(body, &openAIResponse); err == nil && len(openAIResponse.Data) > 0 {
+	if err := json.Unmarshal(body, &openAIResponse); err == nil && openAIResponse.Data != nil {
 		return openAIResponse.Data, nil
 	}
 
 	var stringList []string
-	if err := json.Unmarshal(body, &stringList); err == nil && len(stringList) > 0 {
+	if err := json.Unmarshal(body, &stringList); err == nil && stringList != nil {
 		items := make([]ModelInfo, 0, len(stringList))
 		for _, id := range stringList {
 			items = append(items, ModelInfo{ID: id})
@@ -527,7 +527,7 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	var wrappedStrings struct {
 		Data []string `json:"data"`
 	}
-	if err := json.Unmarshal(body, &wrappedStrings); err == nil && len(wrappedStrings.Data) > 0 {
+	if err := json.Unmarshal(body, &wrappedStrings); err == nil && wrappedStrings.Data != nil {
 		items := make([]ModelInfo, 0, len(wrappedStrings.Data))
 		for _, id := range wrappedStrings.Data {
 			items = append(items, ModelInfo{ID: id})

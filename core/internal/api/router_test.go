@@ -13,6 +13,7 @@ import (
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
+	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
 	"github.com/xiaoyuandev/clash-for-ai/core/internal/tooling"
@@ -76,6 +77,63 @@ func TestReleaseEndpointWithoutMetadata(t *testing.T) {
 
 	if payload.Available {
 		t.Fatalf("expected unavailable release metadata")
+	}
+}
+
+func TestLogsEndpointCanClearLocalLogs(t *testing.T) {
+	t.Parallel()
+
+	handler, logs := newTestRouterWithLogs(t, nil, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+
+	if err := logs.Record(context.Background(), logging.Entry{
+		ProviderID:   "provider-1",
+		ProviderName: "OpenAI",
+		Method:       http.MethodPost,
+		Path:         "/v1/chat/completions",
+		LatencyMs:    120,
+	}); err != nil {
+		t.Fatalf("record log: %v", err)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/logs?limit=10", nil)
+	listRec := httptest.NewRecorder()
+	handler.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("unexpected list status: %d body=%s", listRec.Code, listRec.Body.String())
+	}
+
+	var before []logging.RequestLog
+	if err := json.Unmarshal(listRec.Body.Bytes(), &before); err != nil {
+		t.Fatalf("decode logs: %v", err)
+	}
+	if len(before) != 1 {
+		t.Fatalf("expected one log before clear, got %d", len(before))
+	}
+
+	clearReq := httptest.NewRequest(http.MethodDelete, "/api/logs", nil)
+	clearRec := httptest.NewRecorder()
+	handler.ServeHTTP(clearRec, clearReq)
+	if clearRec.Code != http.StatusNoContent {
+		t.Fatalf("unexpected clear status: %d body=%s", clearRec.Code, clearRec.Body.String())
+	}
+
+	afterReq := httptest.NewRequest(http.MethodGet, "/api/logs?limit=10", nil)
+	afterRec := httptest.NewRecorder()
+	handler.ServeHTTP(afterRec, afterReq)
+	if afterRec.Code != http.StatusOK {
+		t.Fatalf("unexpected list-after-clear status: %d body=%s", afterRec.Code, afterRec.Body.String())
+	}
+
+	var after []logging.RequestLog
+	if err := json.Unmarshal(afterRec.Body.Bytes(), &after); err != nil {
+		t.Fatalf("decode logs after clear: %v", err)
+	}
+	if len(after) != 0 {
+		t.Fatalf("expected no logs after clear, got %d", len(after))
 	}
 }
 
@@ -359,6 +417,11 @@ func assertLocalGatewaySourceResponseIncludesAPIKey(t *testing.T, body []byte) {
 }
 
 func newTestRouter(t *testing.T, adapter localgateway.GatewayAdapter, runtime localgateway.RuntimeConfig) http.Handler {
+	handler, _ := newTestRouterWithLogs(t, adapter, runtime)
+	return handler
+}
+
+func newTestRouterWithLogs(t *testing.T, adapter localgateway.GatewayAdapter, runtime localgateway.RuntimeConfig) (http.Handler, *logging.Service) {
 	t.Helper()
 
 	sqliteStore, err := storage.NewSQLite(filepath.Join(t.TempDir(), "router.db"))
@@ -370,7 +433,8 @@ func newTestRouter(t *testing.T, adapter localgateway.GatewayAdapter, runtime lo
 	credentialStore := credential.NewInMemoryStore()
 	providerService := provider.NewService(provider.NewInMemoryRepository(), credentialStore)
 	healthService := health.NewService(providerService, credentialStore)
-	gatewayHandler := gateway.NewHandler(providerService, credentialStore, nil)
+	loggingService := logging.NewService(logging.NewSQLiteRepository(sqliteStore.DB), 7, 1000)
+	gatewayHandler := gateway.NewHandler(providerService, credentialStore, loggingService)
 	localService := localgateway.NewService(localgateway.NewSQLiteRepository(sqliteStore.DB), credentialStore)
 	if adapter == nil {
 		adapter = &localgatewaySpyAdapter{
@@ -379,7 +443,7 @@ func newTestRouter(t *testing.T, adapter localgateway.GatewayAdapter, runtime lo
 	}
 	manager := localgateway.NewManager(localService, adapter, runtime)
 
-	return NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService), 3456, "", gatewayHandler)
+	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService), 3456, "", gatewayHandler), loggingService
 }
 
 type localgatewaySpyAdapter struct {

@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -94,6 +96,38 @@ func TestManagedLocalGatewayAllowsClaudeCodeModelMapUpdate(t *testing.T) {
 	}
 	if updated.BaseURL != item.BaseURL {
 		t.Fatalf("unexpected base_url change: %s", updated.BaseURL)
+	}
+}
+
+func TestFetchModelsAcceptsEmptyOpenAIModelsResponse(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/models" {
+			t.Fatalf("unexpected models path: %s", req.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer upstream.Close()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:    "Empty Models",
+		BaseURL: upstream.URL + "/v1",
+		APIKey:  "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	models, err := service.FetchModels(ctx, item.ID)
+	if err != nil {
+		t.Fatalf("fetch models: %v", err)
+	}
+	if len(models) != 0 {
+		t.Fatalf("expected empty models, got %+v", models)
 	}
 }
 
