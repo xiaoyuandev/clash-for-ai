@@ -17,13 +17,13 @@
     "start": "electron-vite preview",
     "build": "pnpm clean && pnpm typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --dir",
-    "build:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --mac dmg pkg zip",
-    "build:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --win nsis",
-    "build:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --linux AppImage tar.gz",
-    "release:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --mac dmg pkg zip --publish always",
-    "release:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --win nsis --publish always",
-    "release:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && electron-builder --linux AppImage tar.gz --publish always"
+    "build:unpack": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --dir",
+    "build:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip",
+    "build:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --win nsis",
+    "build:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --linux AppImage tar.gz",
+    "release:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --publish always",
+    "release:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --win nsis --publish always",
+    "release:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --linux AppImage tar.gz --publish always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
