@@ -603,10 +603,6 @@ export function SettingsPage({
             meta={t("settings.meta.pid")}
           />
           <StatCard
-            label={t("settings.runtime.coreManaged")}
-            value={desktopState?.core.managed ? t("settings.runtime.yes") : t("settings.runtime.no")}
-          />
-          <StatCard
             label={t("settings.runtime.coreRunning")}
             value={desktopState?.core.running ? t("settings.runtime.yes") : t("settings.runtime.no")}
           />
