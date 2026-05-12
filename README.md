@@ -153,6 +153,7 @@ Use it to:
 1. Copy ready-to-use local endpoint values
 2. Run one-click setup for supported tools such as Codex CLI and Claude Code
 3. Follow guided setup for tools like Cursor, Cherry Studio, and SDK scripts
+4. Drag supported models into Claude Code model slots, then switch between them in Claude Code with the `/model` command
 
 ### 4. Logs
 
@@ -241,6 +242,7 @@ The `Tools` page provides:
 1. Copy-ready connection values
 2. One-click setup for Codex CLI and Claude Code
 3. Setup guidance for tools such as Cursor, Cherry Studio, and SDK scripts
+4. Drag-and-drop model mapping for Claude Code model slots, so you can switch mapped models in Claude Code with the `/model` command
 
 ### CLI Tools
 
@@ -448,7 +450,7 @@ LOCAL_GATEWAY_RUNTIME_PORT=3457
 LOCAL_GATEWAY_RUNTIME_EXECUTABLE=/path/to/ai-mini-gateway/bin/ai-mini-gateway
 ```
 
-These values are only local development helpers. If they are omitted, the default ports are used.
+These values are only local development helpers. If they are omitted, the default ports are used. Before starting, `pnpm dev:web` releases old listeners on those ports so core and local gateway restart with the latest local code.
 
 Build the desktop app:
 

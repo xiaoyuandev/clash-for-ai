@@ -152,6 +152,7 @@ http://127.0.0.1:3456/v1
 1. 复制已经整理好的本地接入参数
 2. 对 Codex CLI、Claude Code 执行一键接入
 3. 查看 Cursor、Cherry Studio、SDK 脚本等工具的接入说明
+4. 把支持的模型拖拽到 Claude Code 模型槽位中，然后在 Claude Code 里通过 `/model` 命令切换
 
 ### 4. Logs
 
@@ -260,6 +261,8 @@ export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
 在 Clash for AI 中，你也可以直接打开 `Tools` 页面，使用对已支持 CLI 的一键接入流程。
+
+`Tools` 页面也支持 Claude Code 模型槽位的拖拽映射，方便你在 Claude Code 中通过 `/model` 命令切换已映射模型。
 
 需要说明的是：当前版本最稳定的本地入口仍然是 OpenAI-compatible 这条链路；Anthropic 风格本地接入和上游兼容能力仍在持续完善。如果你的工具同时支持自定义 OpenAI-compatible endpoint，优先使用 `http://127.0.0.1:3456/v1` 会更稳妥。
 
@@ -449,7 +452,7 @@ LOCAL_GATEWAY_RUNTIME_PORT=3457
 LOCAL_GATEWAY_RUNTIME_EXECUTABLE=/path/to/ai-mini-gateway/bin/ai-mini-gateway
 ```
 
-这些值只用于本地开发。如果不配置，会使用默认端口。
+这些值只用于本地开发。如果不配置，会使用默认端口。`pnpm dev:web` 启动前会释放上述端口上的旧监听进程，确保 core 和 local gateway 使用最新代码重新启动。
 
 构建桌面应用：
 
