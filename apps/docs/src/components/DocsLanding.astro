@@ -34,93 +34,146 @@ interface Props {
 
 const props = Astro.props as Props;
 import logo from "../assets/logo.svg";
+import rootPackage from "../../../../package.json";
 import "../styles/site.css";
 const withBase = (path: string) => {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
   const relative = path.replace(/^\//, "");
   return `${base}${relative}`;
 };
-const isNewTabLink = (path: string) => path === "/deeplink.html";
-
-const previewMeta =
-  props.lang === "zh-CN"
-    ? {
-        label: "界面预览",
-        title: "桌面端控制面板与本地网关入口",
-        body: "后续这里可以替换成真实的应用截图。当前先保留一个与产品视觉一致的预览占位区，用来承接产品信息密度。",
-        pills: ["Provider 切换", "请求日志", "Health Check"]
-      }
-    : {
-        label: "Interface Preview",
-        title: "Desktop control plane and stable local gateway entry point",
-        body: "This area is ready to be replaced with real application screenshots. For now it acts as a visual preview block that matches the product tone.",
-        pills: ["Provider Switch", "Request Logs", "Health Check"]
-      };
-
+const siteUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const canonicalUrl = siteUrl.toString();
+const releaseVersion = rootPackage.version;
+const releaseTag = `v${releaseVersion}`;
+const releaseBase = `https://github.com/xiaoyuandev/clash-for-ai/releases/download/${releaseTag}`;
 const latestReleaseHref = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
-const installCommand =
-  "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
-
-const downloadLinks =
-  props.lang === "zh-CN"
-    ? [
-        { label: "macOS", meta: "下载 .dmg / .pkg / .zip", href: latestReleaseHref },
-        { label: "Windows", meta: "下载 NSIS 安装包", href: latestReleaseHref },
-        { label: "Linux Desktop", meta: "下载 AppImage / tar.gz", href: latestReleaseHref }
-      ]
-    : [
-        { label: "macOS", meta: "Download .dmg / .pkg / .zip", href: latestReleaseHref },
-        { label: "Windows", meta: "Download NSIS installer", href: latestReleaseHref },
-        { label: "Linux Desktop", meta: "Download AppImage / tar.gz", href: latestReleaseHref }
-      ];
-
-const galleryImages =
-  props.lang === "zh-CN"
-    ? [
-        { src: "/img/home-preview.png", alt: "Clash for AI 首页预览", caption: "本地网关控制面板" },
-        { src: "/img/quick-start-provider-form.png", alt: "Provider 表单", caption: "添加中转 Provider" },
-        { src: "/img/quick-start-launch.png", alt: "启动状态", caption: "启动与运行状态" },
-        { src: "/img/quick-start-request-log.png", alt: "请求日志", caption: "本地请求日志" },
-        { src: "/img/settings.png", alt: "设置页", caption: "桌面设置" }
-      ]
-    : [
-        { src: "/img/home-preview.png", alt: "Clash for AI home preview", caption: "Local gateway control panel" },
-        { src: "/img/quick-start-provider-form.png", alt: "Provider form", caption: "Add relay providers" },
-        { src: "/img/quick-start-launch.png", alt: "Launch state", caption: "Launch and runtime state" },
-        { src: "/img/quick-start-request-log.png", alt: "Request logs", caption: "Local request logs" },
-        { src: "/img/settings.png", alt: "Settings page", caption: "Desktop settings" }
-      ];
-
-const downloadMeta =
+const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
+const downloadLinks = [
+  {
+    label: props.lang === "zh-CN" ? "macOS Apple Silicon" : "macOS Apple Silicon",
+    meta: props.lang === "zh-CN" ? "DMG, arm64" : "DMG, arm64",
+    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-arm64.dmg`
+  },
+  {
+    label: props.lang === "zh-CN" ? "macOS Intel" : "macOS Intel",
+    meta: props.lang === "zh-CN" ? "DMG, x64" : "DMG, x64",
+    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64.dmg`
+  },
+  {
+    label: props.lang === "zh-CN" ? "Windows" : "Windows",
+    meta: props.lang === "zh-CN" ? "安装程序, x64" : "Installer, x64",
+    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64-setup.exe`
+  },
+  {
+    label: props.lang === "zh-CN" ? "Linux Desktop" : "Linux Desktop",
+    meta: props.lang === "zh-CN" ? "AppImage, x64" : "AppImage, x64",
+    href: `${releaseBase}/Clash-for-AI-${releaseVersion}-x64.AppImage`
+  }
+];
+const seoMeta =
   props.lang === "zh-CN"
     ? {
+        title: "Clash for AI - 本地 OpenAI 兼容 AI 网关",
+        description:
+          "Clash for AI 让 Cursor、Claude Code、Codex、Cherry Studio 和脚本共用一个本地 OpenAI 兼容端点，并通过桌面 UI 管理多个 AI 服务商和模型来源。",
+        keywords:
+          "Clash for AI, 本地 AI 网关, OpenAI 兼容网关, Cursor 中转配置, Claude Code OpenAI, Codex 本地网关, new-api, one-api",
+        downloadTitle: "下载并开始使用",
+        downloadLead:
+          "从 GitHub Release 下载桌面端，或在 WSL / Linux Server 上使用一键安装命令启动本地网关。",
+        githubCta: "获取 Clash for AI",
+        releaseCta: "查看全部 Release",
+        serverTitle: "WSL / Linux Server 一键安装",
+        serverHint: "安装后默认 Web 管理界面和 OpenAI 兼容入口都运行在 http://127.0.0.1:3456。",
+        installSectionTitle: "安装和使用",
+        installSectionLead: "选择桌面端直接下载，或在 WSL / Linux Server 上使用一键安装脚本。安装完成后，把你的工具统一指向本地 OpenAI 兼容入口。",
+        desktopTitle: "桌面端下载",
+        docsTitle: "需要完整接入步骤？",
+        docsLead: "详细文档包含 Provider 配置、工具接入、Deep Link 导入和常见问题。",
+        docsCta: "查看详细文档",
+        endpointLabel: "本地端点",
         galleryLabel: "产品预览",
         galleryTitle: "在一个桌面界面里管理 Provider、模型来源和请求日志",
-        galleryLead: "核心界面截图会随版本继续更新。当前截图用于帮助你快速判断产品形态。",
-        installTitle: "安装与下载",
-        installLead: "桌面端用户从 GitHub Release 下载最新版本；WSL 和 Linux Server 用户可以使用安装脚本部署本地 Web 管理界面。",
-        releaseCta: "查看全部 Release",
-        desktopTitle: "桌面端下载",
-        serverTitle: "WSL / Linux Server 一键安装",
-        serverHint: "安装后默认提供 Web 管理界面 http://127.0.0.1:3456 和 OpenAI 兼容入口 http://127.0.0.1:3456/v1。",
-        docsTitle: "继续阅读使用文档",
-        docsLead: "从快速开始进入，添加 Provider，然后把你的工具接到本地统一入口。",
-        docsCta: "打开快速开始"
+        galleryLead: "查看核心界面截图。后续继续添加截图时只需要扩展图片列表。",
+        previousSlide: "上一张截图",
+        nextSlide: "下一张截图",
+        heroPoints: [
+          "为 Cursor、Claude Code、Codex、Cherry Studio 和脚本提供一个本地 OpenAI 兼容入口",
+          "在桌面 UI 中统一管理多个大模型中转 API、模型来源、健康检查和请求日志",
+          "切换上游服务时不需要反复修改每个工具的 Base URL 和模型配置"
+        ],
       }
     : {
+        title: "Clash for AI - Local AI Gateway for OpenAI-Compatible Tools",
+        description:
+          "Clash for AI gives Cursor, Claude Code, Codex, Cherry Studio, and scripts one local OpenAI-compatible endpoint, with provider and model switching from a desktop UI.",
+        keywords:
+          "Clash for AI, local AI gateway, OpenAI compatible gateway, Cursor OpenAI proxy, Claude Code OpenAI compatible, Codex local gateway, new-api, one-api",
+        downloadTitle: "Download and start using Clash for AI",
+        downloadLead:
+          "Download the desktop app from GitHub Releases, or run the one-line installer for WSL and Linux Server.",
+        githubCta: "Get Clash for AI",
+        releaseCta: "View all releases",
+        serverTitle: "WSL / Linux Server one-line install",
+        serverHint: "After installation, the Web UI and OpenAI-compatible endpoint run on http://127.0.0.1:3456 by default.",
+        installSectionTitle: "Install and use",
+        installSectionLead: "Download the desktop app, or run the one-line installer on WSL and Linux Server. After installation, point your tools to one local OpenAI-compatible endpoint.",
+        desktopTitle: "Desktop downloads",
+        docsTitle: "Need the full setup flow?",
+        docsLead: "The docs cover provider configuration, tool integration, Deep Link import, and common setup questions.",
+        docsCta: "Read the detailed docs",
+        endpointLabel: "Local endpoint",
         galleryLabel: "Product Preview",
         galleryTitle: "Manage providers, model sources, and request logs from one desktop UI",
-        galleryLead: "Screenshots will continue to evolve with releases. Use them to quickly understand the product shape.",
-        installTitle: "Install and Download",
-        installLead: "Desktop users can download the latest build from GitHub Releases. WSL and Linux Server users can deploy the local Web management UI with the installer script.",
-        releaseCta: "View all releases",
-        desktopTitle: "Desktop downloads",
-        serverTitle: "WSL / Linux Server one-line install",
-        serverHint: "After installation, the defaults are Web management at http://127.0.0.1:3456 and an OpenAI-compatible endpoint at http://127.0.0.1:3456/v1.",
-        docsTitle: "Continue with the usage guide",
-        docsLead: "Start with Quick Start, add a Provider, then connect your tools to the stable local endpoint.",
-        docsCta: "Open Quick Start"
+        galleryLead: "Browse the core interface screenshots. Add more screenshots later by extending the image list.",
+        previousSlide: "Previous screenshot",
+        nextSlide: "Next screenshot",
+        heroPoints: [
+          "Give Cursor, Claude Code, Codex, Cherry Studio, and scripts one local OpenAI-compatible endpoint",
+          "Manage multiple LLM relay APIs, model sources, health checks, and request logs from a desktop UI",
+          "Switch upstream services without editing every tool's Base URL and model configuration"
+        ],
       };
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Clash for AI",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: ["macOS", "Windows", "Linux"],
+  description: seoMeta.description,
+  url: canonicalUrl,
+  downloadUrl: latestReleaseHref,
+  softwareVersion: releaseVersion,
+  codeRepository: "https://github.com/xiaoyuandev/clash-for-ai",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD"
+  }
+};
+
+const galleryImages = [
+  {
+    src: "/img/home-preview.png",
+    alt: props.lang === "zh-CN" ? "Clash for AI 首页概览" : "Clash for AI home overview"
+  },
+  {
+    src: "/img/quick-start-provider-form.png",
+    alt: props.lang === "zh-CN" ? "Clash for AI Provider 配置表单" : "Clash for AI provider configuration form"
+  },
+  {
+    src: "/img/quick-start-request-log.png",
+    alt: props.lang === "zh-CN" ? "Clash for AI 请求日志页面" : "Clash for AI request logs"
+  },
+  {
+    src: "/img/connectatool.png",
+    alt: props.lang === "zh-CN" ? "Clash for AI 工具接入配置" : "Clash for AI tool integration setup"
+  },
+  {
+    src: "/img/settings.png",
+    alt: props.lang === "zh-CN" ? "Clash for AI 设置页面" : "Clash for AI settings page"
+  }
+];
 ---
 
 <!doctype html>
@@ -128,8 +181,21 @@ const downloadMeta =
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clash for AI Docs</title>
-    <meta name="description" content={props.description} />
+    <title>{seoMeta.title}</title>
+    <meta name="description" content={seoMeta.description} />
+    <meta name="keywords" content={seoMeta.keywords} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Clash for AI" />
+    <meta property="og:title" content={seoMeta.title} />
+    <meta property="og:description" content={seoMeta.description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={new URL(withBase("/img/home-preview.png"), canonicalUrl).toString()} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seoMeta.title} />
+    <meta name="twitter:description" content={seoMeta.description} />
+    <meta name="twitter:image" content={new URL(withBase("/img/home-preview.png"), canonicalUrl).toString()} />
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
   </head>
   <body
     class="min-h-screen text-slate-100 antialiased"
@@ -139,7 +205,7 @@ const downloadMeta =
       radial-gradient(circle at bottom, rgba(15, 23, 42, 0.42), transparent 0, transparent 32%),
       linear-gradient(180deg, #020617 0%, #06101d 44%, #020617 100%);"
   >
-    <main class="mx-auto w-[min(1040px,calc(100vw-40px))] px-0 pb-14 pt-6">
+    <main class="mx-auto w-[min(1120px,calc(100vw-40px))] px-0 pb-14 pt-6">
       <header class="mb-9 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
         <a
           class="inline-flex items-center gap-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-slate-100"
@@ -152,7 +218,7 @@ const downloadMeta =
           />
           <span>Clash for AI Docs</span>
         </a>
-        <nav class="flex flex-wrap gap-4 text-[13px] text-slate-400">
+        <nav class="flex flex-wrap gap-5 text-[14px] font-semibold text-slate-300">
           <a class="transition hover:text-slate-100" href={withBase(props.introHref)}>{props.nav.intro}</a>
           <a class="transition hover:text-slate-100" href={withBase(props.quickStartHref)}>{props.nav.quickStart}</a>
           <a class="transition hover:text-slate-100" href={withBase(props.integrationHref)}>{props.nav.integration}</a>
@@ -161,78 +227,61 @@ const downloadMeta =
         </nav>
       </header>
 
-      <section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.82fr)]">
-        <article class="content-panel rounded-[1.75rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.78),rgba(15,23,42,0.52))] p-8 shadow-[0_22px_70px_rgba(0,0,0,0.3)] backdrop-blur-xl">
+      <section>
+        <article class="content-panel rounded-[1.75rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.78),rgba(15,23,42,0.52))] p-7 shadow-[0_22px_70px_rgba(0,0,0,0.3)] backdrop-blur-xl md:p-9">
           <p class="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-teal-300">{props.eyebrow}</p>
-          <h1 class="max-w-[13ch] text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[0.96] tracking-[-0.05em] text-slate-50">
+          <h1 class="max-w-[20ch] text-[clamp(2rem,4vw,3.25rem)] font-semibold leading-[1.03] tracking-[-0.04em] text-slate-50">
             {props.title}
           </h1>
-          <p class="mt-4 max-w-[54ch] text-[15px] leading-7 text-slate-300">{props.description}</p>
-          <div class="mt-6 flex flex-wrap gap-2.5">
+          <div class="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.48fr)] lg:items-start">
+            <ul class="m-0 grid max-w-[68ch] list-none gap-3 p-0">
+              {seoMeta.heroPoints.map((item) => (
+                <li class="flex gap-3 text-[15px] leading-7 text-slate-300">
+                  <span class="mt-2 h-2 w-2 shrink-0 rounded-full bg-teal-300 shadow-[0_0_20px_rgba(45,212,191,0.45)]"></span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="rounded-2xl border border-slate-400/15 bg-slate-950/42 p-4">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{seoMeta.endpointLabel}</p>
+              <code class="mt-2 block overflow-x-auto whitespace-nowrap text-[14px] font-semibold text-teal-200">http://127.0.0.1:3456/v1</code>
+            </div>
+          </div>
+          <div class="mt-7 flex flex-wrap gap-2.5">
             <a
-              class="inline-flex min-h-10 items-center justify-center rounded-full bg-teal-500 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-950 transition hover:bg-teal-400"
-              href={withBase(props.quickStartHref)}
+              class="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-500 px-5 text-[13px] font-semibold tracking-[0.01em] text-slate-950 transition hover:bg-teal-400"
+              href="#install"
             >
-              {props.primaryCta}
+              {seoMeta.githubCta}
             </a>
             <a
-              class="inline-flex min-h-10 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-4 text-[13px] font-semibold tracking-[0.01em] text-slate-100 transition hover:border-slate-300/30 hover:bg-slate-900/45"
-              href={withBase(props.introHref)}
+              class="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-5 text-[13px] font-semibold tracking-[0.01em] text-slate-100 transition hover:border-slate-300/30 hover:bg-slate-900/45"
+              href={withBase(props.quickStartHref)}
             >
-              {props.secondaryCta}
+              {seoMeta.docsCta}
             </a>
           </div>
         </article>
-
-        <aside class="content-panel overflow-hidden rounded-[1.6rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.66),rgba(15,23,42,0.44))] p-4 shadow-[0_20px_56px_rgba(0,0,0,0.24)] backdrop-blur-xl">
-          <div class="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-300">{previewMeta.label}</p>
-              <h2 class="mt-2 text-[15px] font-semibold leading-6 text-slate-50">{previewMeta.title}</h2>
-            </div>
-          </div>
-
-          <div class="rounded-[1.1rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.98))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div class="mb-3 flex items-center gap-1.5">
-              <span class="h-2.5 w-2.5 rounded-full bg-rose-400/80"></span>
-              <span class="h-2.5 w-2.5 rounded-full bg-amber-300/80"></span>
-              <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/80"></span>
-            </div>
-
-            <div class="overflow-hidden rounded-[0.95rem] border border-slate-400/10 bg-slate-950/60">
-              <img
-                src={withBase("/img/home-preview.png")}
-                alt="Clash for AI preview"
-                class="block aspect-[16/10] w-full object-cover opacity-90"
-              />
-            </div>
-          </div>
-
-          <p class="mt-4 text-[13px] leading-6 text-slate-400">{previewMeta.body}</p>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            {previewMeta.pills.map((pill) => (
-              <span class="inline-flex rounded-full border border-teal-400/15 bg-teal-400/8 px-3 py-1 text-[12px] font-medium text-teal-200">
-                {pill}
-              </span>
-            ))}
-          </div>
-        </aside>
       </section>
 
-      <section class="mt-5 rounded-[1.45rem] border border-slate-500/18 bg-[linear-gradient(145deg,rgba(15,23,42,0.58),rgba(15,23,42,0.38))] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <section class="mt-5 overflow-hidden rounded-[1.75rem] border border-slate-500/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.7),rgba(15,23,42,0.45))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-xl md:p-5">
+        <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
-            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-300">{downloadMeta.galleryLabel}</p>
-            <h2 class="mt-2 max-w-[18ch] text-[1.55rem] font-semibold leading-tight tracking-[-0.04em] text-slate-50 md:max-w-none">
-              {downloadMeta.galleryTitle}
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-300">{seoMeta.galleryLabel}</p>
+            <h2 class="mt-2 max-w-[20ch] text-[1.65rem] font-semibold leading-tight tracking-[-0.04em] text-slate-50 md:max-w-none">
+              {seoMeta.galleryTitle}
             </h2>
           </div>
-          <p class="max-w-[42ch] text-[13px] leading-6 text-slate-400">{downloadMeta.galleryLead}</p>
+          <p class="max-w-[42ch] text-[13px] leading-6 text-slate-400">{seoMeta.galleryLead}</p>
         </div>
 
         <div class="gallery-carousel rounded-[1.25rem] border border-white/10 bg-slate-950/60 p-3" data-gallery>
-          <div class="relative overflow-hidden rounded-[1rem]">
+          <div class="mb-3 flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-rose-400/80"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-amber-300/80"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/80"></span>
+          </div>
+          <div class="relative overflow-hidden rounded-[1rem] border border-slate-400/10 bg-slate-950/70">
             {galleryImages.map((image, index) => (
               <figure
                 class:list={[
@@ -241,17 +290,29 @@ const downloadMeta =
                 ]}
                 data-gallery-slide
               >
-                <img src={withBase(image.src)} alt={image.alt} class="block aspect-[16/9] w-full object-cover" />
-                <figcaption class="absolute bottom-3 left-3 rounded-full border border-slate-400/20 bg-slate-950/76 px-3 py-1 text-[12px] font-medium text-slate-100 backdrop-blur-md">
-                  {image.caption}
-                </figcaption>
+                <img
+                  src={withBase(image.src)}
+                  alt={image.alt}
+                  class="block aspect-[16/9] w-full object-cover"
+                  loading={index === 0 ? "eager" : "lazy"}
+                />
               </figure>
             ))}
 
-            <button class="gallery-button left-3" type="button" aria-label="Previous screenshot" data-gallery-prev>
+            <button
+              class="gallery-button left-3"
+              type="button"
+              aria-label={seoMeta.previousSlide}
+              data-gallery-prev
+            >
               &lt;
             </button>
-            <button class="gallery-button right-3" type="button" aria-label="Next screenshot" data-gallery-next>
+            <button
+              class="gallery-button right-3"
+              type="button"
+              aria-label={seoMeta.nextSlide}
+              data-gallery-next
+            >
               &gt;
             </button>
           </div>
@@ -264,10 +325,10 @@ const downloadMeta =
                   index === 0 ? "is-active" : ""
                 ]}
                 type="button"
-                aria-label={`Show ${image.caption}`}
+                aria-label={image.alt}
                 data-gallery-dot
                 data-gallery-index={index}
-              />
+              ></button>
             ))}
           </div>
         </div>
@@ -276,21 +337,21 @@ const downloadMeta =
       <section id="install" class="mt-5 rounded-[1.75rem] border border-teal-400/20 bg-[linear-gradient(145deg,rgba(20,184,166,0.16),rgba(15,23,42,0.56))] p-5 shadow-[0_20px_62px_rgba(0,0,0,0.24)] backdrop-blur-xl md:p-6">
         <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 class="m-0 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{downloadMeta.installTitle}</h2>
-            <p class="mt-2 max-w-[72ch] text-[14px] leading-7 text-slate-300">{downloadMeta.installLead}</p>
+            <h2 class="m-0 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{seoMeta.installSectionTitle}</h2>
+            <p class="mt-2 max-w-[72ch] text-[14px] leading-7 text-slate-300">{seoMeta.installSectionLead}</p>
           </div>
           <a
             class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-slate-50 px-4 text-[13px] font-semibold text-slate-950 transition hover:bg-teal-100"
             href={latestReleaseHref}
           >
-            {downloadMeta.releaseCta}
+            {seoMeta.releaseCta}
           </a>
         </div>
 
         <div class="mt-5 grid grid-cols-1 gap-4">
           <article class="rounded-[1.3rem] border border-slate-400/15 bg-slate-950/32 p-4">
-            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{downloadMeta.desktopTitle}</h3>
-            <div class="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
+            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{seoMeta.desktopTitle}</h3>
+            <div class="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
               {downloadLinks.map((item) => (
                 <a
                   class="group flex min-h-[4.5rem] items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-950/40 px-4 py-3 transition hover:border-teal-300/45 hover:bg-slate-900/58"
@@ -307,45 +368,25 @@ const downloadMeta =
           </article>
 
           <article class="rounded-[1.3rem] border border-slate-400/15 bg-slate-950/32 p-4">
-            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{downloadMeta.serverTitle}</h3>
+            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{seoMeta.serverTitle}</h3>
             <div class="mt-3 rounded-2xl border border-slate-400/15 bg-slate-950/72 p-3">
               <code class="block break-all text-[12px] leading-6 text-teal-100">{installCommand}</code>
             </div>
-            <p class="mt-3 text-[13px] leading-6 text-slate-400">{downloadMeta.serverHint}</p>
+            <p class="mt-3 text-[13px] leading-6 text-slate-400">{seoMeta.serverHint}</p>
           </article>
         </div>
       </section>
 
-      <h2 class="mt-9 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{props.sectionTitle}</h2>
-      <p class="mt-2.5 max-w-[64ch] text-[15px] leading-7 text-slate-400">{props.sectionLead}</p>
-
-      <section class="mt-5 grid grid-cols-1 gap-3.5 lg:grid-cols-2 xl:grid-cols-3">
-        {props.cards.map((card) => (
-          <article class="content-panel rounded-[1.35rem] border border-slate-500/15 bg-[linear-gradient(145deg,rgba(15,23,42,0.54),rgba(15,23,42,0.4))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{card.title}</h3>
-            <p class="mt-2.5 text-[14px] leading-6 text-slate-300">{card.body}</p>
-            <a
-              class="mt-4 inline-flex text-[13px] font-semibold text-teal-300 transition hover:text-teal-200"
-              href={withBase(card.href)}
-              target={isNewTabLink(card.href) ? "_blank" : undefined}
-              rel={isNewTabLink(card.href) ? "noreferrer" : undefined}
-            >
-              {card.cta}
-            </a>
-          </article>
-        ))}
-      </section>
-
       <section class="mt-5 rounded-[1.45rem] border border-slate-500/18 bg-[linear-gradient(145deg,rgba(15,23,42,0.58),rgba(15,23,42,0.38))] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.18)] backdrop-blur-xl md:flex md:items-center md:justify-between md:gap-5">
         <div>
-          <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-slate-50">{downloadMeta.docsTitle}</h2>
-          <p class="mt-2 max-w-[62ch] text-[14px] leading-6 text-slate-400">{downloadMeta.docsLead}</p>
+          <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-slate-50">{seoMeta.docsTitle}</h2>
+          <p class="mt-2 max-w-[62ch] text-[14px] leading-6 text-slate-400">{seoMeta.docsLead}</p>
         </div>
         <a
           class="mt-4 inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-teal-300/30 bg-teal-400/10 px-4 text-[13px] font-semibold text-teal-200 transition hover:border-teal-200/50 hover:bg-teal-400/16 md:mt-0"
           href={withBase(props.quickStartHref)}
         >
-          {downloadMeta.docsCta}
+          {seoMeta.docsCta}
         </a>
       </section>
 
