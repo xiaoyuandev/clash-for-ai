@@ -56,6 +56,71 @@ const previewMeta =
         body: "This area is ready to be replaced with real application screenshots. For now it acts as a visual preview block that matches the product tone.",
         pills: ["Provider Switch", "Request Logs", "Health Check"]
       };
+
+const latestReleaseHref = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
+const installCommand =
+  "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
+
+const downloadLinks =
+  props.lang === "zh-CN"
+    ? [
+        { label: "macOS", meta: "下载 .dmg / .pkg / .zip", href: latestReleaseHref },
+        { label: "Windows", meta: "下载 NSIS 安装包", href: latestReleaseHref },
+        { label: "Linux Desktop", meta: "下载 AppImage / tar.gz", href: latestReleaseHref }
+      ]
+    : [
+        { label: "macOS", meta: "Download .dmg / .pkg / .zip", href: latestReleaseHref },
+        { label: "Windows", meta: "Download NSIS installer", href: latestReleaseHref },
+        { label: "Linux Desktop", meta: "Download AppImage / tar.gz", href: latestReleaseHref }
+      ];
+
+const galleryImages =
+  props.lang === "zh-CN"
+    ? [
+        { src: "/img/home-preview.png", alt: "Clash for AI 首页预览", caption: "本地网关控制面板" },
+        { src: "/img/quick-start-provider-form.png", alt: "Provider 表单", caption: "添加中转 Provider" },
+        { src: "/img/quick-start-launch.png", alt: "启动状态", caption: "启动与运行状态" },
+        { src: "/img/quick-start-request-log.png", alt: "请求日志", caption: "本地请求日志" },
+        { src: "/img/settings.png", alt: "设置页", caption: "桌面设置" }
+      ]
+    : [
+        { src: "/img/home-preview.png", alt: "Clash for AI home preview", caption: "Local gateway control panel" },
+        { src: "/img/quick-start-provider-form.png", alt: "Provider form", caption: "Add relay providers" },
+        { src: "/img/quick-start-launch.png", alt: "Launch state", caption: "Launch and runtime state" },
+        { src: "/img/quick-start-request-log.png", alt: "Request logs", caption: "Local request logs" },
+        { src: "/img/settings.png", alt: "Settings page", caption: "Desktop settings" }
+      ];
+
+const downloadMeta =
+  props.lang === "zh-CN"
+    ? {
+        galleryLabel: "产品预览",
+        galleryTitle: "在一个桌面界面里管理 Provider、模型来源和请求日志",
+        galleryLead: "核心界面截图会随版本继续更新。当前截图用于帮助你快速判断产品形态。",
+        installTitle: "安装与下载",
+        installLead: "桌面端用户从 GitHub Release 下载最新版本；WSL 和 Linux Server 用户可以使用安装脚本部署本地 Web 管理界面。",
+        releaseCta: "查看全部 Release",
+        desktopTitle: "桌面端下载",
+        serverTitle: "WSL / Linux Server 一键安装",
+        serverHint: "安装后默认提供 Web 管理界面 http://127.0.0.1:3456 和 OpenAI 兼容入口 http://127.0.0.1:3456/v1。",
+        docsTitle: "继续阅读使用文档",
+        docsLead: "从快速开始进入，添加 Provider，然后把你的工具接到本地统一入口。",
+        docsCta: "打开快速开始"
+      }
+    : {
+        galleryLabel: "Product Preview",
+        galleryTitle: "Manage providers, model sources, and request logs from one desktop UI",
+        galleryLead: "Screenshots will continue to evolve with releases. Use them to quickly understand the product shape.",
+        installTitle: "Install and Download",
+        installLead: "Desktop users can download the latest build from GitHub Releases. WSL and Linux Server users can deploy the local Web management UI with the installer script.",
+        releaseCta: "View all releases",
+        desktopTitle: "Desktop downloads",
+        serverTitle: "WSL / Linux Server one-line install",
+        serverHint: "After installation, the defaults are Web management at http://127.0.0.1:3456 and an OpenAI-compatible endpoint at http://127.0.0.1:3456/v1.",
+        docsTitle: "Continue with the usage guide",
+        docsLead: "Start with Quick Start, add a Provider, then connect your tools to the stable local endpoint.",
+        docsCta: "Open Quick Start"
+      };
 ---
 
 <!doctype html>
@@ -155,6 +220,102 @@ const previewMeta =
         </aside>
       </section>
 
+      <section class="mt-5 rounded-[1.45rem] border border-slate-500/18 bg-[linear-gradient(145deg,rgba(15,23,42,0.58),rgba(15,23,42,0.38))] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-300">{downloadMeta.galleryLabel}</p>
+            <h2 class="mt-2 max-w-[18ch] text-[1.55rem] font-semibold leading-tight tracking-[-0.04em] text-slate-50 md:max-w-none">
+              {downloadMeta.galleryTitle}
+            </h2>
+          </div>
+          <p class="max-w-[42ch] text-[13px] leading-6 text-slate-400">{downloadMeta.galleryLead}</p>
+        </div>
+
+        <div class="gallery-carousel rounded-[1.25rem] border border-white/10 bg-slate-950/60 p-3" data-gallery>
+          <div class="relative overflow-hidden rounded-[1rem]">
+            {galleryImages.map((image, index) => (
+              <figure
+                class:list={[
+                  "gallery-slide m-0",
+                  index === 0 ? "is-active" : ""
+                ]}
+                data-gallery-slide
+              >
+                <img src={withBase(image.src)} alt={image.alt} class="block aspect-[16/9] w-full object-cover" />
+                <figcaption class="absolute bottom-3 left-3 rounded-full border border-slate-400/20 bg-slate-950/76 px-3 py-1 text-[12px] font-medium text-slate-100 backdrop-blur-md">
+                  {image.caption}
+                </figcaption>
+              </figure>
+            ))}
+
+            <button class="gallery-button left-3" type="button" aria-label="Previous screenshot" data-gallery-prev>
+              &lt;
+            </button>
+            <button class="gallery-button right-3" type="button" aria-label="Next screenshot" data-gallery-next>
+              &gt;
+            </button>
+          </div>
+
+          <div class="mt-3 flex justify-center gap-2">
+            {galleryImages.map((image, index) => (
+              <button
+                class:list={[
+                  "gallery-dot",
+                  index === 0 ? "is-active" : ""
+                ]}
+                type="button"
+                aria-label={`Show ${image.caption}`}
+                data-gallery-dot
+                data-gallery-index={index}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="install" class="mt-5 rounded-[1.75rem] border border-teal-400/20 bg-[linear-gradient(145deg,rgba(20,184,166,0.16),rgba(15,23,42,0.56))] p-5 shadow-[0_20px_62px_rgba(0,0,0,0.24)] backdrop-blur-xl md:p-6">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 class="m-0 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{downloadMeta.installTitle}</h2>
+            <p class="mt-2 max-w-[72ch] text-[14px] leading-7 text-slate-300">{downloadMeta.installLead}</p>
+          </div>
+          <a
+            class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-slate-50 px-4 text-[13px] font-semibold text-slate-950 transition hover:bg-teal-100"
+            href={latestReleaseHref}
+          >
+            {downloadMeta.releaseCta}
+          </a>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 gap-4">
+          <article class="rounded-[1.3rem] border border-slate-400/15 bg-slate-950/32 p-4">
+            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{downloadMeta.desktopTitle}</h3>
+            <div class="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
+              {downloadLinks.map((item) => (
+                <a
+                  class="group flex min-h-[4.5rem] items-center justify-between gap-3 rounded-2xl border border-slate-400/15 bg-slate-950/40 px-4 py-3 transition hover:border-teal-300/45 hover:bg-slate-900/58"
+                  href={item.href}
+                >
+                  <span>
+                    <span class="block text-[14px] font-semibold text-slate-50">{item.label}</span>
+                    <span class="mt-1 block text-[12px] text-slate-400">{item.meta}</span>
+                  </span>
+                  <span class="text-[18px] leading-none text-teal-300 transition group-hover:translate-x-0.5">-&gt;</span>
+                </a>
+              ))}
+            </div>
+          </article>
+
+          <article class="rounded-[1.3rem] border border-slate-400/15 bg-slate-950/32 p-4">
+            <h3 class="m-0 text-[1.05rem] font-semibold tracking-[-0.02em] text-slate-50">{downloadMeta.serverTitle}</h3>
+            <div class="mt-3 rounded-2xl border border-slate-400/15 bg-slate-950/72 p-3">
+              <code class="block break-all text-[12px] leading-6 text-teal-100">{installCommand}</code>
+            </div>
+            <p class="mt-3 text-[13px] leading-6 text-slate-400">{downloadMeta.serverHint}</p>
+          </article>
+        </div>
+      </section>
+
       <h2 class="mt-9 text-[1.65rem] font-semibold tracking-[-0.04em] text-slate-50">{props.sectionTitle}</h2>
       <p class="mt-2.5 max-w-[64ch] text-[15px] leading-7 text-slate-400">{props.sectionLead}</p>
 
@@ -174,6 +335,116 @@ const previewMeta =
           </article>
         ))}
       </section>
+
+      <section class="mt-5 rounded-[1.45rem] border border-slate-500/18 bg-[linear-gradient(145deg,rgba(15,23,42,0.58),rgba(15,23,42,0.38))] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.18)] backdrop-blur-xl md:flex md:items-center md:justify-between md:gap-5">
+        <div>
+          <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-slate-50">{downloadMeta.docsTitle}</h2>
+          <p class="mt-2 max-w-[62ch] text-[14px] leading-6 text-slate-400">{downloadMeta.docsLead}</p>
+        </div>
+        <a
+          class="mt-4 inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-teal-300/30 bg-teal-400/10 px-4 text-[13px] font-semibold text-teal-200 transition hover:border-teal-200/50 hover:bg-teal-400/16 md:mt-0"
+          href={withBase(props.quickStartHref)}
+        >
+          {downloadMeta.docsCta}
+        </a>
+      </section>
+
+      <style>
+        .gallery-carousel {
+          overflow: hidden;
+        }
+
+        .gallery-slide {
+          display: none;
+        }
+
+        .gallery-slide.is-active {
+          display: block;
+        }
+
+        .gallery-button {
+          position: absolute;
+          top: 50%;
+          display: inline-flex;
+          height: 2.5rem;
+          width: 2.5rem;
+          transform: translateY(-50%);
+          align-items: center;
+          justify-content: center;
+          border-radius: 9999px;
+          border: 1px solid rgba(148, 163, 184, 0.24);
+          background: rgba(2, 6, 23, 0.72);
+          color: rgb(204, 251, 241);
+          font-size: 1.125rem;
+          font-weight: 700;
+          transition:
+            background-color 180ms ease,
+            border-color 180ms ease,
+            color 180ms ease;
+        }
+
+        .gallery-button:hover {
+          border-color: rgba(94, 234, 212, 0.5);
+          background: rgba(15, 23, 42, 0.86);
+          color: rgb(240, 253, 250);
+        }
+
+        .gallery-button:focus-visible,
+        .gallery-dot:focus-visible {
+          outline: 2px solid rgb(45, 212, 191);
+          outline-offset: 3px;
+        }
+
+        .gallery-dot {
+          height: 0.5rem;
+          width: 0.5rem;
+          border-radius: 9999px;
+          background: rgba(148, 163, 184, 0.42);
+          transition:
+            background-color 180ms ease,
+            width 180ms ease;
+        }
+
+        .gallery-dot.is-active {
+          width: 1.5rem;
+          background: rgb(45, 212, 191);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gallery-button,
+          .gallery-dot {
+            transition: none;
+          }
+        }
+      </style>
+      <script>
+        for (const gallery of document.querySelectorAll("[data-gallery]")) {
+          const slides = Array.from(gallery.querySelectorAll("[data-gallery-slide]"));
+          const dots = Array.from(gallery.querySelectorAll("[data-gallery-dot]"));
+          const previous = gallery.querySelector("[data-gallery-prev]");
+          const next = gallery.querySelector("[data-gallery-next]");
+          let activeIndex = 0;
+
+          const showSlide = (nextIndex) => {
+            activeIndex = (nextIndex + slides.length) % slides.length;
+            slides.forEach((slide, index) => {
+              slide.classList.toggle("is-active", index === activeIndex);
+            });
+            dots.forEach((dot, index) => {
+              dot.classList.toggle("is-active", index === activeIndex);
+            });
+          };
+
+          previous?.addEventListener("click", () => showSlide(activeIndex - 1));
+          next?.addEventListener("click", () => showSlide(activeIndex + 1));
+          dots.forEach((dot) => {
+            dot.addEventListener("click", () => {
+              const index = Number(dot.getAttribute("data-gallery-index") ?? 0);
+              showSlide(index);
+            });
+          });
+        }
+      </script>
     </main>
   </body>
 </html>
