@@ -139,12 +139,12 @@ Notes:
 
 If you deploy Clash for AI on a remote Linux server, there are usually two access patterns:
 
-Option 1: SSH port forwarding
+Option 1: SSH tunnel for Web UI access
 
 Run this locally:
 
 ```bash
-ssh -L 3456:127.0.0.1:3456 your-server
+ssh -N -L 3456:127.0.0.1:3456 user@host
 ```
 
 Then open this in your local browser:

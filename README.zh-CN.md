@@ -137,12 +137,12 @@ clash-for-ai run
 
 如果你是在远程 Linux server 部署，通常有两种方式：
 
-- 方式一：SSH 端口转发
+- 方式一：通过 SSH 隧道访问 Web UI 管理页面
 
 本地执行：
 
 ```bash
-ssh -L 3456:127.0.0.1:3456 your-server
+ssh -N -L 3456:127.0.0.1:3456 user@host
 ```
 
 然后本地浏览器访问：
