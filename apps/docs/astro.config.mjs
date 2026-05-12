@@ -2,8 +2,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
 
-const repository = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "clash-for-ai";
-const site = process.env.DOCS_SITE_URL ?? `https://xiaoyuandev.github.io/${repository}`;
+const site = process.env.DOCS_SITE_URL ?? "https://www.clashforai.com";
 const siteURL = new URL(site);
 const normalizedBase =
   siteURL.pathname && siteURL.pathname !== "/"
