@@ -4,6 +4,8 @@
 
 <a href="https://www.clashforai.com/" target="_blank" rel="noopener noreferrer">Public Docs</a> | <a href="https://www.clashforai.com/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link Import Guide</a> | <a href="https://trendshift.io/repositories/27531" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
 
+<a href="https://www.producthunt.com/products/github-376?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-github-986be850-3079-4734-96bc-d67b24532f07" target="_blank" rel="noopener noreferrer"><img alt="GitHub - Switching and management of major relay API services | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1145071&amp;theme=light&amp;t=1778578640911"></a>
+
 Clash for AI brings multiple AI relay APIs, native model sources, and local AI tools behind one local endpoint.
 
 If you switch between models or provider configuration across Cursor, Kiro, Cherry Studio, Codex, Claude Code, OpenClaw, Hermes Agent, or your own scripts, Clash for AI lets you configure one local address once and switch upstreams from a single UI.
