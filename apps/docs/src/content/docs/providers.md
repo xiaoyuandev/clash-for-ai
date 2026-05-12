@@ -1,6 +1,6 @@
 ---
-title: Providers
-description: Notes about provider setup, `/v1`, and model list compatibility.
+title: OpenAI-Compatible Provider Setup
+description: Configure provider Base URLs, /v1 endpoints, API keys, and model list compatibility for OpenAI-compatible relay services.
 slug: providers
 ---
 

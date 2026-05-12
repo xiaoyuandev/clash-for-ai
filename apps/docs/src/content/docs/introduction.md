@@ -1,6 +1,6 @@
 ---
-title: Introduction
-description: What Clash for AI is and who it is for.
+title: Local AI Gateway Introduction
+description: What Clash for AI is, who it is for, and how one local OpenAI-compatible gateway helps switch AI providers.
 slug: introduction
 ---
 

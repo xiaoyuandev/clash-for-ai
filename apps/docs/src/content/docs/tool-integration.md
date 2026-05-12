@@ -1,6 +1,6 @@
 ---
-title: Tool Integration
-description: Common ways to connect coding tools, chat clients, and SDKs.
+title: Tool Integration for Cursor, Claude Code, Codex, and SDKs
+description: Configure Cursor, Claude Code, Codex CLI, Cherry Studio, OpenAI SDK scripts, and other tools to use the Clash for AI local endpoint.
 slug: tool-integration
 ---
 
@@ -126,4 +126,4 @@ Clash for AI is a local gateway and provider switcher. The client tool still cho
 
 The ordered models configured in Clash for AI only act as a fallback chain when the requested model is already inside that selected list and the upstream request fails with a retryable condition.
 
-<img src="../img/connectatool.png" alt="IDE or plugin connection fields" />
+<img src="../img/connectatool.png" alt="Clash for AI tool integration fields for IDEs and plugins" />

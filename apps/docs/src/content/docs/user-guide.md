@@ -1,6 +1,6 @@
 ---
-title: User Guide
-description: A fuller guide to the real-world setup flow for Clash for AI.
+title: User Guide for Desktop, WSL, and Linux Server
+description: A practical guide to Clash for AI providers, model fallback, request logs, tool integration, and WSL / Linux Server management.
 slug: user-guide
 ---
 
@@ -137,7 +137,7 @@ https://api.example.com/v1
 
 If the provider documentation shows only a root domain, test both the documented value and the `/v1` form if model discovery fails.
 
-<img src="../img/quick-start-provider-form.png" alt="Provider overview" />
+<img src="../img/quick-start-provider-form.png" alt="Clash for AI provider overview and OpenAI-compatible configuration" />
 
 ## Tool setup checklist
 
@@ -150,7 +150,7 @@ API Key: dummy
 
 Use the actual local port shown in the desktop app if it is not `3456`.
 
-<img src="../img/connectatool.png" alt="Connect a tool settings" />
+<img src="../img/connectatool.png" alt="Clash for AI connect a tool settings for local endpoint configuration" />
 
 ## What the Models page actually does
 

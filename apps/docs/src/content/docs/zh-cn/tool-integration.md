@@ -1,6 +1,6 @@
 ---
-title: 工具接入
-description: 编程工具、聊天客户端和 SDK 的常见接入方式。
+title: Cursor、Claude Code、Codex 与 SDK 工具接入
+description: 配置 Cursor、Claude Code、Codex CLI、Cherry Studio、OpenAI SDK 脚本和其他工具使用 Clash for AI 本地端点。
 slug: zh-cn/tool-integration
 ---
 
@@ -126,4 +126,4 @@ Clash for AI 是本地网关和 Provider 切换工具，不会替用户主控模
 
 Clash for AI 中配置的模型排序，只会在“请求模型已经命中已选列表，并且上游失败到可重试条件”时，作为 fallback 链条生效。
 
-<img src="../../img/connectatool.png" alt="IDE / 插件接入字段" />
+<img src="../../img/connectatool.png" alt="Clash for AI 面向 IDE 和插件的工具接入字段" />

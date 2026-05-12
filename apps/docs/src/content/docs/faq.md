@@ -1,6 +1,6 @@
 ---
-title: FAQ
-description: Common questions about configuration, model lists, and fallback behavior.
+title: FAQ for Local AI Gateway Setup
+description: Common questions about Clash for AI API keys, OpenAI-compatible model lists, fallback behavior, and Gemini compatibility.
 slug: faq
 ---
 

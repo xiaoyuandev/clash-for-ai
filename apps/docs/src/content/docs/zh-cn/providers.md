@@ -1,6 +1,6 @@
 ---
-title: Providers
-description: 关于 Base URL、/v1 和模型列表兼容性的说明。
+title: OpenAI 兼容 Provider 配置
+description: 配置 OpenAI 兼容中转服务的 Base URL、/v1 端点、API Key 和模型列表兼容性。
 slug: zh-cn/providers
 ---
 

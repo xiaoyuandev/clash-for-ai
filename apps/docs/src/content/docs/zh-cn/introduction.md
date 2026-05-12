@@ -1,6 +1,6 @@
 ---
-title: 项目介绍
-description: 了解 Clash for AI 的定位、适用人群和核心思路。
+title: 本地 AI 网关介绍
+description: 了解 Clash for AI 的定位、适用人群，以及如何用一个本地 OpenAI 兼容网关切换 AI Provider。
 slug: zh-cn/introduction
 ---
 

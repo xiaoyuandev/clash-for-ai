@@ -1,6 +1,6 @@
 ---
-title: Deep Link 导入
-description: 说明第三方网页如何唤起 Clash for AI，并传入 Provider 或 Models 导入配置。
+title: 面向中转站的 Deep Link 导入
+description: 说明第三方中转站网页如何唤起 Clash for AI，并在用户确认后导入 Provider 或 Models 配置。
 slug: zh-cn/deep-link-import
 ---
 

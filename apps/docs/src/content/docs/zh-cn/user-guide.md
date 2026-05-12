@@ -1,6 +1,6 @@
 ---
-title: 使用手册
-description: 一份更完整的 Clash for AI 实际使用说明。
+title: 桌面端、WSL 与 Linux Server 使用手册
+description: 系统了解 Clash for AI 的 Provider、模型 fallback、请求日志、工具接入和 WSL / Linux Server 管理入口。
 slug: zh-cn/user-guide
 ---
 
@@ -137,7 +137,7 @@ https://api.example.com/v1
 
 如果服务商文档只给了根域名，而模型列表获取失败，建议再尝试一次带 `/v1` 的写法。
 
-<img src="../../img/quick-start-provider-form.png" alt="Provider 概览" />
+<img src="../../img/quick-start-provider-form.png" alt="Clash for AI Provider 概览和 OpenAI 兼容配置" />
 
 ## 工具接入检查清单
 
@@ -150,7 +150,7 @@ API Key: dummy
 
 如果应用里显示的实际端口不是 `3456`，请以桌面应用中的 `connected api base` 为准。
 
-<img src="../../img/connectatool.png" alt="Connect a Tool 界面" />
+<img src="../../img/connectatool.png" alt="Clash for AI 工具接入界面和本地端点配置" />
 
 ## Models 页面到底什么时候生效
 

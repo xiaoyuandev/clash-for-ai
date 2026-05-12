@@ -1,6 +1,6 @@
 ---
-title: FAQ
-description: 关于配置、模型列表和 fallback 的常见问题。
+title: 本地 AI 网关配置 FAQ
+description: 关于 Clash for AI API Key、OpenAI 兼容模型列表、fallback 行为和 Gemini 兼容性的常见问题。
 slug: zh-cn/faq
 ---
 

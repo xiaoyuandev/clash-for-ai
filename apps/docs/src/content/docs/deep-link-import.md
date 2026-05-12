@@ -1,6 +1,6 @@
 ---
-title: Deep Link Import
-description: How third-party websites can open Clash for AI and pass provider or model source import data.
+title: Deep Link Import for Relay Providers
+description: How third-party relay websites can open Clash for AI and import provider or model source data with user confirmation.
 slug: deep-link-import
 ---
 

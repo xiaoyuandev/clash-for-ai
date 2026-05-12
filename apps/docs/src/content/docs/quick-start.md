@@ -1,6 +1,6 @@
 ---
-title: Quick Start
-description: Install, launch, add a provider, and connect your first tool.
+title: "Quick Start: Install and Connect an AI Tool"
+description: Install Clash for AI, add an OpenAI-compatible provider, and connect Cursor, Claude Code, Codex, or another tool to the local gateway.
 slug: quick-start
 ---
 
@@ -36,7 +36,7 @@ Open the `Providers` page and fill in:
 
 For OpenAI-compatible relay services, the Base URL usually ends with `/v1`.
 
-<img src="../img/quick-start-provider-form.png" alt="Provider form" />
+<img src="../img/quick-start-provider-form.png" alt="Clash for AI OpenAI-compatible provider form" />
 
 ## Step 3: Activate the provider
 
@@ -65,4 +65,4 @@ After your tool is connected:
 
 If the request fails, start with the provider health check and then inspect the request log details.
 
-<img src="../img/quick-start-request-log.png" alt="Request Log" />
+<img src="../img/quick-start-request-log.png" alt="Clash for AI local gateway request log" />
