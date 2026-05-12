@@ -136,22 +136,44 @@ const seoMeta =
           "Switch upstream services without editing every tool's Base URL and model configuration"
         ],
       };
+const publisher = {
+  "@type": "Person",
+  "@id": "https://github.com/xiaoyuandev#person",
+  name: "xiaoyuandev",
+  url: "https://github.com/xiaoyuandev"
+};
 const structuredData = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Clash for AI",
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: ["macOS", "Windows", "Linux"],
-  description: seoMeta.description,
-  url: canonicalUrl,
-  downloadUrl: latestReleaseHref,
-  softwareVersion: releaseVersion,
-  codeRepository: "https://github.com/xiaoyuandev/clash-for-ai",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD"
-  }
+  "@graph": [
+    publisher,
+    {
+      "@type": "WebSite",
+      "@id": `${canonicalUrl}#website`,
+      name: "Clash for AI Docs",
+      url: canonicalUrl,
+      inLanguage: props.lang,
+      publisher
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${canonicalUrl}#software`,
+      name: "Clash for AI",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: ["macOS", "Windows", "Linux"],
+      description: seoMeta.description,
+      url: canonicalUrl,
+      downloadUrl: latestReleaseHref,
+      softwareVersion: releaseVersion,
+      codeRepository: "https://github.com/xiaoyuandev/clash-for-ai",
+      inLanguage: props.lang,
+      publisher,
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD"
+      }
+    }
+  ]
 };
 
 const galleryImages = [
