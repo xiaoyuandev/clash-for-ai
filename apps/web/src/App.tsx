@@ -1,5 +1,5 @@
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "./i18n/i18n-provider";
 import { useTheme } from "./theme/theme-provider";
 import { ProvidersPage } from "./pages/providers-page";
@@ -43,6 +43,7 @@ export default function App() {
       healthy: false
     }
   });
+  const ignoreSelectedProviderChange = useCallback(() => {}, []);
 
   const navItems = useMemo(
     () => [
@@ -246,11 +247,21 @@ export default function App() {
             <Routes>
               <Route
                 path="/"
-                element={<ProvidersPage selectedProviderId={null} onSelectedProviderChange={() => {}} />}
+                element={
+                  <ProvidersPage
+                    selectedProviderId={null}
+                    onSelectedProviderChange={ignoreSelectedProviderChange}
+                  />
+                }
               />
               <Route
                 path="/providers"
-                element={<ProvidersPage selectedProviderId={null} onSelectedProviderChange={() => {}} />}
+                element={
+                  <ProvidersPage
+                    selectedProviderId={null}
+                    onSelectedProviderChange={ignoreSelectedProviderChange}
+                  />
+                }
               />
               <Route path="/models" element={<ModelsPage />} />
               <Route path="/logs" element={<LogsPage />} />
