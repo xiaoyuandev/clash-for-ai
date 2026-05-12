@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
-import { getReleaseMetadata, type RuntimeInfo } from "../services/api";
+import { getLatestGitHubRelease, getReleaseMetadata, type GitHubRelease } from "../services/api";
+import { copyText } from "../bridge/platform-bridge";
 import {
+  actionRowClass,
+  buttonClass,
   eyebrowClass,
   heroClass,
   heroCopyClass,
   heroTitleClass,
+  hintClass,
   infoCardClass,
   metricValueClass,
+  monoClass,
   pageShellClass,
   sectionCardClass,
   sectionHeadClass,
@@ -16,9 +21,44 @@ import {
   statusPillClass
 } from "../ui";
 
+const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
+const latestReleaseUrl = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
+
+function normalizeVersion(value?: string) {
+  return (value ?? "").trim().replace(/^v/i, "");
+}
+
+function compareVersions(current?: string, latest?: string) {
+  const currentParts = normalizeVersion(current).split(".").map((part) => Number.parseInt(part, 10));
+  const latestParts = normalizeVersion(latest).split(".").map((part) => Number.parseInt(part, 10));
+
+  if (!currentParts.length || !latestParts.length || currentParts.some(Number.isNaN) || latestParts.some(Number.isNaN)) {
+    return 0;
+  }
+
+  const length = Math.max(currentParts.length, latestParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const currentValue = currentParts[index] ?? 0;
+    const latestValue = latestParts[index] ?? 0;
+
+    if (latestValue > currentValue) {
+      return 1;
+    }
+
+    if (latestValue < currentValue) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
 export function SettingsPage() {
   const { t } = useI18n();
   const [releaseMetadata, setReleaseMetadata] = useState<Awaited<ReturnType<typeof getReleaseMetadata>> | null>(null);
+  const [latestRelease, setLatestRelease] = useState<GitHubRelease | null>(null);
+  const [latestReleaseError, setLatestReleaseError] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +80,49 @@ export function SettingsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void getLatestGitHubRelease()
+      .then((payload) => {
+        if (!cancelled) {
+          setLatestRelease(payload);
+          setLatestReleaseError(null);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLatestRelease(null);
+          setLatestReleaseError(error instanceof Error ? error.message : t("settings.updates.latestError"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  const currentVersion = releaseMetadata?.available ? releaseMetadata.release?.release_version : undefined;
+  const latestVersion = latestRelease?.tag_name;
+  const updateComparison = compareVersions(currentVersion, latestVersion);
+  const updateAvailable = updateComparison > 0;
+  const updateStatus = latestReleaseError
+    ? t("settings.updates.latestUnavailable")
+    : latestRelease
+      ? updateAvailable
+        ? t("settings.updates.updateAvailable")
+        : t("settings.updates.upToDate")
+      : t("settings.updates.checking");
+
+  async function handleCopyInstallCommand() {
+    try {
+      await copyText(installCommand);
+      setCopyFeedback(t("settings.updates.installCommandCopied"));
+    } catch {
+      setCopyFeedback(t("settings.updates.installCommandCopyFailed"));
+    }
+  }
+
   return (
     <main className={pageShellClass}>
       <section className={heroClass}>
@@ -49,7 +132,7 @@ export function SettingsPage() {
             <h1 className={heroTitleClass}>{t("settings.title")}</h1>
           </div>
           <p className={heroCopyClass}>
-            This web view is a supplementary entry for WSL and Linux server environments.
+            {t("settings.web.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -62,8 +145,7 @@ export function SettingsPage() {
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>Scope</h2>
             <p className={sectionMetaClass}>
-              Browser settings are intentionally limited here. Local runtime lifecycle and desktop integration remain
-              in Electron.
+              {t("settings.web.scope")}
             </p>
           </div>
         </div>
@@ -75,7 +157,7 @@ export function SettingsPage() {
           </div>
           <div className={infoCardClass}>
             <p className={sectionMetaClass}>Management mode</p>
-            <p className={metricValueClass}>Supplementary web access</p>
+            <p className={metricValueClass}>{t("settings.web.managementMode")}</p>
           </div>
           <div className={infoCardClass}>
             <p className={sectionMetaClass}>Release version</p>
@@ -91,6 +173,52 @@ export function SettingsPage() {
                 : t("settings.value.unknown")}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className={sectionCardClass}>
+        <div className={sectionHeadClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>{t("settings.webUpdate.title")}</h2>
+            <p className={sectionMetaClass}>{t("settings.webUpdate.meta")}</p>
+          </div>
+          <span className={statusPillClass(updateAvailable ? "success" : latestReleaseError ? "danger" : "default")}>
+            {updateStatus}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className={infoCardClass}>
+            <p className={sectionMetaClass}>{t("settings.updates.currentVersion")}</p>
+            <p className={metricValueClass}>{currentVersion ?? t("settings.value.unknown")}</p>
+          </div>
+          <div className={infoCardClass}>
+            <p className={sectionMetaClass}>{t("settings.updates.latestVersion")}</p>
+            <p className={metricValueClass}>{latestVersion ?? t("settings.value.unknown")}</p>
+          </div>
+          <div className={infoCardClass}>
+            <p className={sectionMetaClass}>{t("settings.updates.status")}</p>
+            <p className={metricValueClass}>{updateStatus}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
+          <p className={hintClass}>{t("settings.webUpdate.commandHint")}</p>
+          <code className={`${monoClass} mt-3 block rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3`}>
+            {installCommand}
+          </code>
+          {copyFeedback ? <p className={`${hintClass} mt-2`}>{copyFeedback}</p> : null}
+        </div>
+
+        {latestReleaseError ? <p className={`${hintClass} mt-3`}>{latestReleaseError}</p> : null}
+
+        <div className={`${actionRowClass} mt-4`}>
+          <a className={buttonClass(updateAvailable ? "primary" : "secondary")} href={latestRelease?.html_url ?? latestReleaseUrl} target="_blank" rel="noreferrer">
+            {t("settings.button.openReleasePage")}
+          </a>
+          <button type="button" className={buttonClass("secondary")} onClick={() => void handleCopyInstallCommand()}>
+            {t("settings.webUpdate.copyInstallCommand")}
+          </button>
         </div>
       </section>
     </main>

@@ -77,6 +77,13 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface GitHubRelease {
+  tag_name: string;
+  name?: string;
+  html_url: string;
+  published_at?: string;
+}
+
 export interface RuntimeInfo {
   os: string;
   arch: string;
@@ -133,6 +140,18 @@ export async function getReleaseMetadata(apiBase?: string): Promise<ReleaseMetad
     `${getApiBase(apiBase)}/api/release`,
     {},
     "Release metadata request failed"
+  );
+}
+
+export async function getLatestGitHubRelease(): Promise<GitHubRelease> {
+  return fetchJson<GitHubRelease>(
+    "https://api.github.com/repos/xiaoyuandev/clash-for-ai/releases/latest",
+    {
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    },
+    "Latest release request failed"
   );
 }
 
