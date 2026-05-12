@@ -75,6 +75,7 @@ interface SettingsPageProps {
   onDownloadUpdate: () => Promise<void>;
   onQuitAndInstallUpdate: () => Promise<void>;
   onOpenReleasePage: () => Promise<void>;
+  onOpenProjectPage: () => Promise<void>;
   onCoreRestart: () => Promise<void>;
   onUpdateCorePort: (port: number) => Promise<void>;
   onUpdateLocalGatewayPort: (port: number) => Promise<void>;
@@ -160,6 +161,7 @@ export function SettingsPage({
   onDownloadUpdate,
   onQuitAndInstallUpdate,
   onOpenReleasePage,
+  onOpenProjectPage,
   onCoreRestart,
   onUpdateCorePort,
   onUpdateLocalGatewayPort,
@@ -707,6 +709,38 @@ export function SettingsPage({
               </button>
             </>
           )}
+        </div>
+      </section>
+
+      <section className={sectionCardClass}>
+        <div className={sectionHeadClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>{t("settings.section.project")}</h2>
+            <p className={sectionMetaClass}>{t("settings.meta.project")}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={iconBadgeClass}>
+              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 .5A12 12 0 0 0 8.2 23.9c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.6 1.2 3.3.9.1-.7.4-1.2.7-1.5-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2A11.4 11.4 0 0 1 12 6.6c1 0 2 .1 3 .4 2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.9 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3c0 .3.2.7.8.6A12 12 0 0 0 12 .5" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className={fieldLabelClass}>{t("settings.project.github")}</p>
+              <p className={`${monoClass} mt-2 truncate text-xs`}>
+                https://github.com/xiaoyuandev/clash-for-ai
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={buttonClass("secondary")}
+            onClick={() => void onOpenProjectPage()}
+          >
+            {t("settings.button.openProjectPage")}
+          </button>
         </div>
       </section>
     </main>

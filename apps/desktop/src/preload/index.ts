@@ -38,6 +38,7 @@ const api = {
   downloadUpdate: () => ipcRenderer.invoke("app:download-update"),
   quitAndInstallUpdate: () => ipcRenderer.invoke("app:quit-and-install-update"),
   openReleasePage: () => ipcRenderer.invoke("app:open-release-page"),
+  openProjectPage: () => ipcRenderer.invoke("app:open-project-page"),
   consumeDeepLinkEvent: () => ipcRenderer.invoke("app:consume-deep-link-event"),
   onDeepLinkEvent: (listener: (event: DesktopDeepLinkEvent) => void) => {
     const wrapped = (_event: unknown, payload: DesktopDeepLinkEvent) => listener(payload);

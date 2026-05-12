@@ -258,6 +258,7 @@ declare global {
         };
       }>;
       openReleasePage: () => Promise<{ ok: boolean; url: string }>;
+      openProjectPage: () => Promise<{ ok: boolean; url: string }>;
       consumeDeepLinkEvent: () => Promise<DesktopDeepLinkEvent | null>;
       onDeepLinkEvent: (listener: (event: DesktopDeepLinkEvent) => void) => () => void;
     };

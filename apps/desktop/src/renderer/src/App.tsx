@@ -900,6 +900,13 @@ export default function App() {
               onOpenReleasePage={async () => {
                 await handleOpenReleasePage();
               }}
+              onOpenProjectPage={async () => {
+                if (!window.desktopBridge) {
+                  return;
+                }
+
+                await window.desktopBridge.openProjectPage();
+              }}
               onCoreRestart={async () => {
                 if (!window.desktopBridge) {
                   return;
