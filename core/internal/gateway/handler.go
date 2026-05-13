@@ -172,6 +172,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func resolveUpstreamPath(basePath string, requestPath string) string {
+	trimmedBase := strings.TrimRight(basePath, "/")
+	suffix := strings.TrimPrefix(requestPath, "/v1")
+
+	if trimmedBase == "" {
+		return "/v1" + suffix
+	}
+	if strings.HasSuffix(trimmedBase, "/v1") {
+		return trimmedBase + suffix
+	}
+	return trimmedBase + "/v1" + suffix
+}
+
 func joinURLPath(basePath string, requestPath string) string {
 	switch {
 	case basePath == "":
@@ -414,7 +427,7 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 		if input.path == "/v1/models" {
 			reqURL.Path = provider.ResolveModelsPath(input.baseURL.Path)
 		} else {
-			reqURL.Path = joinURLPath(input.baseURL.Path, strings.TrimPrefix(input.path, "/v1"))
+			reqURL.Path = resolveUpstreamPath(input.baseURL.Path, input.path)
 		}
 		reqURL.RawPath = reqURL.Path
 		reqURL.RawQuery = input.rawQuery
