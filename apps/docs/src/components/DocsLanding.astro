@@ -37,6 +37,9 @@ import logo from "../assets/logo.svg";
 import rootPackage from "../../../../package.json";
 import { getAlternateLinks } from "./seo-links";
 import "../styles/site.css";
+const alternateLang = props.lang === "zh-CN"
+  ? { href: "/", label: "English" }
+  : { href: "/zh-cn/", label: "中文" };
 const withBase = (path: string) => {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
   const relative = path.replace(/^\//, "");
@@ -91,6 +94,7 @@ const seoMeta =
         docsTitle: "需要完整接入步骤？",
         docsLead: "详细文档包含 Provider 配置、工具接入、Deep Link 导入和常见问题。",
         docsCta: "查看详细文档",
+        deepLinkCta: "Deep Link 生成器",
         endpointLabel: "本地端点",
         galleryLabel: "产品预览",
         galleryTitle: "在一个桌面界面里管理 Provider、模型来源和请求日志",
@@ -122,6 +126,7 @@ const seoMeta =
         docsTitle: "Need the full setup flow?",
         docsLead: "The docs cover provider configuration, tool integration, Deep Link import, and common setup questions.",
         docsCta: "Read the detailed docs",
+        deepLinkCta: "Deep Link Generator",
         endpointLabel: "Local endpoint",
         galleryLabel: "Product Preview",
         galleryTitle: "Manage providers, model sources, and request logs from one desktop UI",
@@ -249,6 +254,7 @@ const galleryImages = [
           <a class="transition hover:text-slate-100" href={withBase(props.integrationHref)}>{props.nav.integration}</a>
           <a class="transition hover:text-slate-100" href={withBase(props.providersHref)}>{props.nav.providers}</a>
           <a class="transition hover:text-teal-300" href={props.githubHref}>{props.nav.github}</a>
+          <a class="transition hover:text-slate-100" href={withBase(alternateLang.href)}>{alternateLang.label}</a>
         </nav>
       </header>
 
@@ -284,6 +290,12 @@ const galleryImages = [
               href={withBase(props.quickStartHref)}
             >
               {seoMeta.docsCta}
+            </a>
+            <a
+              class="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-5 text-[13px] font-semibold tracking-[0.01em] text-slate-100 transition hover:border-slate-300/30 hover:bg-slate-900/45"
+              href={withBase("/deeplink.html")}
+            >
+              {seoMeta.deepLinkCta}
             </a>
           </div>
         </article>
@@ -407,12 +419,20 @@ const galleryImages = [
           <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-slate-50">{seoMeta.docsTitle}</h2>
           <p class="mt-2 max-w-[62ch] text-[14px] leading-6 text-slate-400">{seoMeta.docsLead}</p>
         </div>
-        <a
-          class="mt-4 inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-teal-300/30 bg-teal-400/10 px-4 text-[13px] font-semibold text-teal-200 transition hover:border-teal-200/50 hover:bg-teal-400/16 md:mt-0"
-          href={withBase(props.quickStartHref)}
-        >
-          {seoMeta.docsCta}
-        </a>
+        <div class="mt-4 flex flex-wrap gap-2 md:mt-0">
+          <a
+            class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-teal-300/30 bg-teal-400/10 px-4 text-[13px] font-semibold text-teal-200 transition hover:border-teal-200/50 hover:bg-teal-400/16"
+            href={withBase(props.quickStartHref)}
+          >
+            {seoMeta.docsCta}
+          </a>
+          <a
+            class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full border border-slate-400/20 bg-slate-950/30 px-4 text-[13px] font-semibold text-slate-200 transition hover:border-slate-300/30 hover:bg-slate-900/45"
+            href={withBase("/deeplink.html")}
+          >
+            {seoMeta.deepLinkCta}
+          </a>
+        </div>
       </section>
 
       <style>

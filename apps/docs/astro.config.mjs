@@ -53,7 +53,7 @@ export default defineConfig({
         },
         {
           label: "Reference",
-          items: [{ slug: "providers" }, { slug: "faq" }]
+          items: [{ slug: "providers" }, { slug: "deep-link-import" }, { slug: "faq" }]
         }
       ]
     })
