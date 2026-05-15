@@ -310,6 +310,19 @@ export default function App() {
         : null;
   const showUpdateReminder =
     updateReminderKey !== null && updateReminderKey !== dismissedUpdateReminderKey;
+  const coreLastError = desktopState?.core.lastError?.trim() ?? "";
+  const corePort = desktopState?.core.port || desktopState?.config.apiPort || 3456;
+  const corePortConflict =
+    desktopState?.core.running === false &&
+    /\bport\b.*\boccupied\b|\boccupied\b.*\bport\b/i.test(coreLastError);
+  const coreStartError =
+    desktopState?.core.running === false
+      ? corePortConflict
+        ? t("app.coreStartFailedPort", { port: corePort })
+        : t("app.coreStartFailedGeneric", {
+            message: coreLastError || t("common.unknownError")
+          })
+      : null;
 
   useEffect(() => {
     if (!window.desktopBridge) {
@@ -808,6 +821,26 @@ export default function App() {
         </aside>
 
         <section className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {coreStartError ? (
+            <div className="mx-auto mb-3 flex w-full max-w-[1600px] flex-col gap-3 rounded-[18px] border [border-color:var(--danger-border)] [background:var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-semibold">{t("app.coreStartFailedTitle")}</p>
+                <p className="mt-1 leading-5">{coreStartError}</p>
+                {coreLastError && coreStartError !== coreLastError ? (
+                  <p className={`${monoClass} mt-2 text-[11px] text-[color:var(--danger-text)]`}>
+                    {coreLastError}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={() => setView("settings")}
+              >
+                {t("app.action.changePort")}
+              </button>
+            </div>
+          ) : null}
           {view === "providers" ? (
             <ProvidersPage
               desktopState={desktopState}

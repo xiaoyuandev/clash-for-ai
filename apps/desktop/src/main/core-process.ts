@@ -88,9 +88,8 @@ export async function startCoreProcess(
       console.info(`[core] port ${port} occupied by unhealthy process (pid ${existingRecord.pid}), terminating...`);
       terminatePid(existingRecord.pid);
       clearCoreProcessRecord();
-      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (!(await isPortAvailable(port))) {
+      if (!(await waitForPortAvailable(port, 10000, 250))) {
         return {
           state: {
             managed: false,
@@ -596,6 +595,19 @@ function isPortAvailable(port: number): Promise<boolean> {
 
     server.listen(port, "127.0.0.1");
   });
+}
+
+async function waitForPortAvailable(port: number, timeoutMs: number, intervalMs: number) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await isPortAvailable(port)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return isPortAvailable(port);
 }
 
 async function waitForHealth(url: string, attempts: number, intervalMs: number) {

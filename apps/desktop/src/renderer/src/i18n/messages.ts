@@ -39,6 +39,11 @@ export const messages = {
     "app.runtimeChip": "core {status} on {port}",
     "app.coreRunning": "running",
     "app.coreStopped": "not running",
+    "app.coreStartFailedTitle": "Core startup failed",
+    "app.coreStartFailedPort":
+      "Core startup failed: port {port} is occupied by another program. Go to Settings to change the API port, or close the program using this port and restart the app.",
+    "app.coreStartFailedGeneric": "Core startup failed: {message}",
+    "app.action.changePort": "Change Port",
     "updates.status.idle": "Up to date",
     "updates.status.checking": "Checking for updates",
     "updates.status.available": "Update available",
@@ -502,6 +507,11 @@ export const messages = {
     "app.runtimeChip": "核心服务 {status}，端口 {port}",
     "app.coreRunning": "运行中",
     "app.coreStopped": "未运行",
+    "app.coreStartFailedTitle": "Core 启动失败",
+    "app.coreStartFailedPort":
+      "Core 启动失败：端口 {port} 已被其他程序占用。请前往设置修改 API 端口，或关闭占用该端口的程序后重启。",
+    "app.coreStartFailedGeneric": "Core 启动失败：{message}",
+    "app.action.changePort": "修改端口",
     "updates.status.idle": "已是最新版本",
     "updates.status.checking": "正在检查更新",
     "updates.status.available": "发现新版本",
