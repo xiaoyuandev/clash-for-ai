@@ -101,6 +101,17 @@ export function ProvidersPage({
     null;
   const detailProvider =
     providers.find((provider) => provider.id === detailProviderID) ?? null;
+  const hasModelTestResults = useMemo(() => {
+    return providerModels.some((model) => modelTestStates[model.id]?.status !== undefined);
+  }, [modelTestStates, providerModels]);
+  const hasAvailableModelTestResult = useMemo(() => {
+    return providerModels.some((model) => modelTestStates[model.id]?.status === "available");
+  }, [modelTestStates, providerModels]);
+  const availableModelsOnlyLoading =
+    showAvailableModelsOnly &&
+    selectedProvider !== null &&
+    testingProviderID === selectedProvider.id &&
+    !hasAvailableModelTestResult;
 
   const filteredModels = useMemo(() => {
     const keyword = modelSearch.trim().toLowerCase();
@@ -207,6 +218,7 @@ export function ProvidersPage({
       if (!providerID) {
         setProviderModels([]);
         setModelTestStates({});
+        setShowAvailableModelsOnly(false);
         setTestingProviderID(null);
         testingProviderIDRef.current = null;
         return;
@@ -215,6 +227,7 @@ export function ProvidersPage({
       setLoadingModels(true);
       if (testingProviderIDRef.current !== providerID) {
         setModelTestStates({});
+        setShowAvailableModelsOnly(false);
         setTestingProviderID(null);
       }
       try {
@@ -418,6 +431,18 @@ export function ProvidersPage({
       testingProviderIDRef.current = null;
       setModelTestStates({});
       setError(healthError instanceof Error ? healthError.message : t("common.unknownError"));
+    }
+  }
+
+  function handleAvailableModelsOnlyChange(checked: boolean) {
+    if (!checked) {
+      setShowAvailableModelsOnly(false);
+      return;
+    }
+
+    setShowAvailableModelsOnly(true);
+    if (selectedProvider && !hasModelTestResults && testingProviderID !== selectedProvider.id) {
+      void handleProviderTest(selectedProvider);
     }
   }
 
@@ -806,20 +831,36 @@ export function ProvidersPage({
                       <div className="space-y-1">
                         <h3 className={sectionTitleClass}>{t("models.available.title")}</h3>
                         <p className={sectionMetaClass}>
-                          {loadingModels
+                          {loadingModels || availableModelsOnlyLoading
                             ? t("common.loading")
                             : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
-                      <label className="inline-flex min-h-9 items-center gap-2 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-text)]">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-[color:var(--accent)]"
-                          checked={showAvailableModelsOnly}
-                          onChange={(event) => setShowAvailableModelsOnly(event.target.checked)}
-                        />
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showAvailableModelsOnly}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)]"
+                        onClick={() => handleAvailableModelsOnlyChange(!showAvailableModelsOnly)}
+                      >
+                        <span
+                          className={`inline-flex h-5 w-9 items-center rounded-full border px-0.5 transition ${
+                            showAvailableModelsOnly
+                              ? "[border-color:var(--success-border)] [background:var(--success-soft)]"
+                              : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <span
+                            className={`h-4 w-4 rounded-full transition ${
+                              showAvailableModelsOnly
+                                ? "translate-x-4 bg-[color:var(--accent-strong)]"
+                                : "translate-x-0 bg-[color:var(--color-subtle)]"
+                            }`}
+                          />
+                        </span>
                         <span>{t("providers.modelTest.showAvailableOnly")}</span>
-                      </label>
+                      </button>
                     </div>
 
                     <div className="mt-3">
@@ -837,7 +878,11 @@ export function ProvidersPage({
                     {filteredModels.length === 0 ? (
                       <div className="mt-4 min-h-0 flex-1">
                         <div className={emptyStateClass}>
-                          <p>{loadingModels ? t("common.loading") : t("providers.detail.modelsEmpty")}</p>
+                          <p>
+                            {loadingModels || availableModelsOnlyLoading
+                              ? t("common.loading")
+                              : t("providers.detail.modelsEmpty")}
+                          </p>
                         </div>
                       </div>
                     ) : (
