@@ -83,18 +83,41 @@ export async function startCoreProcess(
       };
     }
 
-    return {
-      state: {
-        managed: false,
-        running: false,
-        apiBase,
-        port,
-        logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
-        logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
-        lastError: `Port ${port} is already occupied. Free the port or change the fixed port in Settings.`
-      },
-      stop() {}
-    };
+    // Port occupied but core is not healthy — try to kill the stale process and retry
+    if (existingRecord?.port === port) {
+      console.info(`[core] port ${port} occupied by unhealthy process (pid ${existingRecord.pid}), terminating...`);
+      terminatePid(existingRecord.pid);
+      clearCoreProcessRecord();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      if (!(await isPortAvailable(port))) {
+        return {
+          state: {
+            managed: false,
+            running: false,
+            apiBase,
+            port,
+            logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+            logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
+            lastError: `Port ${port} is still occupied after terminating stale process. Free the port or change the fixed port in Settings.`
+          },
+          stop() {}
+        };
+      }
+    } else {
+      return {
+        state: {
+          managed: false,
+          running: false,
+          apiBase,
+          port,
+          logRetentionDays: Number(process.env.LOG_RETENTION_DAYS || 30),
+          logMaxRecords: Number(process.env.LOG_MAX_RECORDS || 10000),
+          lastError: `Port ${port} is already occupied. Free the port or change the fixed port in Settings.`
+        },
+        stop() {}
+      };
+    }
   }
 
   const explicitCoreExecutable = process.env.CORE_EXECUTABLE;
@@ -249,9 +272,11 @@ function spawnCoreBinary(
   console.info(`[core] starting binary ${executable} on port ${port}`);
   const dataDir = resolveCoreRuntimePaths().dataDir;
   mkdirSync(dataDir, { recursive: true });
+  const isWindows = process.platform === "win32";
   const child = spawn(executable, [], {
     cwd: coreDir,
-    stdio: "inherit",
+    stdio: isWindows ? "pipe" : "inherit",
+    windowsHide: true,
     env: {
       ...process.env,
       ...localGatewayRuntimeEnv(),
@@ -260,6 +285,15 @@ function spawnCoreBinary(
       CORE_DATA_DIR: dataDir
     }
   });
+
+  if (isWindows && child.stdout && child.stderr) {
+    child.stdout.on("data", (data: Buffer) => {
+      process.stdout.write(data);
+    });
+    child.stderr.on("data", (data: Buffer) => {
+      process.stderr.write(data);
+    });
+  }
 
   const state: CoreRuntimeState = {
     managed: true,
@@ -295,7 +329,8 @@ function spawnCoreBinary(
     }
   });
 
-  void waitForHealth(`${apiBase}/health`, 20, 250).catch((error) => {
+  const healthAttempts = process.platform === "win32" ? 40 : 20;
+  void waitForHealth(`${apiBase}/health`, healthAttempts, 250).catch((error) => {
     state.lastError = error instanceof Error ? error.message : "core healthcheck failed";
     console.error(`[core] ${state.lastError}`);
   });
@@ -326,9 +361,11 @@ async function spawnGoCore(
 
   const command = `${goBinary} run cmd/clash-for-ai-core/main.go`;
   console.info(`[core] starting via go run on port ${port}`);
+  const isWindows = process.platform === "win32";
   const child = spawn(goBinary, ["run", "cmd/clash-for-ai-core/main.go"], {
     cwd: coreDir,
-    stdio: "inherit",
+    stdio: isWindows ? "pipe" : "inherit",
+    windowsHide: true,
     env: {
       ...process.env,
       ...localGatewayRuntimeEnv(),
@@ -339,6 +376,15 @@ async function spawnGoCore(
       GOMODCACHE: modCacheDir
     }
   });
+
+  if (isWindows && child.stdout && child.stderr) {
+    child.stdout.on("data", (data: Buffer) => {
+      process.stdout.write(data);
+    });
+    child.stderr.on("data", (data: Buffer) => {
+      process.stderr.write(data);
+    });
+  }
 
   const state: CoreRuntimeState = {
     managed: true,
@@ -410,6 +456,7 @@ function buildCoreBinary(
     {
       cwd: coreDir,
       stdio: "inherit",
+      windowsHide: true,
       env: {
         ...process.env,
         GOCACHE: cacheDir,
@@ -439,14 +486,16 @@ function resolveGoBinary(): string | null {
 
 function isUsableGoBinary(candidate: string): boolean {
   const versionResult = spawnSync(candidate, ["version"], {
-    stdio: "ignore"
+    stdio: "ignore",
+    windowsHide: true
   });
   if (versionResult.status !== 0) {
     return false;
   }
 
   const gorootResult = spawnSync(candidate, ["env", "GOROOT"], {
-    encoding: "utf8"
+    encoding: "utf8",
+    windowsHide: true
   });
   if (gorootResult.status !== 0) {
     return false;
