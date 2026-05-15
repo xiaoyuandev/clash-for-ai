@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -128,6 +129,107 @@ func TestFetchModelsAcceptsEmptyOpenAIModelsResponse(t *testing.T) {
 	}
 	if len(models) != 0 {
 		t.Fatalf("expected empty models, got %+v", models)
+	}
+}
+
+func TestTestModelAvailabilityUsesOpenAIChatCompletions(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/chat/completions" {
+			t.Fatalf("unexpected model test path: %s", req.URL.Path)
+		}
+		if got := req.Header.Get("Authorization"); got != "Bearer sk-test" {
+			t.Fatalf("unexpected authorization header: %s", got)
+		}
+		var payload struct {
+			Model     string `json:"model"`
+			MaxTokens int    `json:"max_tokens"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode model test payload: %v", err)
+		}
+		if payload.Model != "gpt-4.1" || payload.MaxTokens != 1 {
+			t.Fatalf("unexpected model test payload: %+v", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+	}))
+	defer upstream.Close()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:     "OpenAI Relay",
+		BaseURL:  upstream.URL + "/v1",
+		APIKey:   "sk-test",
+		AuthMode: AuthModeBearer,
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	result, err := service.TestModelAvailability(ctx, item.ID, "gpt-4.1")
+	if err != nil {
+		t.Fatalf("test model availability: %v", err)
+	}
+	if result.Status != "ok" || result.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected model test result: %+v", result)
+	}
+	if result.Protocol != "openai-compatible" || result.RequestPath != "/v1/chat/completions" {
+		t.Fatalf("unexpected model test protocol/path: %+v", result)
+	}
+}
+
+func TestTestModelAvailabilityUsesAnthropicMessages(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/messages" {
+			t.Fatalf("unexpected model test path: %s", req.URL.Path)
+		}
+		if got := req.Header.Get("x-api-key"); got != "sk-ant-test" {
+			t.Fatalf("unexpected x-api-key header: %s", got)
+		}
+		if got := req.Header.Get("anthropic-version"); got == "" {
+			t.Fatalf("expected anthropic-version header")
+		}
+		var payload struct {
+			Model     string `json:"model"`
+			MaxTokens int    `json:"max_tokens"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode model test payload: %v", err)
+		}
+		if payload.Model != "claude-sonnet-4-20250514" || payload.MaxTokens != 1 {
+			t.Fatalf("unexpected model test payload: %+v", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg-test","type":"message","content":[{"type":"text","text":"o"}]}`))
+	}))
+	defer upstream.Close()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:     "Anthropic Relay",
+		BaseURL:  upstream.URL + "/v1",
+		APIKey:   "sk-ant-test",
+		AuthMode: AuthModeAPIKey,
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	result, err := service.TestModelAvailability(ctx, item.ID, "claude-sonnet-4-20250514")
+	if err != nil {
+		t.Fatalf("test model availability: %v", err)
+	}
+	if result.Status != "ok" || result.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected model test result: %+v", result)
+	}
+	if result.Protocol != "anthropic-compatible" || result.RequestPath != "/v1/messages" {
+		t.Fatalf("unexpected model test protocol/path: %+v", result)
 	}
 }
 

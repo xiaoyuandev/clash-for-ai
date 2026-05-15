@@ -322,6 +322,64 @@ func TestLocalGatewaySourceModelsPreviewEndpoint(t *testing.T) {
 	}
 }
 
+func TestProviderModelTestEndpoint(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/models":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":[{"id":"gpt-4.1"}]}`))
+		case "/v1/chat/completions":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"chatcmpl-test","choices":[{"message":{"role":"assistant","content":"o"}}]}`))
+		default:
+			t.Fatalf("unexpected upstream path: %s", r.URL.Path)
+		}
+	}))
+	defer upstream.Close()
+
+	handler := newTestRouter(t, nil, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/providers", bytes.NewBufferString(`{
+		"name":"OpenAI Relay",
+		"base_url":"`+upstream.URL+`/v1",
+		"api_key":"sk-test",
+		"auth_mode":"bearer",
+		"extra_headers":{},
+		"claude_code_model_map":{"opus":"","sonnet":"","haiku":""}
+	}`))
+	createRec := httptest.NewRecorder()
+	handler.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("unexpected provider create status: %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	var created provider.Provider
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
+	}
+
+	testReq := httptest.NewRequest(http.MethodPost, "/api/providers/"+created.ID+"/model-tests", bytes.NewBufferString(`{"model_id":"gpt-4.1"}`))
+	testRec := httptest.NewRecorder()
+	handler.ServeHTTP(testRec, testReq)
+	if testRec.Code != http.StatusOK {
+		t.Fatalf("unexpected model test status: %d body=%s", testRec.Code, testRec.Body.String())
+	}
+
+	var result provider.ModelTestResult
+	if err := json.Unmarshal(testRec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode model test result: %v", err)
+	}
+	if result.Status != "ok" || result.ModelID != "gpt-4.1" {
+		t.Fatalf("unexpected model test result: %+v", result)
+	}
+}
+
 func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.T) {
 	t.Parallel()
 

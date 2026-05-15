@@ -273,6 +273,19 @@ export interface ProviderHealthcheck {
   provider_url: string;
 }
 
+export interface ProviderModelTestResult {
+  model_id: string;
+  status: string;
+  status_code: number;
+  latency_ms: number;
+  summary: string;
+  checked_at: string;
+  provider_id: string;
+  provider_url: string;
+  protocol: string;
+  request_path: string;
+}
+
 export async function runProviderHealthcheck(
   id: string,
   apiBase?: string
@@ -283,6 +296,24 @@ export async function runProviderHealthcheck(
       method: "POST"
     },
     "Healthcheck failed"
+  );
+}
+
+export async function runProviderModelTest(
+  id: string,
+  modelID: string,
+  apiBase?: string
+): Promise<ProviderModelTestResult> {
+  return fetchJson<ProviderModelTestResult>(
+    `${getApiBase(apiBase)}/api/providers/${id}/model-tests`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ model_id: modelID })
+    },
+    "Model test failed"
   );
 }
 

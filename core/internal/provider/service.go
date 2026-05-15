@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,6 +37,10 @@ type ModelInfo struct {
 	ID      string `json:"id"`
 	Object  string `json:"object,omitempty"`
 	OwnedBy string `json:"owned_by,omitempty"`
+}
+
+type TestModelInput struct {
+	ModelID string `json:"model_id"`
 }
 
 type Service struct {
@@ -536,6 +541,203 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	}
 
 	return nil, fmt.Errorf("models response format not recognized")
+}
+
+func (s *Service) TestModelAvailability(ctx context.Context, id string, modelID string) (*ModelTestResult, error) {
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	trimmedModelID := strings.TrimSpace(modelID)
+	if trimmedModelID == "" {
+		return nil, fmt.Errorf("model_id is required")
+	}
+
+	baseURL, err := url.Parse(item.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid provider base_url: %w", err)
+	}
+
+	apiKey, err := s.credentials.Get(ctx, item.APIKeyRef)
+	if err != nil {
+		return nil, fmt.Errorf("load provider credential: %w", err)
+	}
+
+	protocols := modelTestProtocolOrder(*item, trimmedModelID)
+	var lastResult *ModelTestResult
+	for index, protocol := range protocols {
+		result := s.runModelAvailabilityRequest(ctx, *item, *baseURL, apiKey, trimmedModelID, protocol)
+		if result.Status == "ok" {
+			return result, nil
+		}
+		lastResult = result
+		if index < len(protocols)-1 && shouldRetryModelTestWithAlternateProtocol(result.StatusCode) {
+			continue
+		}
+		break
+	}
+
+	return lastResult, nil
+}
+
+func (s *Service) runModelAvailabilityRequest(
+	ctx context.Context,
+	item Provider,
+	baseURL url.URL,
+	apiKey string,
+	modelID string,
+	protocol string,
+) *ModelTestResult {
+	target := baseURL
+	target.Path = resolveModelTestPath(baseURL.Path, protocol)
+	target.RawPath = target.Path
+
+	payload := map[string]any{
+		"model":      modelID,
+		"max_tokens": 1,
+		"messages": []map[string]string{
+			{
+				"role":    "user",
+				"content": "hi",
+			},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return modelTestErrorResult(item, modelID, protocol, target.Path, 0, 0, err.Error())
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.String(), bytes.NewReader(body))
+	if err != nil {
+		return modelTestErrorResult(item, modelID, protocol, target.Path, 0, 0, err.Error())
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = int64(len(body))
+	ApplyCredentialHeaders(req, item, apiKey, nil)
+	if protocol == "anthropic-compatible" && req.Header.Get("anthropic-version") == "" {
+		req.Header.Set("anthropic-version", "2023-06-01")
+	}
+
+	startedAt := time.Now()
+	resp, err := s.client.Do(req)
+	latencyMs := time.Since(startedAt).Milliseconds()
+	if err != nil {
+		return modelTestErrorResult(item, modelID, protocol, target.Path, 0, latencyMs, err.Error())
+	}
+	defer resp.Body.Close()
+
+	bodySnippet := ""
+	if responseBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 512)); readErr == nil {
+		bodySnippet = strings.TrimSpace(string(responseBody))
+	}
+
+	status := "ok"
+	summary := fmt.Sprintf("HTTP %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		status = "error"
+		if bodySnippet != "" {
+			summary = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, bodySnippet)
+		}
+	}
+
+	return &ModelTestResult{
+		ModelID:     modelID,
+		Status:      status,
+		StatusCode:  resp.StatusCode,
+		LatencyMs:   latencyMs,
+		Summary:     summary,
+		CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+		ProviderID:  item.ID,
+		ProviderURL: item.BaseURL,
+		Protocol:    protocol,
+		RequestPath: target.Path,
+	}
+}
+
+func modelTestErrorResult(
+	item Provider,
+	modelID string,
+	protocol string,
+	requestPath string,
+	statusCode int,
+	latencyMs int64,
+	summary string,
+) *ModelTestResult {
+	return &ModelTestResult{
+		ModelID:     modelID,
+		Status:      "error",
+		StatusCode:  statusCode,
+		LatencyMs:   latencyMs,
+		Summary:     summary,
+		CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+		ProviderID:  item.ID,
+		ProviderURL: item.BaseURL,
+		Protocol:    protocol,
+		RequestPath: requestPath,
+	}
+}
+
+func modelTestProtocolOrder(item Provider, modelID string) []string {
+	openAI := item.Capabilities.SupportsOpenAICompatible
+	anthropic := item.Capabilities.SupportsAnthropicCompatible
+
+	switch {
+	case openAI && !anthropic:
+		return []string{"openai-compatible"}
+	case anthropic && !openAI:
+		return []string{"anthropic-compatible"}
+	case item.AuthMode == AuthModeBearer:
+		return []string{"openai-compatible", "anthropic-compatible"}
+	case item.AuthMode == AuthModeAPIKey:
+		return []string{"anthropic-compatible", "openai-compatible"}
+	case looksLikeAnthropicModel(modelID):
+		return []string{"anthropic-compatible", "openai-compatible"}
+	default:
+		return []string{"openai-compatible", "anthropic-compatible"}
+	}
+}
+
+func looksLikeAnthropicModel(modelID string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(modelID))
+	return strings.Contains(normalized, "claude") ||
+		strings.Contains(normalized, "anthropic") ||
+		strings.Contains(normalized, "sonnet") ||
+		strings.Contains(normalized, "opus") ||
+		strings.Contains(normalized, "haiku")
+}
+
+func shouldRetryModelTestWithAlternateProtocol(statusCode int) bool {
+	switch statusCode {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusUnsupportedMediaType, http.StatusUnprocessableEntity:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveModelTestPath(basePath string, protocol string) string {
+	switch protocol {
+	case "anthropic-compatible":
+		return resolveProviderV1Path(basePath, "/messages")
+	default:
+		return resolveProviderV1Path(basePath, "/chat/completions")
+	}
+}
+
+func resolveProviderV1Path(basePath string, requestPath string) string {
+	trimmed := strings.TrimRight(basePath, "/")
+	suffix := strings.TrimPrefix(requestPath, "/")
+
+	switch {
+	case trimmed == "":
+		return "/v1/" + suffix
+	case strings.HasSuffix(trimmed, "/v1"):
+		return trimmed + "/" + suffix
+	default:
+		return trimmed + "/v1/" + suffix
+	}
 }
 
 func ResolveModelsPath(basePath string) string {

@@ -52,3 +52,16 @@ type SelectedModel struct {
 	ModelID  string `json:"model_id"`
 	Position int    `json:"position"`
 }
+
+type ModelTestResult struct {
+	ModelID     string `json:"model_id"`
+	Status      string `json:"status"`
+	StatusCode  int    `json:"status_code"`
+	LatencyMs   int64  `json:"latency_ms"`
+	Summary     string `json:"summary"`
+	CheckedAt   string `json:"checked_at"`
+	ProviderID  string `json:"provider_id"`
+	ProviderURL string `json:"provider_url"`
+	Protocol    string `json:"protocol"`
+	RequestPath string `json:"request_path"`
+}

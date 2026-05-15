@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
 import {
@@ -10,6 +10,8 @@ import {
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
+  runProviderModelTest,
+  type ProviderModelTestResult,
   updateProvider
 } from "../services/api";
 import type { LocalGatewayRuntimeStatus } from "../types/local-gateway";
@@ -47,6 +49,12 @@ interface ProvidersPageProps {
   onSelectedProviderChange: (provider: Provider | null) => void;
 }
 
+type ModelTestState = {
+  status: "testing" | "available" | "unavailable";
+  result?: ProviderModelTestResult;
+  error?: string;
+};
+
 export function ProvidersPage({
   apiBase,
   refreshToken = 0,
@@ -58,6 +66,9 @@ export function ProvidersPage({
   const [providers, setProviders] = useState<Provider[]>([]);
   const [providerModels, setProviderModels] = useState<ProviderModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [modelTestStates, setModelTestStates] = useState<Record<string, ModelTestState>>({});
+  const [testingProviderID, setTestingProviderID] = useState<string | null>(null);
+  const [showAvailableModelsOnly, setShowAvailableModelsOnly] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -81,6 +92,7 @@ export function ProvidersPage({
   const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
   const [draggedClaudeSlot, setDraggedClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
   const [dragOverClaudeSlot, setDragOverClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
+  const testingProviderIDRef = useRef<string | null>(null);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -92,15 +104,17 @@ export function ProvidersPage({
 
   const filteredModels = useMemo(() => {
     const keyword = modelSearch.trim().toLowerCase();
-    if (!keyword) {
-      return providerModels;
-    }
-
     return providerModels.filter((model) => {
+      if (showAvailableModelsOnly && modelTestStates[model.id]?.status !== "available") {
+        return false;
+      }
+      if (!keyword) {
+        return true;
+      }
       const owner = model.owned_by?.toLowerCase() ?? "";
       return model.id.toLowerCase().includes(keyword) || owner.includes(keyword);
     });
-  }, [modelSearch, providerModels]);
+  }, [modelSearch, modelTestStates, providerModels, showAvailableModelsOnly]);
 
   const localGatewayReady =
     localGatewayRuntime?.running === true && localGatewayRuntime.healthy === true;
@@ -187,16 +201,24 @@ export function ProvidersPage({
 
   useEffect(() => {
     let cancelled = false;
+    const providerID = selectedProvider?.id;
 
     async function loadProviderModels() {
-      if (!selectedProvider) {
+      if (!providerID) {
         setProviderModels([]);
+        setModelTestStates({});
+        setTestingProviderID(null);
+        testingProviderIDRef.current = null;
         return;
       }
 
       setLoadingModels(true);
+      if (testingProviderIDRef.current !== providerID) {
+        setModelTestStates({});
+        setTestingProviderID(null);
+      }
       try {
-        const items = await getProviderModels(selectedProvider.id, apiBase);
+        const items = await getProviderModels(providerID, apiBase);
         if (cancelled) {
           return;
         }
@@ -218,7 +240,7 @@ export function ProvidersPage({
     return () => {
       cancelled = true;
     };
-  }, [apiBase, selectedProvider, t]);
+  }, [apiBase, selectedProvider?.id, t]);
 
   useEffect(() => {
     setShowSelectedProviderApiKey(false);
@@ -324,12 +346,18 @@ export function ProvidersPage({
     }
   }
 
-  async function handleHealthcheck(id: string) {
+  async function handleProviderTest(provider: Provider) {
     setError(null);
     setFeedback(null);
+    setTestingProviderID(provider.id);
+    testingProviderIDRef.current = provider.id;
+    onSelectedProviderChange(provider);
 
     try {
-      const result = await runProviderHealthcheck(id, apiBase);
+      const result = await runProviderHealthcheck(provider.id, apiBase);
+      if (result.status !== "ok") {
+        throw new Error(result.summary || t("common.unknownError"));
+      }
       setFeedback(
         t("providers.feedback.healthcheck", {
           status: result.status.toUpperCase(),
@@ -337,10 +365,107 @@ export function ProvidersPage({
           latency: result.latency_ms
         })
       );
-      await refreshProviders(id);
+      await refreshProviders(provider.id);
+      const models = await getProviderModels(provider.id, apiBase);
+      setProviderModels(models);
+      setModelTestStates(
+        Object.fromEntries(
+          models.map((model) => [
+            model.id,
+            {
+              status: "testing"
+            } satisfies ModelTestState
+          ])
+        )
+      );
+
+      const results = await Promise.all(
+        models.map(async (model) => {
+          try {
+            const modelResult = await runProviderModelTest(provider.id, model.id, apiBase);
+            const status = modelResult.status === "ok" ? "available" : "unavailable";
+            setModelTestStates((current) => ({
+              ...current,
+              [model.id]: {
+                status,
+                result: modelResult
+              }
+            }));
+            return status === "available";
+          } catch (modelError) {
+            setModelTestStates((current) => ({
+              ...current,
+              [model.id]: {
+                status: "unavailable",
+                error: modelError instanceof Error ? modelError.message : t("common.unknownError")
+              }
+            }));
+            return false;
+          }
+        })
+      );
+
+      setTestingProviderID(null);
+      testingProviderIDRef.current = null;
+      setFeedback(
+        t("providers.feedback.modelTests", {
+          available: results.filter(Boolean).length,
+          total: models.length
+        })
+      );
     } catch (healthError) {
+      setTestingProviderID(null);
+      testingProviderIDRef.current = null;
+      setModelTestStates({});
       setError(healthError instanceof Error ? healthError.message : t("common.unknownError"));
     }
+  }
+
+  function renderModelTestStatus(modelID: string) {
+    const state = modelTestStates[modelID];
+    if (!state) {
+      return null;
+    }
+
+    if (state.status === "testing") {
+      return (
+        <span
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-muted)]"
+          title={t("providers.modelTest.testing")}
+          aria-label={t("providers.modelTest.testing")}
+        >
+          <svg className="h-3.5 w-3.5 animate-spin fill-current" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8z" />
+          </svg>
+        </span>
+      );
+    }
+
+    if (state.status === "available") {
+      return (
+        <span
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border [border-color:var(--success-border)] [background:var(--success-soft)] text-[color:var(--success-text)]"
+          title={state.result?.summary ?? t("providers.modelTest.available")}
+          aria-label={t("providers.modelTest.available")}
+        >
+          <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9.2 16.6-4.3-4.3 1.4-1.4 2.9 2.9 8.5-8.5 1.4 1.4z" />
+          </svg>
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border [border-color:var(--danger-border)] [background:var(--danger-soft)] text-[color:var(--danger-text)]"
+        title={state.result?.summary ?? state.error ?? t("providers.modelTest.unavailable")}
+        aria-label={t("providers.modelTest.unavailable")}
+      >
+        <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z" />
+        </svg>
+      </span>
+    );
   }
 
   async function persistClaudeCodeModelMap(nextMap: ClaudeCodeModelMap) {
@@ -612,10 +737,11 @@ export function ProvidersPage({
                           className={`${iconButtonSmallClass} peer`}
                           aria-label={t("providers.action.test")}
                           onClick={() => {
-                            void handleHealthcheck(provider.id);
+                            void handleProviderTest(provider);
                           }}
+                          disabled={testingProviderID === provider.id}
                         >
-                          <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                          <svg className={`h-4 w-4 fill-current ${testingProviderID === provider.id ? "animate-spin" : ""}`} viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 13h3l2-6 3 10 2-6h6v2h-4.6l-3 9-3-10-1.8 5H4z" />
                           </svg>
                         </button>
@@ -685,6 +811,15 @@ export function ProvidersPage({
                             : t("providers.detail.modelsCount", { count: filteredModels.length })}
                         </p>
                       </div>
+                      <label className="inline-flex min-h-9 items-center gap-2 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-text)]">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[color:var(--accent)]"
+                          checked={showAvailableModelsOnly}
+                          onChange={(event) => setShowAvailableModelsOnly(event.target.checked)}
+                        />
+                        <span>{t("providers.modelTest.showAvailableOnly")}</span>
+                      </label>
                     </div>
 
                     <div className="mt-3">
@@ -732,6 +867,7 @@ export function ProvidersPage({
                                   {model.owned_by ?? t("models.available.ownerUnknown")}
                                 </p>
                               </div>
+                              {renderModelTestStatus(model.id)}
                               <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
                                 :::
                               </span>
