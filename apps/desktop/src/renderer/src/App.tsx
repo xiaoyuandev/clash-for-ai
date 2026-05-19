@@ -327,6 +327,8 @@ export default function App() {
             message: coreLastError || t("common.unknownError")
           })
       : null;
+  const canScheduleAutoUpdateCheck = Boolean(window.desktopBridge && desktopState);
+  const updateStatus = desktopState?.updates.status;
 
   useEffect(() => {
     if (!window.desktopBridge) {
@@ -363,11 +365,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!window.desktopBridge || !desktopState || autoUpdateCheckStartedRef.current) {
+    if (!canScheduleAutoUpdateCheck || autoUpdateCheckStartedRef.current) {
       return;
     }
 
-    if (desktopState.updates.status === "unsupported") {
+    if (updateStatus === "unsupported") {
       autoUpdateCheckStartedRef.current = true;
       return;
     }
@@ -387,7 +389,7 @@ export default function App() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [desktopState]);
+  }, [canScheduleAutoUpdateCheck, updateStatus]);
 
   useEffect(() => {
     if (!window.desktopBridge) {
