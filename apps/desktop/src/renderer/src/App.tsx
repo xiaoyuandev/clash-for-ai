@@ -151,6 +151,10 @@ function readOptionalString(payload: Record<string, unknown>, keys: string[]) {
 
 function maskImportAPIKey(value: string) {
   const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
   if (trimmed.length <= 4) {
     return "****";
   }
@@ -177,7 +181,7 @@ function normalizeImportRequest(event: DeepLinkImportEvent): ImportRequest {
       data: {
         name: readRequiredString(payload, ["name"]),
         baseUrl: readRequiredString(payload, ["baseUrl", "base_url", "endpoint"]),
-        apiKey: readRequiredString(payload, ["apiKey", "api_key"]),
+        apiKey: readOptionalString(payload, ["apiKey", "api_key"]),
         authMode
       }
     };
@@ -526,6 +530,9 @@ export default function App() {
         setProvidersRefreshToken((current) => current + 1);
         setView("providers");
         pushToast(t("importDeepLink.success.provider", { name: created.name }), "success");
+        if (!pendingImportRequest.data.apiKey.trim()) {
+          pushToast(t("importDeepLink.warning.emptyProviderApiKey"), "default");
+        }
       } else {
         const payload: CreateLocalGatewayModelSourceInput = {
           name: pendingImportRequest.data.name,
@@ -628,12 +635,17 @@ export default function App() {
               <div>
                 <p className={fieldLabelClass}>{t("importDeepLink.fields.apiKeyMasked")}</p>
                 <p className={`${monoClass} mt-1 break-all text-sm text-[color:var(--color-text)]`}>
-                  {maskImportAPIKey(pendingImportRequest.data.apiKey)}
+                  {maskImportAPIKey(pendingImportRequest.data.apiKey) || t("importDeepLink.fields.apiKeyEmpty")}
                 </p>
               </div>
             </div>
 
             <p className={`${metaClass} mt-4`}>{t("importDeepLink.modal.notice")}</p>
+            {pendingImportRequest.resource === "provider" && !pendingImportRequest.data.apiKey.trim() ? (
+              <p className="mt-3 rounded-[16px] border [border-color:var(--warning-border)] [background:var(--warning-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--warning-text)]">
+                {t("importDeepLink.warning.emptyProviderApiKey")}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
