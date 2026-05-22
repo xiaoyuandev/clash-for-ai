@@ -147,7 +147,7 @@ export async function getReleaseMetadata(apiBase?: string): Promise<ReleaseMetad
 
 export async function getLatestGitHubRelease(): Promise<GitHubRelease> {
   return fetchJson<GitHubRelease>(
-    "https://api.github.com/repos/xiaoyuandev/clash-for-ai/releases/latest",
+    "https://api.github.com/repos/xiaoyuandev/relay-switch/releases/latest",
     {
       headers: {
         Accept: "application/vnd.github+json"

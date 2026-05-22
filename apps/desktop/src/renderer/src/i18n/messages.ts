@@ -66,9 +66,9 @@ export const messages = {
     "updates.toast.error": "Update failed: {message}",
     "importDeepLink.modal.title": "Import Configuration",
     "importDeepLink.modal.providerSubtitle":
-      "Review this provider import before saving it into Clash for AI.",
+      "Review this provider import before saving it into Relay Switch.",
     "importDeepLink.modal.modelSubtitle":
-      "Review this model source import before saving it into Clash for AI.",
+      "Review this model source import before saving it into Relay Switch.",
     "importDeepLink.modal.notice":
       "Import data came from an external deep link. Confirm the values before saving.",
     "importDeepLink.fields.resource": "Resource",
@@ -81,7 +81,7 @@ export const messages = {
     "importDeepLink.success.provider": "Imported provider {name}.",
     "importDeepLink.success.model": "Imported model source {name}.",
     "importDeepLink.warning.emptyProviderApiKey":
-      "This provider has no API key yet, so Clash for AI cannot fetch its model list or use it until you edit the provider and add an API key.",
+      "This provider has no API key yet, so Relay Switch cannot fetch its model list or use it until you edit the provider and add an API key.",
     "importDeepLink.error.parse": "Failed to open import link: {message}",
     "importDeepLink.error.invalidPayload": "Import payload is invalid: {message}",
     "providers.title": "Providers",
@@ -307,7 +307,7 @@ export const messages = {
     "tools.detail.notDetected": "Not detected",
     "tools.detail.oneClickTitle": "One-Click Configuration",
     "tools.detail.oneClickMeta":
-      "The desktop app will back up the existing file first, then write the Clash for AI gateway settings.",
+      "The desktop app will back up the existing file first, then write the Relay Switch gateway settings.",
     "tools.detail.cliReloadHint":
       "After writing the config, quit the current CLI session and start that CLI again. Restarting the desktop app is not required.",
     "tools.detail.cherryImportTitle": "Cherry Studio Deep Link",
@@ -437,12 +437,12 @@ export const messages = {
     "settings.guide.codex.summary":
       "Set OpenAI-compatible environment variables in the current shell before launching Codex CLI.",
     "settings.guide.codex.note":
-      "These commands only affect the current terminal session. Codex CLI can stay on one stable local /v1 endpoint while Clash for AI rotates the upstream provider.",
+      "These commands only affect the current terminal session. Codex CLI can stay on one stable local /v1 endpoint while Relay Switch rotates the upstream provider.",
     "settings.guide.claude.title": "Claude Code + {platform}",
     "settings.guide.claude.summary":
       "Set Anthropic-style gateway variables in the current shell before launching Claude Code.",
     "settings.guide.claude.note":
-      "These commands only affect the current terminal session. Use the local root URL without /v1 here. Clash for AI will forward the Anthropic-style requests upstream.",
+      "These commands only affect the current terminal session. Use the local root URL without /v1 here. Relay Switch will forward the Anthropic-style requests upstream.",
     "settings.guide.cursor.title": "Cursor + {platform}",
     "settings.guide.cursor.summary":
       "Prepare the OpenAI-compatible endpoint values you can paste into Cursor's custom provider fields.",
@@ -536,8 +536,8 @@ export const messages = {
     "updates.toast.downloaded": "更新 {version} 已下载完成，可重启安装。",
     "updates.toast.error": "更新失败：{message}",
     "importDeepLink.modal.title": "导入配置",
-    "importDeepLink.modal.providerSubtitle": "请先确认这份 Provider 配置，再导入到 Clash for AI。",
-    "importDeepLink.modal.modelSubtitle": "请先确认这份 Models 配置，再导入到 Clash for AI。",
+    "importDeepLink.modal.providerSubtitle": "请先确认这份 Provider 配置，再导入到 Relay Switch。",
+    "importDeepLink.modal.modelSubtitle": "请先确认这份 Models 配置，再导入到 Relay Switch。",
     "importDeepLink.modal.notice": "这份配置来自外部 deep link，请确认内容无误后再保存。",
     "importDeepLink.fields.resource": "资源类型",
     "importDeepLink.fields.apiKeyMasked": "已隐藏敏感内容",
@@ -549,7 +549,7 @@ export const messages = {
     "importDeepLink.success.provider": "已导入 Provider {name}。",
     "importDeepLink.success.model": "已导入 Models 配置 {name}。",
     "importDeepLink.warning.emptyProviderApiKey":
-      "该 Provider 暂未提供 API Key，因此 Clash for AI 无法获取模型列表，也无法使用。请稍后编辑 Provider 并补充 API Key。",
+      "该 Provider 暂未提供 API Key，因此 Relay Switch 无法获取模型列表，也无法使用。请稍后编辑 Provider 并补充 API Key。",
     "importDeepLink.error.parse": "打开导入链接失败：{message}",
     "importDeepLink.error.invalidPayload": "导入数据无效：{message}",
     "providers.title": "供应商",
@@ -764,7 +764,7 @@ export const messages = {
     "tools.detail.notAvailable": "暂无",
     "tools.detail.notDetected": "未检测到",
     "tools.detail.oneClickTitle": "一键配置",
-    "tools.detail.oneClickMeta": "桌面端会先备份现有文件，再写入 Clash for AI 所需的网关配置。",
+    "tools.detail.oneClickMeta": "桌面端会先备份现有文件，再写入 Relay Switch 所需的网关配置。",
     "tools.detail.cliReloadHint":
       "配置写入后，退出当前 CLI 会话并重新启动对应 CLI 即可生效，不需要重启桌面应用。",
     "tools.detail.cherryImportTitle": "Cherry Studio Deep Link",
@@ -884,10 +884,10 @@ export const messages = {
     "settings.feedback.copyValueFailed": "复制值失败",
     "settings.guide.codex.title": "Codex CLI + {platform}",
     "settings.guide.codex.summary": "在启动 Codex CLI 之前，先在当前 shell 中设置 OpenAI 兼容环境变量。",
-    "settings.guide.codex.note": "这些命令只影响当前终端会话。Codex CLI 可以始终指向稳定的本地 /v1 端点，而 Clash for AI 负责切换上游供应商。",
+    "settings.guide.codex.note": "这些命令只影响当前终端会话。Codex CLI 可以始终指向稳定的本地 /v1 端点，而 Relay Switch 负责切换上游供应商。",
     "settings.guide.claude.title": "Claude Code + {platform}",
     "settings.guide.claude.summary": "在启动 Claude Code 之前，先在当前 shell 中设置 Anthropic 风格网关变量。",
-    "settings.guide.claude.note": "这些命令只影响当前终端会话。这里应使用不带 /v1 的本地根地址，Clash for AI 会把 Anthropic 风格请求转发到上游。",
+    "settings.guide.claude.note": "这些命令只影响当前终端会话。这里应使用不带 /v1 的本地根地址，Relay Switch 会把 Anthropic 风格请求转发到上游。",
     "settings.guide.cursor.title": "Cursor + {platform}",
     "settings.guide.cursor.summary": "准备好可直接粘贴到 Cursor 自定义供应商字段中的 OpenAI 兼容端点配置。",
     "settings.guide.cursor.note": "Cursor 主要通过应用内的 API Key 和 Base URL 设置工作。如果你从终端启动 Cursor，或者只想先准备好待粘贴的值，这些会话级命令依然有用。",

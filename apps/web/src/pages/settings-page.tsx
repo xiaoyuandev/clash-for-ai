@@ -22,8 +22,8 @@ import {
   statusPillClass
 } from "../ui";
 
-const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
-const latestReleaseUrl = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
+const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash";
+const latestReleaseUrl = "https://github.com/xiaoyuandev/relay-switch/releases/latest";
 
 interface SettingsPageProps {
   releaseMetadata?: ReleaseMetadata | null;
@@ -90,7 +90,7 @@ export function SettingsPage({
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
-            <p className={eyebrowClass}>Clash for AI</p>
+            <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("settings.title")}</h1>
           </div>
           <p className={heroCopyClass}>

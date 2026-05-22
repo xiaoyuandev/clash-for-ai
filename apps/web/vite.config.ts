@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icons/icon-512.png"],
       manifest: {
-        name: "Clash for AI Web",
-        short_name: "Clash for AI",
+        name: "Relay Switch Web",
+        short_name: "Relay Switch",
         description: "Supplementary web management UI for WSL and Linux server.",
         theme_color: "#14b8a6",
         background_color: "#f8fbfd",

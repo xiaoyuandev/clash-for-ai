@@ -1,9 +1,9 @@
-appId: com.xiaoyuandev.clash-for-ai
-productName: Clash for AI
+appId: com.xiaoyuandev.relay-switch
+productName: Relay Switch
 protocols:
-  - name: Clash for AI Import
+  - name: Relay Switch Import
     schemes:
-      - clash-for-ai
+      - relay-switch
 afterAllArtifactBuild: scripts/cleanup-mac-artifacts.cjs
 directories:
   buildResources: build
@@ -33,8 +33,8 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
   extendInfo:
-    NSDocumentsFolderUsageDescription: Clash for AI may access files in Documents for local tooling workflows.
-    NSDownloadsFolderUsageDescription: Clash for AI may access files in Downloads for local tooling workflows.
+    NSDocumentsFolderUsageDescription: Relay Switch may access files in Documents for local tooling workflows.
+    NSDownloadsFolderUsageDescription: Relay Switch may access files in Downloads for local tooling workflows.
 win:
   target:
     - nsis
@@ -44,17 +44,17 @@ linux:
     - tar.gz
   category: Utility
 dmg:
-  artifactName: Clash-for-AI-${version}-${arch}.${ext}
+  artifactName: Relay-Switch-${version}-${arch}.${ext}
 pkg:
-  artifactName: Clash-for-AI-${version}-${arch}.${ext}
+  artifactName: Relay-Switch-${version}-${arch}.${ext}
 nsis:
-  artifactName: Clash-for-AI-${version}-${arch}-setup.${ext}
+  artifactName: Relay-Switch-${version}-${arch}-setup.${ext}
 appImage:
-  artifactName: Clash-for-AI-${version}-${arch}.${ext}
-artifactName: Clash-for-AI-${version}-${os}-${arch}.${ext}
+  artifactName: Relay-Switch-${version}-${arch}.${ext}
+artifactName: Relay-Switch-${version}-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: xiaoyuandev
-  repo: clash-for-ai
+  repo: relay-switch
   releaseType: release
 npmRebuild: false

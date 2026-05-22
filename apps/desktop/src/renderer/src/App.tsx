@@ -572,7 +572,7 @@ export default function App() {
       <main className={pageShellClass}>
         <section className={heroClass}>
           <div>
-            <p className={eyebrowClass}>Clash for AI</p>
+            <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("app.desktopBoot")}</h1>
             <p className={heroCopyClass}>{bootError ?? t("app.waitingRuntime")}</p>
           </div>
@@ -679,13 +679,13 @@ export default function App() {
             <div className="flex items-center gap-2.5">
               <img
                 src={appIcon}
-                alt="Clash for AI"
+                alt="Relay Switch"
                 className="h-11 w-11 rounded-xl shadow-[0_10px_22px_rgba(15,23,42,0.16)]"
               />
               <div className="min-w-0">
                 <p className={`${eyebrowClass} mb-1`}>AI Gateway</p>
                 <h2 className="truncate bg-[linear-gradient(135deg,var(--accent-strong),#a5f3fc)] bg-clip-text text-[24px] font-semibold tracking-[-0.05em] text-transparent">
-                  Clash for AI
+                  Relay Switch
                 </h2>
               </div>
             </div>

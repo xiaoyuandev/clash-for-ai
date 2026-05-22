@@ -440,7 +440,7 @@ export function SettingsPage({
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
-            <p className={eyebrowClass}>Clash for AI</p>
+            <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("settings.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("settings.subtitle")}</p>
@@ -726,7 +726,7 @@ export function SettingsPage({
             <div className="min-w-0">
               <p className={fieldLabelClass}>{t("settings.project.github")}</p>
               <p className={`${monoClass} mt-2 truncate text-xs`}>
-                https://github.com/xiaoyuandev/clash-for-ai
+                https://github.com/xiaoyuandev/relay-switch
               </p>
             </div>
           </div>

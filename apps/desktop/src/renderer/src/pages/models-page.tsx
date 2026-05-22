@@ -539,7 +539,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
       <section className={heroClass}>
         <div className={heroContentClass}>
           <div className={heroLabelStackClass}>
-            <p className={eyebrowClass}>Clash for AI</p>
+            <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("models.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("models.subtitle")}</p>

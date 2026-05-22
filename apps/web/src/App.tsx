@@ -184,8 +184,8 @@ export default function App() {
       <div className="relative mx-auto h-full min-h-0 w-full max-w-[1600px] px-3 py-3 sm:px-4 sm:py-4 xl:px-6">
         <div className={`${glassPanelClass} mb-4 flex items-center justify-between gap-3 px-4 py-3 xl:hidden`}>
           <div className="min-w-0">
-            <p className={fieldLabelClass}>Clash for AI</p>
-            <p className="text-base font-semibold text-[color:var(--color-heading)]">Clash for AI Web</p>
+            <p className={fieldLabelClass}>Relay Switch</p>
+            <p className="text-base font-semibold text-[color:var(--color-heading)]">Relay Switch Web</p>
           </div>
           <button
             type="button"
@@ -204,9 +204,9 @@ export default function App() {
             } min-h-0 flex-col gap-4 overflow-y-auto p-4 xl:flex`}
           >
             <div className="space-y-2">
-              <p className={fieldLabelClass}>Clash for AI</p>
+              <p className={fieldLabelClass}>Relay Switch</p>
               <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)]">
-                Clash for AI Web
+                Relay Switch Web
               </h1>
               <p className={metaClass}>{t("tools.overview.subtitle")}</p>
             </div>

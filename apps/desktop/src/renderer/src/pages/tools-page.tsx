@@ -431,7 +431,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
-            <p className={fieldLabelClass}>Clash for AI</p>
+            <p className={fieldLabelClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("tools.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("tools.subtitle")}</p>

@@ -1,6 +1,6 @@
 {
-  "name": "Clash for AI Web",
-  "short_name": "Clash for AI",
+  "name": "Relay Switch Web",
+  "short_name": "Relay Switch",
   "description": "Supplementary web management UI for WSL and Linux server.",
   "display": "standalone",
   "start_url": "/",

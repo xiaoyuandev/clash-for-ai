@@ -159,7 +159,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
       <section className={heroClass}>
         <div className="space-y-4">
           <div>
-            <p className={eyebrowClass}>Clash for AI</p>
+            <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("logs.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("logs.subtitle")}</p>
