@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 )
 
 var ErrNoBackupAvailable = errors.New("no backup file is available to restore")

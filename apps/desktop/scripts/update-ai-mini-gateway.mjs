@@ -102,7 +102,7 @@ async function fetchGitHubJSON(url) {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
   const headers = {
     Accept: "application/vnd.github+json",
-    "User-Agent": "clash-for-ai-update-ai-mini-gateway-script"
+    "User-Agent": "relay-switch-update-ai-mini-gateway-script"
   };
 
   if (token) {

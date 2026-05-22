@@ -16,12 +16,12 @@ const releaseVersion =
   `v${JSON.parse(readFileSync(join(workspaceRoot, "package.json"), "utf8")).version}`;
 const goos = process.env.RELEASE_GOOS || "linux";
 const goarch = process.env.RELEASE_GOARCH || "amd64";
-const coreBinaryName = goos === "windows" ? "clash-for-ai-core.exe" : "clash-for-ai-core";
+const coreBinaryName = goos === "windows" ? "relay-switch-core.exe" : "relay-switch-core";
 const runtimeBinaryName = goos === "windows" ? "ai-mini-gateway.exe" : "ai-mini-gateway";
 const coreBinaryPath = join(coreDir, "bin", coreBinaryName);
 const runtimeBinaryPath = join(runtimeResourcesDir, "bin", runtimeBinaryName);
 const outputDir = join(workspaceRoot, "dist", "server");
-const packageRootName = `clash-for-ai-server_${releaseVersion}_${goos}_${goarch}`;
+const packageRootName = `relay-switch-server_${releaseVersion}_${goos}_${goarch}`;
 const stagingDir = join(outputDir, packageRootName);
 const archivePath = join(outputDir, `${packageRootName}.tar.gz`);
 

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/app"
+	"github.com/xiaoyuandev/relay-switch/core/internal/app"
 )
 
 func main() {

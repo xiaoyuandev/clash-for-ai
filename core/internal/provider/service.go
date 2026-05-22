@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
 )
 
 type CreateInput struct {

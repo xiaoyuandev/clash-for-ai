@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
+	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/storage"
 )
 
 func TestServiceCreateAndUpdateSource(t *testing.T) {

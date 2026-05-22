@@ -29,9 +29,9 @@ const configuredLocalGatewayExecutable =
   devEnv.LOCAL_GATEWAY_RUNTIME_EXECUTABLE ||
   (existsSync(localGatewayExecutable) ? localGatewayExecutable : "");
 
-const httpPort = devEnv.HTTP_PORT || devEnv.CLASH_FOR_AI_HTTP_PORT || "3456";
+const httpPort = devEnv.HTTP_PORT || devEnv.RELAY_SWITCH_HTTP_PORT || "3456";
 const localGatewayPort =
-  devEnv.LOCAL_GATEWAY_RUNTIME_PORT || devEnv.CLASH_FOR_AI_LOCAL_GATEWAY_PORT || "3457";
+  devEnv.LOCAL_GATEWAY_RUNTIME_PORT || devEnv.RELAY_SWITCH_LOCAL_GATEWAY_PORT || "3457";
 
 const children = new Set();
 let shuttingDown = false;
@@ -40,7 +40,7 @@ mkdirSync(dataDir, { recursive: true });
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(modCacheDir, { recursive: true });
 
-if (!existsSync(join(coreDir, "cmd", "clash-for-ai-core", "main.go"))) {
+if (!existsSync(join(coreDir, "cmd", "relay-switch-core", "main.go"))) {
   console.error("[dev:web] core entrypoint not found. Run this command from the repository root.");
   process.exit(1);
 }
@@ -80,7 +80,7 @@ if (!(await isPortAvailable(Number(localGatewayPort)))) {
   process.exit(1);
 }
 
-const core = start("core", "go", ["run", "cmd/clash-for-ai-core/main.go"], {
+const core = start("core", "go", ["run", "cmd/relay-switch-core/main.go"], {
   cwd: coreDir,
   env: {
     ...devEnv,

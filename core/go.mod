@@ -1,4 +1,4 @@
-module github.com/xiaoyuandev/clash-for-ai/core
+module github.com/xiaoyuandev/relay-switch/core
 
 go 1.23.0
 

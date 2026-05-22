@@ -12,12 +12,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/tooling"
+	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
+	"github.com/xiaoyuandev/relay-switch/core/internal/health"
+	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
+	"github.com/xiaoyuandev/relay-switch/core/internal/logging"
+	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
+	"github.com/xiaoyuandev/relay-switch/core/internal/tooling"
 )
 
 type Router struct {

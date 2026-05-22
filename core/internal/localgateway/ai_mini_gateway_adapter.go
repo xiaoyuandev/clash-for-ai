@@ -72,7 +72,7 @@ func (a *AIMiniGatewayAdapter) StartRuntime(ctx context.Context, input StartRunt
 			Code:        AdapterErrorInvalidConfig,
 			Operation:   "start_runtime",
 			RuntimeKind: a.RuntimeKind(),
-			Message:     "local gateway runtime executable points to clash-for-ai-core; set LOCAL_GATEWAY_RUNTIME_EXECUTABLE to ai-mini-gateway instead",
+			Message:     "local gateway runtime executable points to relay-switch-core; set LOCAL_GATEWAY_RUNTIME_EXECUTABLE to ai-mini-gateway instead",
 		}
 	}
 
@@ -152,7 +152,7 @@ func (a *AIMiniGatewayAdapter) StartRuntime(ctx context.Context, input StartRunt
 
 func isClashForAICoreExecutable(executable string) bool {
 	base := filepath.Base(filepath.Clean(executable))
-	return base == "clash-for-ai-core" || base == "clash-for-ai-core.exe"
+	return base == "relay-switch-core" || base == "relay-switch-core.exe"
 }
 
 func (b *tailBuffer) Write(p []byte) (int, error) {

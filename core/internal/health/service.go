@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 )
 
 type CheckResult struct {

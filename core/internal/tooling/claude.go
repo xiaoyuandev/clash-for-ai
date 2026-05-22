@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
+	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 )
 
 func claudeConfigPath() string {
@@ -76,7 +76,7 @@ func applyClaudeIntegration(apiPort int, modelMap provider.ClaudeCodeModelMap) (
 		return ToolIntegrationState{}, err
 	}
 	state.BackupPath = backupPath
-	state.Message = "Configured Claude Code to use the local Clash for AI gateway and synced the active provider model slots."
+	state.Message = "Configured Claude Code to use the local Relay Switch gateway and synced the active provider model slots."
 	return state, nil
 }
 
@@ -146,7 +146,7 @@ func assignOrDelete(env map[string]any, key string, value string) {
 
 func claudeMessage(configured bool) string {
 	if configured {
-		return "Claude Code is already configured with the local Clash for AI gateway variables."
+		return "Claude Code is already configured with the local Relay Switch gateway variables."
 	}
 	return "Claude Code can be configured by writing env overrides into ~/.claude/settings.json."
 }

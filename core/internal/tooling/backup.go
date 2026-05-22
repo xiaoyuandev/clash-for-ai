@@ -9,7 +9,7 @@ import (
 )
 
 func backupRootDir() string {
-	return filepath.Join(currentRuntime().HomeDir, ".clash-for-ai", "tool-backups")
+	return filepath.Join(currentRuntime().HomeDir, ".relay-switch", "tool-backups")
 }
 
 func backupIfExists(toolID ToolIntegrationID, filePath string) (string, error) {

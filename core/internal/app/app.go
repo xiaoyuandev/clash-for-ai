@@ -8,26 +8,26 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/api"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/config"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/credential"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/gateway"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/health"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/localgateway"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/logging"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/provider"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/storage"
-	"github.com/xiaoyuandev/clash-for-ai/core/internal/tooling"
+	"github.com/xiaoyuandev/relay-switch/core/internal/api"
+	"github.com/xiaoyuandev/relay-switch/core/internal/config"
+	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
+	"github.com/xiaoyuandev/relay-switch/core/internal/health"
+	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
+	"github.com/xiaoyuandev/relay-switch/core/internal/logging"
+	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
+	"github.com/xiaoyuandev/relay-switch/core/internal/storage"
+	"github.com/xiaoyuandev/relay-switch/core/internal/tooling"
 )
 
 func Run() error {
 	cfg := config.Load()
-	log.Printf("[core] starting clash-for-ai-core on %s:%d", cfg.GatewayBind, cfg.HTTPPort)
+	log.Printf("[core] starting relay-switch-core on %s:%d", cfg.GatewayBind, cfg.HTTPPort)
 	log.Printf("[core] data dir: %s", cfg.DataDir)
 	log.Printf("[local-gateway] runtime kind: %s", cfg.LocalGatewayRuntimeKind)
 	log.Printf("[local-gateway] runtime host/port: %s:%d", cfg.LocalGatewayRuntimeHost, cfg.LocalGatewayRuntimePort)
 
-	sqliteStore, err := storage.NewSQLite(filepath.Join(cfg.DataDir, "clash-for-ai.db"))
+	sqliteStore, err := storage.NewSQLite(filepath.Join(cfg.DataDir, "relay-switch.db"))
 	if err != nil {
 		return err
 	}
