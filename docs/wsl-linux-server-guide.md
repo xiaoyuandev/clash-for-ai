@@ -1,12 +1,12 @@
-# Clash for AI WSL / Linux Server Deployment Guide
+# Relay Switch WSL / Linux Server Deployment Guide
 
-This guide explains how to deploy Clash for AI on `WSL` or a plain `Linux server` and manage it from the browser.
+This guide explains how to deploy Relay Switch on `WSL` or a plain `Linux server` and manage it from the browser.
 
 ## 1. Deployment Shape
 
 The current WSL / Linux server flow includes:
 
-1. `clash-for-ai-core`
+1. `relay-switch-core`
 2. bundled `ai-mini-gateway` runtime
 3. browser-based management UI built from `apps/web`
 
@@ -35,19 +35,19 @@ Recommended for checksum validation:
 Latest release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
 Pinned release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 Development-only source install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install-from-source.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install-from-source.sh | bash
 ```
 
 Notes:
@@ -60,17 +60,17 @@ Notes:
 The production installer supports:
 
 ```bash
-CLASH_FOR_AI_VERSION=vX.Y.Z
-CLASH_FOR_AI_HTTP_PORT=3456
-CLASH_FOR_AI_LOCAL_GATEWAY_PORT=3457
-CLASH_FOR_AI_INSTALL_ROOT="$HOME/.local/share/clash-for-ai"
-CLASH_FOR_AI_DATA_DIR="$HOME/.local/share/clash-for-ai/data"
+RELAY_SWITCH_VERSION=vX.Y.Z
+RELAY_SWITCH_HTTP_PORT=3456
+RELAY_SWITCH_LOCAL_GATEWAY_PORT=3457
+RELAY_SWITCH_INSTALL_ROOT="$HOME/.local/share/relay-switch"
+RELAY_SWITCH_DATA_DIR="$HOME/.local/share/relay-switch/data"
 ```
 
 Example:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_HTTP_PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_HTTP_PORT=8080 bash
 ```
 
 ## 5. Service Management
@@ -78,20 +78,20 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scrip
 The installer creates a `systemd --user` service when available:
 
 ```bash
-systemctl --user status clash-for-ai
-systemctl --user restart clash-for-ai
-journalctl --user -u clash-for-ai -n 200 -f
+systemctl --user status relay-switch
+systemctl --user restart relay-switch
+journalctl --user -u relay-switch -n 200 -f
 ```
 
 It also installs a helper command:
 
 ```bash
-clash-for-ai start
-clash-for-ai stop
-clash-for-ai restart
-clash-for-ai status
-clash-for-ai logs
-clash-for-ai run
+relay-switch start
+relay-switch stop
+relay-switch restart
+relay-switch status
+relay-switch logs
+relay-switch run
 ```
 
 ## 6. WSL Notes
@@ -105,7 +105,7 @@ http://localhost:3456
 If `systemd --user` is unavailable inside WSL, use:
 
 ```bash
-clash-for-ai run
+relay-switch run
 ```
 
 ## 7. First-Time Setup
@@ -123,7 +123,7 @@ After startup:
 To roll back to an older stable release, reinstall with a pinned tag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 ## 9. Troubleshooting
@@ -143,5 +143,5 @@ curl http://127.0.0.1:3456/api/release
 Logs:
 
 ```bash
-journalctl --user -u clash-for-ai -n 200 -f
+journalctl --user -u relay-switch -n 200 -f
 ```

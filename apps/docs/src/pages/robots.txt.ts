@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 
 const withSiteBase = (site: URL | undefined, path: string) => {
-  const baseUrl = site ?? new URL("https://www.clashforai.com");
+  const baseUrl = site ?? new URL("https://www.relayswitch.dev");
   const basePath = baseUrl.pathname.replace(/\/$/, "");
   return new URL(`${basePath}${path}`, baseUrl).toString();
 };

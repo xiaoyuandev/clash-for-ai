@@ -1,18 +1,18 @@
-# Clash for AI
+# Relay Switch
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
-<a href="https://www.clashforai.com/" target="_blank" rel="noopener noreferrer">Public Docs</a> | <a href="https://www.clashforai.com/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link Import Guide</a> | <a href="https://trendshift.io/repositories/27531" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
+<a href="https://www.relayswitch.dev/" target="_blank" rel="noopener noreferrer">Public Docs</a> | <a href="https://www.relayswitch.dev/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link Import Guide</a> | <a href="https://trendshift.io/repositories/27531" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
 
 <a href="https://www.producthunt.com/products/github-376?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-github-986be850-3079-4734-96bc-d67b24532f07" target="_blank" rel="noopener noreferrer"><img alt="GitHub - Switching and management of major relay API services | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1145071&amp;theme=light&amp;t=1778578640911"></a>
 
-Clash for AI brings multiple AI relay APIs, native model sources, and local AI tools behind one local endpoint.
+Relay Switch brings multiple AI relay APIs, native model sources, and local AI tools behind one local endpoint.
 
-If you switch between models or provider configuration across Cursor, Kiro, Cherry Studio, Codex, Claude Code, OpenClaw, Hermes Agent, or your own scripts, Clash for AI lets you configure one local address once and switch upstreams from a single UI.
+If you switch between models or provider configuration across Cursor, Kiro, Cherry Studio, Codex, Claude Code, OpenClaw, Hermes Agent, or your own scripts, Relay Switch lets you configure one local address once and switch upstreams from a single UI.
 
 ## Table of Contents
 
-- [Why Clash for AI](#why-clash-for-ai)
+- [Why Relay Switch](#why-relay-switch)
 - [What You Can Do](#what-you-can-do)
 - [Screenshot](#screenshot)
 - [Installation & Quick Start](#installation--quick-start)
@@ -23,7 +23,7 @@ If you switch between models or provider configuration across Cursor, Kiro, Cher
 - [Local Development](#local-development)
 - [Project Structure](#project-structure)
 
-## Why Clash for AI
+## Why Relay Switch
 
 The hard part for many AI users is not finding a model. It is keeping many providers and tools usable day to day:
 
@@ -31,7 +31,7 @@ The hard part for many AI users is not finding a model. It is keeping many provi
 2. Multiple coding tools, desktop clients, and SDK scripts often mean repeated configuration changes whenever you change provider
 3. Some users do not want to edit config files frequently, but still need access to multiple model sources
 
-Clash for AI puts a local gateway in front of your tools.
+Relay Switch puts a local gateway in front of your tools.
 
 Your tools connect once:
 
@@ -39,7 +39,7 @@ Your tools connect once:
 http://127.0.0.1:3456/v1
 ```
 
-After that, switching models, relay providers, or local model sources happens inside Clash for AI instead of inside every Cursor, Kiro, Cherry Studio, Codex, Claude Code, or script config.
+After that, switching models, relay providers, or local model sources happens inside Relay Switch instead of inside every Cursor, Kiro, Cherry Studio, Codex, Claude Code, or script config.
 
 ## What You Can Do
 
@@ -47,7 +47,7 @@ After that, switching models, relay providers, or local model sources happens in
 2. Run a local Models Gateway for native model sources that you want to access directly
 3. Expose one local endpoint at `http://127.0.0.1:3456` for CLI tools, desktop clients, coding tools, and scripts
 4. Manage providers, models, health checks, and request logs from a visual UI instead of editing config files by hand
-5. Import Provider or Model configuration from the web with Deep Link, starting from the [Deep Link demo](https://www.clashforai.com/deeplink.html)
+5. Import Provider or Model configuration from the web with Deep Link, starting from the [Deep Link demo](https://www.relayswitch.dev/deeplink.html)
 
 ## Screenshot
 
@@ -67,18 +67,18 @@ After that, switching models, relay providers, or local model sources happens in
 
 **1.1 macOS, Windows, and Ubuntu Desktop users**
 
-The desktop app is recommended. Download the latest build for your platform from the [Release page](https://github.com/xiaoyuandev/clash-for-ai/releases).
+The desktop app is recommended. Download the latest build for your platform from the [Release page](https://github.com/xiaoyuandev/relay-switch/releases).
 
 macOS users may see a warning on first install or first launch:
 
 ```text
-“Clash for AI” cannot be opened because the developer cannot be verified.
+“Relay Switch” cannot be opened because the developer cannot be verified.
 ```
 
 or:
 
 ```text
-“Clash for AI” cannot be opened because Apple cannot verify it for malicious software.
+“Relay Switch” cannot be opened because Apple cannot verify it for malicious software.
 ```
 
 This happens because the current public macOS distribution uses a free ad-hoc style signing path instead of a full paid Apple Developer trusted distribution chain.
@@ -86,7 +86,7 @@ This happens because the current public macOS distribution uses a free ad-hoc st
 If this happens, do this:
 
 1. Move the app into `/Applications` if it is still inside a temporary download folder
-2. In Finder, right click `Clash for AI.app`
+2. In Finder, right click `Relay Switch.app`
 3. Choose `Open`
 4. In the system confirmation dialog, choose `Open` again
 
@@ -94,16 +94,16 @@ If right-click Open still does not work, continue with:
 
 1. Open `System Settings`
 2. Go to `Privacy & Security`
-3. Find the security warning for Clash for AI
+3. Find the security warning for Relay Switch
 4. Click `Open Anyway`
 
 If you are comfortable with the command line and have confirmed the app came from the official release page, you can also remove the macOS quarantine attribute with `xattr`:
 
 ```bash
-sudo xattr -rd com.apple.quarantine "/Applications/Clash for AI.app"
+sudo xattr -rd com.apple.quarantine "/Applications/Relay Switch.app"
 ```
 
-After that, launch `Clash for AI.app` from Finder or Launchpad.
+After that, launch `Relay Switch.app` from Finder or Launchpad.
 
 After the first successful open, later launches normally stop showing the same warning.
 
@@ -114,7 +114,7 @@ If a `.pkg` installer is attached to the release, prefer the `.pkg` build over d
 Use the command-line installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
 After installation, the default endpoints are:
@@ -127,20 +127,20 @@ After installation, the default endpoints are:
 The installer creates a `systemd --user` service by default:
 
 ```bash
-systemctl --user status clash-for-ai
-systemctl --user restart clash-for-ai
-journalctl --user -u clash-for-ai -n 200 -f
+systemctl --user status relay-switch
+systemctl --user restart relay-switch
+journalctl --user -u relay-switch -n 200 -f
 ```
 
 It also creates a helper command:
 
 ```bash
-clash-for-ai start
-clash-for-ai stop
-clash-for-ai restart
-clash-for-ai status
-clash-for-ai logs
-clash-for-ai run
+relay-switch start
+relay-switch stop
+relay-switch restart
+relay-switch status
+relay-switch logs
+relay-switch run
 ```
 
 Notes:
@@ -150,7 +150,7 @@ Notes:
 
 **Remote server access**
 
-If you deploy Clash for AI on a remote Linux server, there are usually two access patterns:
+If you deploy Relay Switch on a remote Linux server, there are usually two access patterns:
 
 Option 1: SSH tunnel for Web UI access
 
@@ -203,14 +203,14 @@ After that, your tools keep using the same local address even when you switch up
 
 ### 4. Import config from the web
 
-Clash for AI supports importing Provider or Model configuration from a web page through Deep Link.
+Relay Switch supports importing Provider or Model configuration from a web page through Deep Link.
 
-Relay API providers are welcome to integrate with this flow. See the guide: https://www.clashforai.com/deep-link-import/
+Relay API providers are welcome to integrate with this flow. See the guide: https://www.relayswitch.dev/deep-link-import/
 
 Try it here:
 
 ```text
-https://www.clashforai.com/deeplink.html
+https://www.relayswitch.dev/deeplink.html
 ```
 
 ## Desktop Modules
@@ -260,7 +260,7 @@ Why this module exists:
 3. Users may want a local service that behaves more like running a small `new-api` or `sub2api` style gateway on their own machine
 4. That local gateway can then expose many native upstream models through one controlled local layer
 
-So the `Models` page introduces a separate local Models Gateway layer. Instead of only switching one active Provider, Clash for AI can now maintain a set of native model sources locally and expose them through a local compatibility gateway.
+So the `Models` page introduces a separate local Models Gateway layer. Instead of only switching one active Provider, Relay Switch can now maintain a set of native model sources locally and expose them through a local compatibility gateway.
 
 In practical terms:
 
@@ -276,7 +276,7 @@ This means the relationship is:
 
 ### 3. Tools
 
-The `Tools` page helps client tools connect to Clash for AI correctly.
+The `Tools` page helps client tools connect to Relay Switch correctly.
 
 Use it to:
 
@@ -311,9 +311,9 @@ Use it to:
 
 ## Usage Guide
 
-Here is the basic flow for connecting tools through Clash for AI.
+Here is the basic flow for connecting tools through Relay Switch.
 
-### 1. Add a provider in Clash for AI
+### 1. Add a provider in Relay Switch
 
 Open the `Providers` page in the desktop app and fill in:
 
@@ -323,7 +323,7 @@ Open the `Providers` page in the desktop app and fill in:
 
 For OpenAI-compatible relay providers, the Base URL usually ends with `/v1`.
 
-For other compatible APIs, whether `/v1` should be included depends on the upstream implementation. At the moment, OpenAI-compatible upstreams are the clearest and most mature path in Clash for AI.
+For other compatible APIs, whether `/v1` should be included depends on the upstream implementation. At the moment, OpenAI-compatible upstreams are the clearest and most mature path in Relay Switch.
 
 <p align="center">
   <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
@@ -360,14 +360,14 @@ export OPENAI_API_KEY="dummy"
 
 Then start the CLI from the same terminal session.
 
-For Claude Code style tools, Clash for AI currently provides an Anthropic-style environment variable setup flow:
+For Claude Code style tools, Relay Switch currently provides an Anthropic-style environment variable setup flow:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
 export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
-Inside Clash for AI, you can also open the `Tools` page and use the built-in one-click setup flow for supported CLIs.
+Inside Relay Switch, you can also open the `Tools` page and use the built-in one-click setup flow for supported CLIs.
 
 One clarification: the most stable local access path in the current release is still the OpenAI-compatible one. Anthropic-style local access and upstream compatibility are still being improved. If your tool also supports a custom OpenAI-compatible endpoint, prefer `http://127.0.0.1:3456/v1`.
 
@@ -380,7 +380,7 @@ Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-Inside Clash for AI, open the `Tools` page to find the recommended connection values for supported tools.
+Inside Relay Switch, open the `Tools` page to find the recommended connection values for supported tools.
 
 <p align="center">
   <img src="./docs/images/readme/settings.png" style="width: 49%; height: auto;">
@@ -397,7 +397,7 @@ In Cursor specifically, open its custom provider settings, choose an OpenAI-comp
 
 ### SDK Scripts And Local Apps
 
-If you want to interact with the currently active model provider from your own scripts, point your SDK or HTTP client to the local Clash for AI gateway instead of the upstream relay directly.
+If you want to interact with the currently active model provider from your own scripts, point your SDK or HTTP client to the local Relay Switch gateway instead of the upstream relay directly.
 
 Example with the OpenAI SDK:
 
@@ -411,7 +411,7 @@ const client = new OpenAI({
 
 const response = await client.responses.create({
   model: "gpt-4.1",
-  input: "Say hello from Clash for AI."
+  input: "Say hello from Relay Switch."
 });
 
 console.log(response.output_text);
@@ -426,7 +426,7 @@ curl http://127.0.0.1:3456/v1/chat/completions \
   -d '{
     "model": "gpt-4.1",
     "messages": [
-      { "role": "user", "content": "Say hello from Clash for AI." }
+      { "role": "user", "content": "Say hello from Relay Switch." }
     ]
   }'
 ```
@@ -442,13 +442,13 @@ If you want fuller step-by-step guidance, tool-specific examples, and troublesho
 - [WSL / Linux Server Deployment Guide (English)](./docs/wsl-linux-server-guide.md)
 - [中文 README](./README.zh-CN.md)
 
-If you are deploying on `WSL` or `Linux server`, prefer the server guide first. It also includes pinned release installation using `CLASH_FOR_AI_VERSION`.
+If you are deploying on `WSL` or `Linux server`, prefer the server guide first. It also includes pinned release installation using `RELAY_SWITCH_VERSION`.
 
 ## How To Read Protocol Support Today
 
 In practice, many upstream gateways expose both OpenAI-compatible and Anthropic-compatible APIs.
 
-Clash for AI is designed around those two compatibility families, but the current implementation is not equally mature in both directions:
+Relay Switch is designed around those two compatibility families, but the current implementation is not equally mature in both directions:
 
 1. OpenAI-compatible local access is the clearest and most stable primary path
 2. Anthropic-compatible upstream auth handling and some tool integrations are already covered
@@ -485,19 +485,19 @@ Current public macOS builds may still show a Gatekeeper warning on first install
 That is why users may see messages like:
 
 ```text
-“Clash for AI” cannot be opened because the developer cannot be verified.
+“Relay Switch” cannot be opened because the developer cannot be verified.
 ```
 
 or:
 
 ```text
-“Clash for AI” cannot be opened because Apple cannot verify it for malicious software.
+“Relay Switch” cannot be opened because Apple cannot verify it for malicious software.
 ```
 
 If this happens, the user should do this:
 
 1. Move the app into `/Applications` if it is still inside a temporary download folder
-2. In Finder, right click `Clash for AI.app`
+2. In Finder, right click `Relay Switch.app`
 3. Choose `Open`
 4. In the system confirmation dialog, choose `Open` again
 
@@ -505,16 +505,16 @@ If the `Open` action still does not appear, use:
 
 1. `System Settings`
 2. `Privacy & Security`
-3. Scroll to the security warning area for Clash for AI
+3. Scroll to the security warning area for Relay Switch
 4. Click `Open Anyway`
 
 If you are comfortable with the command line and have confirmed the app came from the official release page, you can also remove the macOS quarantine attribute with `xattr`:
 
 ```bash
-sudo xattr -rd com.apple.quarantine "/Applications/Clash for AI.app"
+sudo xattr -rd com.apple.quarantine "/Applications/Relay Switch.app"
 ```
 
-After that, launch `Clash for AI.app` from Finder or Launchpad.
+After that, launch `Relay Switch.app` from Finder or Launchpad.
 
 After the first successful open, later launches normally stop showing the same warning.
 
@@ -609,7 +609,7 @@ The source code in this repository is licensed under AGPL-3.0-only.
 
 However:
 
-1. The project name `Clash for AI`
+1. The project name `Relay Switch`
 2. Logos
 3. Icons
 4. Other brand assets

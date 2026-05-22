@@ -1,6 +1,6 @@
-# Clash for AI macOS 签名与 GitHub Actions 配置教程
+# Relay Switch macOS 签名与 GitHub Actions 配置教程
 
-本文档面向当前仓库的维护者，说明如何把 Clash for AI 的 macOS 桌面应用从“免费 ad-hoc 签名”升级到：
+本文档面向当前仓库的维护者，说明如何把 Relay Switch 的 macOS 桌面应用从“免费 ad-hoc 签名”升级到：
 
 1. `Developer ID Application` 正式签名
 2. `Developer ID Installer` 安装包签名
@@ -145,7 +145,7 @@ https://docs.github.com/en/actions/concepts/security/about-secrets
 
 ### 对当前项目的建议
 
-对于 Clash for AI 这个仓库：
+对于 Relay Switch 这个仓库：
 
 1. **个人开发者账号可以用**
 2. 但正式接 GitHub Actions 前，先确认 `Team Keys` 是否可用

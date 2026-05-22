@@ -15,7 +15,7 @@ https://example.com/v1
 https://api.example.com/v1
 ```
 
-Clash for AI has compatibility handling for model list requests, but using the documented `/v1` Base URL is still the clearest setup for end users.
+Relay Switch has compatibility handling for model list requests, but using the documented `/v1` Base URL is still the clearest setup for end users.
 
 ## Model list behavior
 
@@ -31,7 +31,7 @@ Because of this, model list fetching should be treated as a compatibility featur
 
 ## Authentication notes
 
-Clash for AI currently focuses on OpenAI-compatible and Anthropic-compatible upstream integrations.
+Relay Switch currently focuses on OpenAI-compatible and Anthropic-compatible upstream integrations.
 
 That means:
 

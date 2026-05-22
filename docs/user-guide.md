@@ -1,14 +1,14 @@
-# Clash for AI 使用教程
+# Relay Switch 使用教程
 
 ## 1. 这个工具解决什么问题
 
-Clash for AI 是一个本地 AI API 代理工具。
+Relay Switch 是一个本地 AI API 代理工具。
 
 它的作用是：
 
 1. 你只需要在自己喜欢的编程工具里配置一次本地地址。
 2. 后续切换不同 Provider，不需要再去每个工具里重复改配置。
-3. 你可以在 Clash for AI 里统一管理 Provider、查看健康状态、排查请求问题。
+3. 你可以在 Relay Switch 里统一管理 Provider、查看健康状态、排查请求问题。
 
 ---
 
@@ -19,15 +19,15 @@ Clash for AI 是一个本地 AI API 代理工具。
 1. 桌面端管理界面
 2. 本地 API Gateway
 
-你的编程工具不会直接连接远程 Provider，而是先连接本地 Gateway，再由 Clash for AI 转发到你在桌面端配置好的 Provider。
+你的编程工具不会直接连接远程 Provider，而是先连接本地 Gateway，再由 Relay Switch 转发到你在桌面端配置好的 Provider。
 
 ---
 
 ## 3. 正常使用流程
 
-### 第一步：启动 Clash for AI
+### 第一步：启动 Relay Switch
 
-启动桌面应用后，Clash for AI 会在本地启动一个 API 服务。
+启动桌面应用后，Relay Switch 会在本地启动一个 API 服务。
 
 默认本地地址通常是：
 
@@ -56,7 +56,7 @@ http://127.0.0.1:3457/v1
 
 ---
 
-### 第二步：在 Clash for AI 中添加 Provider
+### 第二步：在 Relay Switch 中添加 Provider
 
 在桌面端 `Providers` 页面中填写：
 
@@ -89,12 +89,12 @@ API Key: sk-xxxx
 
 无论你使用什么工具，核心原则都一样：
 
-1. `Base URL` 填 Clash for AI 的本地地址
+1. `Base URL` 填 Relay Switch 的本地地址
 2. `API Key` 可以填任意非空字符串
 
 原因：
 
-1. 实际转发时，Clash for AI 会使用你在桌面端保存的远程 Provider 密钥。
+1. 实际转发时，Relay Switch 会使用你在桌面端保存的远程 Provider 密钥。
 2. 客户端发过来的认证头会被代理层自动处理。
 3. 所以工具侧通常不需要再填写真实的远程密钥。
 
@@ -136,7 +136,7 @@ API Key: dummy
 
 ### 4.2 Claude Code / 类 Claude 工具
 
-如果工具支持自定义 OpenAI-compatible endpoint，也可以直接接到 Clash for AI。
+如果工具支持自定义 OpenAI-compatible endpoint，也可以直接接到 Relay Switch。
 
 仍然建议填写：
 
@@ -148,7 +148,7 @@ API Key: dummy
 注意：
 
 1. 并不是所有 Claude 类工具都允许手动改 endpoint。
-2. 如果某个工具只能连接官方接口，Clash for AI 就无法接管它。
+2. 如果某个工具只能连接官方接口，Relay Switch 就无法接管它。
 
 ---
 
@@ -195,7 +195,7 @@ client = OpenAI(
 说明：
 
 1. `api_key` / `apiKey` 只要非空即可。
-2. 真实密钥由 Clash for AI 在本地转发时处理。
+2. 真实密钥由 Relay Switch 在本地转发时处理。
 
 ---
 
@@ -213,7 +213,7 @@ http://127.0.0.1:3456/v1
 
 1. 只改一次工具配置
 2. 后续换 Provider 不用再动工具
-3. 哪家 Provider 当前生效，由 Clash for AI 控制
+3. 哪家 Provider 当前生效，由 Relay Switch 控制
 
 ---
 
@@ -221,7 +221,7 @@ http://127.0.0.1:3456/v1
 
 当你已经在多个工具中都接入本地地址后，切换 Provider 的步骤非常简单：
 
-1. 打开 Clash for AI
+1. 打开 Relay Switch
 2. 进入 `Providers`
 3. 找到目标 Provider
 4. 点击 `Activate`
@@ -261,7 +261,7 @@ OK 200 in xxx ms
 
 如果你的工具发起过请求，但日志为空，通常说明：
 
-1. 工具没有真正连到 Clash for AI
+1. 工具没有真正连到 Relay Switch
 2. `Base URL` 写错了
 3. 本地端口写错了
 
@@ -273,7 +273,7 @@ OK 200 in xxx ms
 
 因为工具填写的 key 只是为了满足客户端本身的非空校验。
 
-真正用于访问远程 Provider 的密钥，来自你在 Clash for AI 里保存的 Provider 配置。
+真正用于访问远程 Provider 的密钥，来自你在 Relay Switch 里保存的 Provider 配置。
 
 ---
 
@@ -281,7 +281,7 @@ OK 200 in xxx ms
 
 先检查：
 
-1. Clash for AI 是否正在运行
+1. Relay Switch 是否正在运行
 2. 实际端口是不是已经自动切到 `3457`、`3458` 等
 3. 页面顶部的 `connected api base` 是多少
 4. 启动终端里 `[core] selected port ...` 显示多少
@@ -326,7 +326,7 @@ OK 200 in xxx ms
 
 如果你只想最快开始使用，直接按下面做：
 
-1. 启动 Clash for AI
+1. 启动 Relay Switch
 2. 在 `Providers` 页面添加远程 Provider
 3. 点击 `Activate`
 4. 在你的工具里填写：

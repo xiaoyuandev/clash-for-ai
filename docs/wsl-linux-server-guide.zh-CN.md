@@ -1,12 +1,12 @@
-# Clash for AI WSL / Linux Server 部署与使用说明
+# Relay Switch WSL / Linux Server 部署与使用说明
 
-本文档说明如何在 `WSL` 或普通 `Linux server` 上部署 Clash for AI，并通过浏览器使用 web 管理界面。
+本文档说明如何在 `WSL` 或普通 `Linux server` 上部署 Relay Switch，并通过浏览器使用 web 管理界面。
 
 ## 1. 当前部署形态
 
 当前 WSL / Linux server 方案由三部分组成：
 
-1. `clash-for-ai-core`
+1. `relay-switch-core`
 2. 内嵌的 `ai-mini-gateway` runtime
 3. `apps/web` 构建出的浏览器管理界面
 
@@ -18,7 +18,7 @@
 
 说明：
 
-1. `3456` 是 Clash for AI 主入口
+1. `3456` 是 Relay Switch 主入口
 2. `3457` 是内嵌 local gateway runtime 端口
 3. Web UI 与 API 共用 `3456`，`/api/*`、`/v1/*` 仍然由 core 处理
 
@@ -41,15 +41,15 @@
 当前推荐命令：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
 默认行为：
 
 1. 下载最新 release 的 Linux server 安装包
-2. 解压其中的 `clash-for-ai-core`、`ai-mini-gateway` 和 web UI
+2. 解压其中的 `relay-switch-core`、`ai-mini-gateway` 和 web UI
 3. 生成 `systemd --user` 服务
-4. 自动启动 Clash for AI
+4. 自动启动 Relay Switch
 
 说明：
 
@@ -71,17 +71,17 @@ http://127.0.0.1:3456
 安装脚本支持以下变量：
 
 ```bash
-CLASH_FOR_AI_VERSION=vX.Y.Z
-CLASH_FOR_AI_HTTP_PORT=3456
-CLASH_FOR_AI_LOCAL_GATEWAY_PORT=3457
-CLASH_FOR_AI_INSTALL_ROOT="$HOME/.local/share/clash-for-ai"
-CLASH_FOR_AI_DATA_DIR="$HOME/.local/share/clash-for-ai/data"
+RELAY_SWITCH_VERSION=vX.Y.Z
+RELAY_SWITCH_HTTP_PORT=3456
+RELAY_SWITCH_LOCAL_GATEWAY_PORT=3457
+RELAY_SWITCH_INSTALL_ROOT="$HOME/.local/share/relay-switch"
+RELAY_SWITCH_DATA_DIR="$HOME/.local/share/relay-switch/data"
 ```
 
 例如把主入口改到 `8080`：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_HTTP_PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_HTTP_PORT=8080 bash
 ```
 
 安装完成后的主入口会变成：
@@ -93,30 +93,30 @@ http://127.0.0.1:8080/v1
 如果你需要固定到某个已发布版本或执行回滚，可以显式指定：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
-回滚时同样使用这个方式，把 `CLASH_FOR_AI_VERSION` 改成目标 release tag 即可。
+回滚时同样使用这个方式，把 `RELAY_SWITCH_VERSION` 改成目标 release tag 即可。
 
 ## 5. 服务管理
 
 默认会安装一个 `systemd --user` 服务：
 
 ```bash
-systemctl --user status clash-for-ai
-systemctl --user restart clash-for-ai
-journalctl --user -u clash-for-ai -n 200 -f
+systemctl --user status relay-switch
+systemctl --user restart relay-switch
+journalctl --user -u relay-switch -n 200 -f
 ```
 
 同时也会生成一个辅助命令：
 
 ```bash
-clash-for-ai start
-clash-for-ai stop
-clash-for-ai restart
-clash-for-ai status
-clash-for-ai logs
-clash-for-ai run
+relay-switch start
+relay-switch stop
+relay-switch restart
+relay-switch status
+relay-switch logs
+relay-switch run
 ```
 
 说明：
@@ -143,7 +143,7 @@ http://localhost:3456
 如果 `systemctl --user` 不可用，安装脚本不会中断，但会退回到手动启动模式。此时用：
 
 ```bash
-clash-for-ai run
+relay-switch run
 ```
 
 如果你希望 WSL 内也能使用 user service，请先开启该发行版的 `systemd`。
@@ -201,17 +201,17 @@ http://127.0.0.1:3456
 默认安装后主要目录：
 
 ```text
-~/.local/share/clash-for-ai/
+~/.local/share/relay-switch/
   bin/
   data/
   web/
   release/
-  clash-for-ai.env
+  relay-switch.env
 ```
 
 说明：
 
-1. `bin/` 放 `clash-for-ai-core` 和 `ai-mini-gateway`
+1. `bin/` 放 `relay-switch-core` 和 `ai-mini-gateway`
 2. `data/` 放 sqlite 和凭证文件
 3. `web/` 是浏览器 UI 构建产物
 4. `release/` 保留最近一次解压的 release 包内容
@@ -221,7 +221,7 @@ http://127.0.0.1:3456
 当前升级方式就是重新执行安装命令：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
 脚本会：
@@ -235,7 +235,7 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scrip
 ### 11.1 看服务日志
 
 ```bash
-journalctl --user -u clash-for-ai -n 200 -f
+journalctl --user -u relay-switch -n 200 -f
 ```
 
 ### 11.2 健康检查
@@ -253,18 +253,18 @@ curl http://127.0.0.1:3456/health
 ### 11.3 检查 web UI 文件是否存在
 
 ```bash
-ls ~/.local/share/clash-for-ai/web
+ls ~/.local/share/relay-switch/web
 ```
 
 ### 11.4 检查 runtime binary 是否存在
 
 ```bash
-ls ~/.local/share/clash-for-ai/bin
+ls ~/.local/share/relay-switch/bin
 ```
 
 你应该能看到：
 
-1. `clash-for-ai-core`
+1. `relay-switch-core`
 2. `ai-mini-gateway`
 
 ### 11.5 工具调用失败，但 UI 能打开
@@ -281,7 +281,7 @@ ls ~/.local/share/clash-for-ai/bin
 如果你是本地开发、联调或验证未发布分支，可以继续使用源码构建脚本：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install-from-source.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install-from-source.sh | bash
 ```
 
 这个脚本会直接拉源码并本机构建，因此更适合开发环境，不适合作为生产默认入口。

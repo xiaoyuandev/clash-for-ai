@@ -1,17 +1,17 @@
 ---
 title: 面向中转站的 Deep Link 导入
-description: 说明第三方中转站网页如何唤起 Clash for AI，并在用户确认后导入 Provider 或 Models 配置。
+description: 说明第三方中转站网页如何唤起 Relay Switch，并在用户确认后导入 Provider 或 Models 配置。
 slug: zh-cn/deep-link-import
 ---
 
 ## 这是什么
 
-Clash for AI 支持桌面端 deep link 导入流程。
+Relay Switch 支持桌面端 deep link 导入流程。
 
 第三方网页可以通过如下链接唤起桌面应用：
 
 ```text
-clash-for-ai://v1/import?resource=provider&payload=BASE64URL_JSON
+relay-switch://v1/import?resource=provider&payload=BASE64URL_JSON
 ```
 
 桌面应用会：
@@ -56,7 +56,7 @@ function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
 
-  return `clash-for-ai://v1/import?resource=provider&payload=${encodedPayload}`;
+  return `relay-switch://v1/import?resource=provider&payload=${encodedPayload}`;
 }
 
 // 在按钮点击事件中使用：
@@ -72,10 +72,10 @@ window.location.href = url;
 对第三方中转站来说，一个常见接入方式是：
 
 ```html
-<button id="import-to-clash-for-ai">导入到 Clash for AI</button>
+<button id="import-to-relay-switch">导入到 Relay Switch</button>
 
 <script>
-  document.getElementById("import-to-clash-for-ai").addEventListener("click", () => {
+  document.getElementById("import-to-relay-switch").addEventListener("click", () => {
     window.location.href = createClashForAIProviderImportUrl({
       name: "Your Relay Name",
       baseUrl: "https://relay.example.com/v1",
@@ -90,7 +90,7 @@ window.location.href = url;
 请使用下面的结构：
 
 ```text
-clash-for-ai://v1/import?resource=<provider|model>&payload=<base64url-json>
+relay-switch://v1/import?resource=<provider|model>&payload=<base64url-json>
 ```
 
 规则：
@@ -105,7 +105,7 @@ clash-for-ai://v1/import?resource=<provider|model>&payload=<base64url-json>
 
 原因：
 
-1. 浏览器点击 `clash-for-ai://...` 时，实际是让操作系统去打开这个协议
+1. 浏览器点击 `relay-switch://...` 时，实际是让操作系统去打开这个协议
 2. 操作系统必须先知道哪个应用负责处理这个 scheme
 3. 打包后的桌面应用会更稳定地声明这个协议处理器
 4. 仅靠开发态进程，浏览器通常无法稳定识别这个协议
@@ -116,7 +116,7 @@ clash-for-ai://v1/import?resource=<provider|model>&payload=<base64url-json>
 2. 至少启动一次这个打包后的应用
 3. 打开 <a href="../../deeplink.html" target="_blank" rel="noreferrer">/deeplink.html</a>
 4. 点击 `Open Deep Link`
-5. 确认 Clash for AI 被唤起，并出现导入确认弹窗
+5. 确认 Relay Switch 被唤起，并出现导入确认弹窗
 
 如果浏览器提示这个 scheme 没有注册 handler，最常见的原因就是打包后的应用还没有安装或至少启动过一次。
 
@@ -137,12 +137,12 @@ clash-for-ai://v1/import?resource=<provider|model>&payload=<base64url-json>
 1. `name`、`baseUrl`、`apiKey` 为必填
 2. 这里的公开 payload 设计刻意与当前桌面端手动添加 Provider 的表单字段保持一致
 3. 对第三方接入方来说，最小导入流程不需要额外提供 `authMode`
-4. Clash for AI 当前会按现有添加表单的默认 bearer 行为处理这类导入
+4. Relay Switch 当前会按现有添加表单的默认 bearer 行为处理这类导入
 
 示例 deep link：
 
 ```text
-clash-for-ai://v1/import?resource=provider&payload=eyJuYW1lIjoiT3BlblJvdXRlciIsImJhc2VVcmwiOiJodHRwczovL29wZW5yb3V0ZXIuYWkvYXBpL3YxIiwiYXBpS2V5Ijoic2stb3ItZXhhbXBsZSJ9
+relay-switch://v1/import?resource=provider&payload=eyJuYW1lIjoiT3BlblJvdXRlciIsImJhc2VVcmwiOiJodHRwczovL29wZW5yb3V0ZXIuYWkvYXBpL3YxIiwiYXBpS2V5Ijoic2stb3ItZXhhbXBsZSJ9
 ```
 
 ## Model payload
@@ -166,13 +166,13 @@ clash-for-ai://v1/import?resource=provider&payload=eyJuYW1lIjoiT3BlblJvdXRlciIsI
 3. 支持的 `providerType` 值：
    `openai-compatible`
    `anthropic-compatible`
-4. 如果不传 `providerType`，Clash for AI 默认按 `openai-compatible` 处理
+4. 如果不传 `providerType`，Relay Switch 默认按 `openai-compatible` 处理
 5. `modelIds` 中第一个模型会作为默认模型 ID
 
 示例 deep link：
 
 ```text
-clash-for-ai://v1/import?resource=model&payload=eyJuYW1lIjoiUmVsYXkgTW9kZWxzIiwiYmFzZVVybCI6Imh0dHBzOi8vcmVsYXkuZXhhbXBsZS5jb20vdjEiLCJhcGlLZXkiOiJzay1tb2RlbC1leGFtcGxlIiwicHJvdmlkZXJUeXBlIjoib3BlbmFpLWNvbXBhdGlibGUiLCJtb2RlbElkcyI6WyJncHQtNG8tbWluaSIsImNsYXVkZS0zLTctc29ubmV0Il19
+relay-switch://v1/import?resource=model&payload=eyJuYW1lIjoiUmVsYXkgTW9kZWxzIiwiYmFzZVVybCI6Imh0dHBzOi8vcmVsYXkuZXhhbXBsZS5jb20vdjEiLCJhcGlLZXkiOiJzay1tb2RlbC1leGFtcGxlIiwicHJvdmlkZXJUeXBlIjoib3BlbmFpLWNvbXBhdGlibGUiLCJtb2RlbElkcyI6WyJncHQtNG8tbWluaSIsImNsYXVkZS0zLTctc29ubmV0Il19
 ```
 
 ## 如何生成 payload
@@ -205,15 +205,15 @@ const payload = toBase64Url({
   apiKey: "sk-or-example"
 });
 
-const url = `clash-for-ai://v1/import?resource=provider&payload=${payload}`;
+const url = `relay-switch://v1/import?resource=provider&payload=${payload}`;
 ```
 
 ## 用户体验流程
 
 当用户点击 deep link 后：
 
-1. 系统询问是否打开 Clash for AI
-2. Clash for AI 被唤起
+1. 系统询问是否打开 Relay Switch
+2. Relay Switch 被唤起
 3. 应用展示导入确认弹窗
 4. 用户选择确认或取消
 5. 只有确认后才真正写入配置

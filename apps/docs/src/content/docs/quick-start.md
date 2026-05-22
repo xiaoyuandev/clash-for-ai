@@ -1,6 +1,6 @@
 ---
 title: "Quick Start: Install and Connect an AI Tool"
-description: Install Clash for AI, add an OpenAI-compatible provider, and connect Cursor, Claude Code, Codex, or another tool to the local gateway.
+description: Install Relay Switch, add an OpenAI-compatible provider, and connect Cursor, Claude Code, Codex, or another tool to the local gateway.
 slug: quick-start
 ---
 
@@ -8,13 +8,13 @@ slug: quick-start
 
 You need:
 
-1. A desktop build of Clash for AI or a local development environment.
+1. A desktop build of Relay Switch or a local development environment.
 2. At least one upstream provider or relay service.
 3. A tool that supports custom API endpoints.
 
-## Step 1: Start Clash for AI
+## Step 1: Start Relay Switch
 
-After launching the desktop app, Clash for AI starts a local API gateway.
+After launching the desktop app, Relay Switch starts a local API gateway.
 
 The default local endpoint is usually:
 
@@ -24,7 +24,7 @@ http://127.0.0.1:3456/v1
 
 If the default port is occupied, the app may use another local port. Always use the `connected api base` shown in the app.
 
-<img src="../img/quick-start-launch.png" alt="Clash for AI launch overview" />
+<img src="../img/quick-start-launch.png" alt="Relay Switch launch overview" />
 
 ## Step 2: Add a provider
 
@@ -36,7 +36,7 @@ Open the `Providers` page and fill in:
 
 For OpenAI-compatible relay services, the Base URL usually ends with `/v1`.
 
-<img src="../img/quick-start-provider-form.png" alt="Clash for AI OpenAI-compatible provider form" />
+<img src="../img/quick-start-provider-form.png" alt="Relay Switch OpenAI-compatible provider form" />
 
 ## Step 3: Activate the provider
 
@@ -53,16 +53,16 @@ Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-The local key can usually be any non-empty string because the real upstream credential is stored and applied by Clash for AI.
+The local key can usually be any non-empty string because the real upstream credential is stored and applied by Relay Switch.
 
 ## Step 5: Send a test request
 
 After your tool is connected:
 
 1. Send a normal request.
-2. Open the `Logs` page in Clash for AI.
+2. Open the `Logs` page in Relay Switch.
 3. Verify the request appears there.
 
 If the request fails, start with the provider health check and then inspect the request log details.
 
-<img src="../img/quick-start-request-log.png" alt="Clash for AI local gateway request log" />
+<img src="../img/quick-start-request-log.png" alt="Relay Switch local gateway request log" />

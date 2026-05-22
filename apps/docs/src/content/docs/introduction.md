@@ -1,10 +1,10 @@
 ---
 title: Local AI Gateway Introduction
-description: What Clash for AI is, who it is for, and how one local OpenAI-compatible gateway helps switch AI providers.
+description: What Relay Switch is, who it is for, and how one local OpenAI-compatible gateway helps switch AI providers.
 slug: introduction
 ---
 
-Clash for AI is a local desktop gateway for people who switch between multiple AI gateways or API relay providers.
+Relay Switch is a local desktop gateway for people who switch between multiple AI gateways or API relay providers.
 
 It is designed for a simple workflow:
 
@@ -14,7 +14,7 @@ It is designed for a simple workflow:
 
 ## What it solves
 
-Clash for AI mainly addresses two problems:
+Relay Switch mainly addresses two problems:
 
 1. Relay providers can be unstable, so you may need to switch between different gateways frequently.
 2. If you use multiple coding tools, chat clients, or SDK scripts, changing providers often means repeatedly updating configuration in each tool.

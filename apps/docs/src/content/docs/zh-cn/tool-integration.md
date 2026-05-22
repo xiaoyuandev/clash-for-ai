@@ -1,6 +1,6 @@
 ---
 title: Cursor、Claude Code、Codex 与 SDK 工具接入
-description: 配置 Cursor、Claude Code、Codex CLI、Cherry Studio、OpenAI SDK 脚本和其他工具使用 Clash for AI 本地端点。
+description: 配置 Cursor、Claude Code、Codex CLI、Cherry Studio、OpenAI SDK 脚本和其他工具使用 Relay Switch 本地端点。
 slug: zh-cn/tool-integration
 ---
 
@@ -30,7 +30,7 @@ export OPENAI_API_KEY="dummy"
 
 然后在同一个终端会话里启动 Codex CLI。
 
-这样 Codex CLI 会始终连接本地统一入口，而真正切换上游 Provider 的动作由 Clash for AI 负责。
+这样 Codex CLI 会始终连接本地统一入口，而真正切换上游 Provider 的动作由 Relay Switch 负责。
 
 ### 通用 OpenAI 兼容 CLI
 
@@ -41,11 +41,11 @@ export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
 export OPENAI_API_KEY="dummy"
 ```
 
-如果这个工具本身会读取标准 OpenAI 环境变量，一般就可以直接复用 Clash for AI。
+如果这个工具本身会读取标准 OpenAI 环境变量，一般就可以直接复用 Relay Switch。
 
 ## Claude Code
 
-Claude Code 这类工具通常更偏 Anthropic 风格配置。在 Clash for AI 里，Anthropic 兼容流量一般使用不带 `/v1` 的本地根地址。
+Claude Code 这类工具通常更偏 Anthropic 风格配置。在 Relay Switch 里，Anthropic 兼容流量一般使用不带 `/v1` 的本地根地址。
 
 如果你的上游只支持 OpenAI 兼容接口，则应优先使用允许自定义 OpenAI endpoint 的工具模式。
 
@@ -105,7 +105,7 @@ API Key: dummy
 如果你配置的是其他 IDE 或插件，按这个清单找字段：
 
 1. 找 `Base URL`、`API Base`、`Endpoint` 或 `OpenAI Base URL`
-2. 填 Clash for AI 的本地地址，并带上 `/v1`
+2. 填 Relay Switch 的本地地址，并带上 `/v1`
 3. API Key 填 `dummy` 或任意非空值
 4. 确认你选择的模型确实是当前激活 Provider 支持的模型
 
@@ -122,8 +122,8 @@ const client = new OpenAI({
 
 ## 一个重要限制
 
-Clash for AI 是本地网关和 Provider 切换工具，不会替用户主控模型选择。
+Relay Switch 是本地网关和 Provider 切换工具，不会替用户主控模型选择。
 
-Clash for AI 中配置的模型排序，只会在“请求模型已经命中已选列表，并且上游失败到可重试条件”时，作为 fallback 链条生效。
+Relay Switch 中配置的模型排序，只会在“请求模型已经命中已选列表，并且上游失败到可重试条件”时，作为 fallback 链条生效。
 
-<img src="../../img/connectatool.png" alt="Clash for AI 面向 IDE 和插件的工具接入字段" />
+<img src="../../img/connectatool.png" alt="Relay Switch 面向 IDE 和插件的工具接入字段" />

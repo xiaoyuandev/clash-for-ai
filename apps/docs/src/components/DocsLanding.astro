@@ -49,8 +49,8 @@ const siteUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const canonicalUrl = siteUrl.toString();
 const alternateLinks = getAlternateLinks(Astro.site, Astro.url.pathname);
 const releaseVersion = rootPackage.version;
-const latestReleaseHref = "https://github.com/xiaoyuandev/clash-for-ai/releases/latest";
-const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash";
+const latestReleaseHref = "https://github.com/xiaoyuandev/relay-switch/releases/latest";
+const installCommand = "curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash";
 const downloadLinks = [
   {
     label: props.lang === "zh-CN" ? "macOS Apple Silicon" : "macOS Apple Silicon",
@@ -76,15 +76,15 @@ const downloadLinks = [
 const seoMeta =
   props.lang === "zh-CN"
     ? {
-        title: "Clash for AI - 本地 OpenAI 兼容 AI 网关",
+        title: "Relay Switch - 本地 OpenAI 兼容 AI 网关",
         description:
-          "Clash for AI 让 Cursor、Claude Code、Codex、Cherry Studio 和脚本共用一个本地 OpenAI 兼容端点，并通过桌面 UI 管理多个 AI 服务商和模型来源。",
+          "Relay Switch 让 Cursor、Claude Code、Codex、Cherry Studio 和脚本共用一个本地 OpenAI 兼容端点，并通过桌面 UI 管理多个 AI 服务商和模型来源。",
         keywords:
-          "Clash for AI, 本地 AI 网关, OpenAI 兼容网关, Cursor 中转配置, Claude Code OpenAI, Codex 本地网关, new-api, one-api",
+          "Relay Switch, 本地 AI 网关, OpenAI 兼容网关, Cursor 中转配置, Claude Code OpenAI, Codex 本地网关, new-api, one-api",
         downloadTitle: "下载并开始使用",
         downloadLead:
           "从 GitHub Release 下载桌面端，或在 WSL / Linux Server 上使用一键安装命令启动本地网关。",
-        githubCta: "获取 Clash for AI",
+        githubCta: "获取 Relay Switch",
         releaseCta: "查看全部 Release",
         serverTitle: "WSL / Linux Server 一键安装",
         serverHint: "安装后默认 Web 管理界面和 OpenAI 兼容入口都运行在 http://127.0.0.1:3456。",
@@ -108,15 +108,15 @@ const seoMeta =
         ],
       }
     : {
-        title: "Clash for AI - Local AI Gateway for OpenAI-Compatible Tools",
+        title: "Relay Switch - Local AI Gateway for OpenAI-Compatible Tools",
         description:
-          "Clash for AI gives Cursor, Claude Code, Codex, Cherry Studio, and scripts one local OpenAI-compatible endpoint, with provider and model switching from a desktop UI.",
+          "Relay Switch gives Cursor, Claude Code, Codex, Cherry Studio, and scripts one local OpenAI-compatible endpoint, with provider and model switching from a desktop UI.",
         keywords:
-          "Clash for AI, local AI gateway, OpenAI compatible gateway, Cursor OpenAI proxy, Claude Code OpenAI compatible, Codex local gateway, new-api, one-api",
-        downloadTitle: "Download and start using Clash for AI",
+          "Relay Switch, local AI gateway, OpenAI compatible gateway, Cursor OpenAI proxy, Claude Code OpenAI compatible, Codex local gateway, new-api, one-api",
+        downloadTitle: "Download and start using Relay Switch",
         downloadLead:
           "Download the desktop app from GitHub Releases, or run the one-line installer for WSL and Linux Server.",
-        githubCta: "Get Clash for AI",
+        githubCta: "Get Relay Switch",
         releaseCta: "View all releases",
         serverTitle: "WSL / Linux Server one-line install",
         serverHint: "After installation, the Web UI and OpenAI-compatible endpoint run on http://127.0.0.1:3456 by default.",
@@ -152,7 +152,7 @@ const structuredData = {
     {
       "@type": "WebSite",
       "@id": `${canonicalUrl}#website`,
-      name: "Clash for AI Docs",
+      name: "Relay Switch Docs",
       url: canonicalUrl,
       inLanguage: props.lang,
       publisher
@@ -160,14 +160,14 @@ const structuredData = {
     {
       "@type": "SoftwareApplication",
       "@id": `${canonicalUrl}#software`,
-      name: "Clash for AI",
+      name: "Relay Switch",
       applicationCategory: "DeveloperApplication",
       operatingSystem: ["macOS", "Windows", "Linux"],
       description: seoMeta.description,
       url: canonicalUrl,
       downloadUrl: latestReleaseHref,
       softwareVersion: releaseVersion,
-      codeRepository: "https://github.com/xiaoyuandev/clash-for-ai",
+      codeRepository: "https://github.com/xiaoyuandev/relay-switch",
       inLanguage: props.lang,
       publisher,
       offers: {
@@ -182,23 +182,23 @@ const structuredData = {
 const galleryImages = [
   {
     src: "/img/home-preview.png",
-    alt: props.lang === "zh-CN" ? "Clash for AI 首页概览" : "Clash for AI home overview"
+    alt: props.lang === "zh-CN" ? "Relay Switch 首页概览" : "Relay Switch home overview"
   },
   {
     src: "/img/quick-start-provider-form.png",
-    alt: props.lang === "zh-CN" ? "Clash for AI Provider 配置表单" : "Clash for AI provider configuration form"
+    alt: props.lang === "zh-CN" ? "Relay Switch Provider 配置表单" : "Relay Switch provider configuration form"
   },
   {
     src: "/img/quick-start-request-log.png",
-    alt: props.lang === "zh-CN" ? "Clash for AI 请求日志页面" : "Clash for AI request logs"
+    alt: props.lang === "zh-CN" ? "Relay Switch 请求日志页面" : "Relay Switch request logs"
   },
   {
     src: "/img/connectatool.png",
-    alt: props.lang === "zh-CN" ? "Clash for AI 工具接入配置" : "Clash for AI tool integration setup"
+    alt: props.lang === "zh-CN" ? "Relay Switch 工具接入配置" : "Relay Switch tool integration setup"
   },
   {
     src: "/img/settings.png",
-    alt: props.lang === "zh-CN" ? "Clash for AI 设置页面" : "Clash for AI settings page"
+    alt: props.lang === "zh-CN" ? "Relay Switch 设置页面" : "Relay Switch settings page"
   }
 ];
 ---
@@ -216,7 +216,7 @@ const galleryImages = [
       <link rel="alternate" hreflang={link.hreflang} href={link.href} />
     ))}
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Clash for AI" />
+    <meta property="og:site_name" content="Relay Switch" />
     <meta property="og:title" content={seoMeta.title} />
     <meta property="og:description" content={seoMeta.description} />
     <meta property="og:url" content={canonicalUrl} />
@@ -244,9 +244,9 @@ const galleryImages = [
           <img
             class="h-8 w-8 rounded-lg border border-white/10 bg-slate-950/70 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)]"
             src={logo.src}
-            alt="Clash for AI"
+            alt="Relay Switch"
           />
-          <span>Clash for AI Docs</span>
+          <span>Relay Switch Docs</span>
         </a>
         <nav class="flex flex-wrap gap-5 text-[14px] font-semibold text-slate-300">
           <a class="transition hover:text-slate-100" href={withBase(props.introHref)}>{props.nav.intro}</a>

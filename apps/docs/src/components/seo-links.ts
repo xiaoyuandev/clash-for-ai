@@ -14,7 +14,7 @@ const normalizePath = (pathname: string) => {
 };
 
 export const withSitePath = (site: URL | undefined, path: string) => {
-  const baseUrl = site ?? new URL("https://www.clashforai.com");
+  const baseUrl = site ?? new URL("https://www.relayswitch.dev");
   const basePath = baseUrl.pathname.replace(/\/$/, "");
   return new URL(`${basePath}${normalizePath(path)}`, baseUrl).toString();
 };

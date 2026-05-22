@@ -1,10 +1,10 @@
 ---
 title: 本地 AI 网关介绍
-description: 了解 Clash for AI 的定位、适用人群，以及如何用一个本地 OpenAI 兼容网关切换 AI Provider。
+description: 了解 Relay Switch 的定位、适用人群，以及如何用一个本地 OpenAI 兼容网关切换 AI Provider。
 slug: zh-cn/introduction
 ---
 
-Clash for AI 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌面网关工具。
+Relay Switch 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌面网关工具。
 
 它的核心使用方式很简单：
 
@@ -14,7 +14,7 @@ Clash for AI 是一个面向多 AI Gateway / 中转 API 使用场景的本地桌
 
 ## 这个项目解决什么问题
 
-Clash for AI 主要解决两个问题：
+Relay Switch 主要解决两个问题：
 
 1. 中转 API 服务不稳定，用户需要在不同中转服务商之间频繁切换
 2. 当你同时使用多个编程工具、聊天客户端或脚本时，每次切换服务商都要重复修改配置

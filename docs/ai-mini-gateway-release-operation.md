@@ -2,9 +2,9 @@
 
 ## 1. 文档目的
 
-本文档用于指导 `clash-for-ai` 在发布阶段如何接入和升级内置 `ai-mini-gateway` runtime binary。
+本文档用于指导 `relay-switch` 在发布阶段如何接入和升级内置 `ai-mini-gateway` runtime binary。
 
-它是 [docs/ai-mini-gateway-binary-distribution.md](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/docs/ai-mini-gateway-binary-distribution.md) 的执行手册，重点回答：
+它是 [docs/ai-mini-gateway-binary-distribution.md](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/docs/ai-mini-gateway-binary-distribution.md) 的执行手册，重点回答：
 
 1. 升级 manifest 时具体改什么
 2. 如何准备 release runtime binary
@@ -15,13 +15,13 @@
 当前仓库中的发布期接入点如下：
 
 - manifest:
-  [apps/desktop/resources/ai-mini-gateway/manifest.json](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/apps/desktop/resources/ai-mini-gateway/manifest.json)
+  [apps/desktop/resources/ai-mini-gateway/manifest.json](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/apps/desktop/resources/ai-mini-gateway/manifest.json)
 - runtime 准备脚本:
-  [apps/desktop/scripts/prepare-ai-mini-gateway.mjs](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/apps/desktop/scripts/prepare-ai-mini-gateway.mjs)
+  [apps/desktop/scripts/prepare-ai-mini-gateway.mjs](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/apps/desktop/scripts/prepare-ai-mini-gateway.mjs)
 - 打包资源配置:
-  [apps/desktop/electron-builder.yml](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/apps/desktop/electron-builder.yml)
+  [apps/desktop/electron-builder.yml](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/apps/desktop/electron-builder.yml)
 - 桌面端注入 bundled runtime 路径:
-  [apps/desktop/src/main/core-process.ts](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/apps/desktop/src/main/core-process.ts)
+  [apps/desktop/src/main/core-process.ts](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/apps/desktop/src/main/core-process.ts)
 
 约定：
 
@@ -31,13 +31,13 @@
 
 ## 3. 版本对齐规则
 
-`clash-for-ai` 和 `ai-mini-gateway` 不使用同一套版本号。
+`relay-switch` 和 `ai-mini-gateway` 不使用同一套版本号。
 
 采用以下规则：
 
-1. `clash-for-ai` 保持自己的产品版本
+1. `relay-switch` 保持自己的产品版本
 2. `ai-mini-gateway` 保持自己的 release tag
-3. `clash-for-ai` 通过 manifest pin 一个明确的 runtime 版本
+3. `relay-switch` 通过 manifest pin 一个明确的 runtime 版本
 
 也就是说：
 
@@ -59,7 +59,7 @@ manifest 中至少维护：
 
 不要做的事：
 
-1. 不要把 `clash-for-ai` 版本号强行改成和 runtime 一样
+1. 不要把 `relay-switch` 版本号强行改成和 runtime 一样
 2. 不要只更新 `version` 不更新 `commit`
 3. 不要只靠 release 页面标题判断版本，不核对 tag 和 commit
 
@@ -92,7 +92,7 @@ ai-mini-gateway_v0.1.0_windows_amd64.zip
 
 编辑：
 
-[apps/desktop/resources/ai-mini-gateway/manifest.json](/Users/yuanjunliang/Documents/workspace/profile/clash-for-ai/apps/desktop/resources/ai-mini-gateway/manifest.json)
+[apps/desktop/resources/ai-mini-gateway/manifest.json](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/apps/desktop/resources/ai-mini-gateway/manifest.json)
 
 需要更新的字段：
 
@@ -232,13 +232,13 @@ resources/ai-mini-gateway/manifest.json
 标准发布顺序如下：
 
 1. 在 `ai-mini-gateway` 仓库确认目标 release 已存在
-2. 在 `clash-for-ai` 更新 `manifest.json`
+2. 在 `relay-switch` 更新 `manifest.json`
 3. 运行 `pnpm --filter desktop prepare:ai-mini-gateway-runtime`
 4. 执行必要测试和 typecheck
 5. 执行目标平台打包命令
 6. 本地验证安装包内置 runtime 正常启动
 7. 提交 manifest 和相关代码变更
-8. 发布新的 `clash-for-ai` 安装包
+8. 发布新的 `relay-switch` 安装包
 
 ## 9. 验证清单
 
@@ -290,7 +290,7 @@ resources/ai-mini-gateway/manifest.json
 
 在变更说明中建议明确写出：
 
-1. 本次 `clash-for-ai` 内置的 `ai-mini-gateway` 版本
+1. 本次 `relay-switch` 内置的 `ai-mini-gateway` 版本
 2. 对应 commit
 3. `contract_version`
 

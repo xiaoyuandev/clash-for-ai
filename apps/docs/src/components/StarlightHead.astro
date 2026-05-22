@@ -5,8 +5,8 @@ import { getAlternateLinks } from "./seo-links";
 const alternateLinks = getAlternateLinks(Astro.site, Astro.url.pathname);
 const defaultLink = alternateLinks.find((link) => link.hreflang === "x-default");
 const route = Astro.locals.starlightRoute;
-const pageTitle = route?.entry.data.title ?? "Clash for AI Docs";
-const pageDescription = route?.entry.data.description ?? "Clash for AI documentation.";
+const pageTitle = route?.entry.data.title ?? "Relay Switch Docs";
+const pageDescription = route?.entry.data.description ?? "Relay Switch documentation.";
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
 const lang = Astro.url.pathname.startsWith("/zh-cn/") ? "zh-CN" : "en";
 const publisher = {
@@ -24,15 +24,15 @@ const articleStructuredData = {
   inLanguage: lang,
   isPartOf: {
     "@type": "WebSite",
-    name: "Clash for AI Docs",
+    name: "Relay Switch Docs",
     url: new URL("/", Astro.site ?? Astro.url.origin).toString()
   },
   publisher,
   about: {
     "@type": "SoftwareApplication",
-    name: "Clash for AI",
+    name: "Relay Switch",
     applicationCategory: "DeveloperApplication",
-    codeRepository: "https://github.com/xiaoyuandev/clash-for-ai"
+    codeRepository: "https://github.com/xiaoyuandev/relay-switch"
   }
 };
 const faqPages = new Set(["/faq/", "/zh-cn/faq/"]);
@@ -42,7 +42,7 @@ const faqItems =
         {
           question: "为什么工具里可以把 API Key 写成 dummy？",
           answer:
-            "因为真正的上游密钥保存在 Clash for AI 里，并在转发时注入。很多 OpenAI 兼容工具只要求本地填写一个非空值即可。"
+            "因为真正的上游密钥保存在 Relay Switch 里，并在转发时注入。很多 OpenAI 兼容工具只要求本地填写一个非空值即可。"
         },
         {
           question: "为什么有的 Provider 能拉到模型列表，有的不能？",
@@ -50,21 +50,21 @@ const faqItems =
             "因为不同中转服务暴露模型信息的方式不一样。有些支持 /v1/models，有些返回自定义格式，有些则不提供模型发现接口。"
         },
         {
-          question: "Clash for AI 会替用户决定模型吗？",
+          question: "Relay Switch 会替用户决定模型吗？",
           answer:
-            "不会。真正决定请求哪个模型的仍然是客户端工具本身。Clash for AI 的已选模型排序只会在请求模型命中已选列表且上游出现 429 或 5xx 等可重试错误时作为 fallback 链生效。"
+            "不会。真正决定请求哪个模型的仍然是客户端工具本身。Relay Switch 的已选模型排序只会在请求模型命中已选列表且上游出现 429 或 5xx 等可重试错误时作为 fallback 链生效。"
         },
         {
           question: "当前项目支持 Gemini 原生 API 吗？",
           answer:
-            "当前不支持。只有当上游把 Gemini 模型封装成 OpenAI 兼容或 Anthropic 兼容接口时，Clash for AI 才能接入。"
+            "当前不支持。只有当上游把 Gemini 模型封装成 OpenAI 兼容或 Anthropic 兼容接口时，Relay Switch 才能接入。"
         }
       ]
     : [
         {
           question: "Why does my tool use dummy as the API key?",
           answer:
-            "Because the real upstream credential is stored inside Clash for AI and injected during forwarding. Many OpenAI-compatible tools only require a non-empty local key value."
+            "Because the real upstream credential is stored inside Relay Switch and injected during forwarding. Many OpenAI-compatible tools only require a non-empty local key value."
         },
         {
           question: "Why can one provider fetch the model list while another cannot?",
@@ -72,12 +72,12 @@ const faqItems =
             "Relay services do not always expose model metadata in the same way. Some support /v1/models, some return custom formats, and some do not expose model discovery at all."
         },
         {
-          question: "Does Clash for AI choose the model for the user?",
+          question: "Does Relay Switch choose the model for the user?",
           answer:
-            "No. The client tool still decides which model to request. Clash for AI only uses its selected model ordering as a fallback chain when the incoming request already names a selected model and the upstream request fails with a retryable status such as 429 or 5xx."
+            "No. The client tool still decides which model to request. Relay Switch only uses its selected model ordering as a fallback chain when the incoming request already names a selected model and the upstream request fails with a retryable status such as 429 or 5xx."
         },
         {
-          question: "Does Clash for AI support Gemini native API?",
+          question: "Does Relay Switch support Gemini native API?",
           answer:
             "Not currently. It can work with Gemini models only when the upstream provider exposes them through an OpenAI-compatible or Anthropic-compatible interface."
         }

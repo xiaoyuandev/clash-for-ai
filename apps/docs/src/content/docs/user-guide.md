@@ -1,12 +1,12 @@
 ---
 title: User Guide for Desktop, WSL, and Linux Server
-description: A practical guide to Clash for AI providers, model fallback, request logs, tool integration, and WSL / Linux Server management.
+description: A practical guide to Relay Switch providers, model fallback, request logs, tool integration, and WSL / Linux Server management.
 slug: user-guide
 ---
 
 ## What this guide is for
 
-This page is the practical usage guide for Clash for AI.
+This page is the practical usage guide for Relay Switch.
 
 Use it when you want one place to understand:
 
@@ -18,14 +18,14 @@ Use it when you want one place to understand:
 
 ## How the traffic flow works
 
-Clash for AI sits between your client tool and the upstream relay provider.
+Relay Switch sits between your client tool and the upstream relay provider.
 
 The normal request path is:
 
-1. your tool sends a request to the local Clash for AI endpoint,
-2. Clash for AI loads the active provider,
-3. Clash for AI injects the upstream credential,
-4. Clash for AI forwards the request to the provider,
+1. your tool sends a request to the local Relay Switch endpoint,
+2. Relay Switch loads the active provider,
+3. Relay Switch injects the upstream credential,
+4. Relay Switch forwards the request to the provider,
 5. the response is sent back to your tool,
 6. the request is recorded in the local log view.
 
@@ -33,7 +33,7 @@ This is why your tools can keep one stable local Base URL while the desktop app 
 
 ## Desktop vs Web
 
-Clash for AI now has two kinds of management entry:
+Relay Switch now has two kinds of management entry:
 
 1. the `Electron` desktop app,
 2. the `Web / PWA` supplementary entry.
@@ -63,7 +63,7 @@ The Web / PWA entry mainly provides:
 
 If you mainly run `Codex CLI`, `Claude Code`, or other CLI tools inside `WSL`, the recommended path is:
 
-1. start `clash-for-ai-core` inside WSL,
+1. start `relay-switch-core` inside WSL,
 2. open the Web UI exposed by that WSL instance in your browser,
 3. manage `Providers`, `Models`, `Logs`, and `Tools` from that Web page.
 
@@ -75,9 +75,9 @@ The important effect is:
 
 ## How to use it on a Linux server
 
-If Clash for AI runs on a Linux server, cloud VM, home server, or NAS, the recommended path is:
+If Relay Switch runs on a Linux server, cloud VM, home server, or NAS, the recommended path is:
 
-1. start `clash-for-ai-core` on that machine,
+1. start `relay-switch-core` on that machine,
 2. open the exposed Web UI from your browser,
 3. manage `Providers`, `Models`, `Logs`, and `Tools` there.
 
@@ -137,7 +137,7 @@ https://api.example.com/v1
 
 If the provider documentation shows only a root domain, test both the documented value and the `/v1` form if model discovery fails.
 
-<img src="../img/quick-start-provider-form.png" alt="Clash for AI provider overview and OpenAI-compatible configuration" />
+<img src="../img/quick-start-provider-form.png" alt="Relay Switch provider overview and OpenAI-compatible configuration" />
 
 ## Tool setup checklist
 
@@ -150,7 +150,7 @@ API Key: dummy
 
 Use the actual local port shown in the desktop app if it is not `3456`.
 
-<img src="../img/connectatool.png" alt="Clash for AI connect a tool settings for local endpoint configuration" />
+<img src="../img/connectatool.png" alt="Relay Switch connect a tool settings for local endpoint configuration" />
 
 ## What the Models page actually does
 
@@ -158,14 +158,14 @@ The `Models` page does **not** choose the model on behalf of the client tool.
 
 The client tool still decides the requested model name.
 
-The ordered selected models in Clash for AI are used only as a fallback chain when:
+The ordered selected models in Relay Switch are used only as a fallback chain when:
 
 1. the incoming request is a JSON `POST`,
 2. the request already includes a model field,
 3. that model is already in the selected model list,
 4. and the upstream request fails with a retryable condition such as `429`, `5xx`, or a network error.
 
-If the requested model is not in the selected list, Clash for AI will not switch to a different fallback model automatically.
+If the requested model is not in the selected list, Relay Switch will not switch to a different fallback model automatically.
 
 ## Model list compatibility notes
 
@@ -176,7 +176,7 @@ Common reasons a model list may fail:
 1. the provider does not expose model discovery,
 2. the provider only supports `/v1/models`,
 3. the provider returns a non-standard response format,
-4. the provider uses a protocol Clash for AI does not support natively.
+4. the provider uses a protocol Relay Switch does not support natively.
 
 If the provider can serve requests normally but the model list fails, treat that as a compatibility issue with discovery, not necessarily as a provider failure.
 
@@ -193,7 +193,7 @@ When something does not work, use this order:
 
 ## Current protocol scope
 
-Clash for AI currently focuses on:
+Relay Switch currently focuses on:
 
 1. OpenAI-compatible upstreams
 2. Anthropic-compatible upstreams

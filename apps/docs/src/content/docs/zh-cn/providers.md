@@ -15,7 +15,7 @@ https://example.com/v1
 https://api.example.com/v1
 ```
 
-虽然 Clash for AI 已经对模型列表请求补了一层兼容处理，但对终端用户来说，直接使用文档中要求的 `/v1` Base URL 依然最清晰。
+虽然 Relay Switch 已经对模型列表请求补了一层兼容处理，但对终端用户来说，直接使用文档中要求的 `/v1` Base URL 依然最清晰。
 
 ## 模型列表获取行为
 
@@ -31,7 +31,7 @@ https://api.example.com/v1
 
 ## 鉴权说明
 
-Clash for AI 当前主要面向：
+Relay Switch 当前主要面向：
 
 1. OpenAI 兼容上游
 2. Anthropic 兼容上游
