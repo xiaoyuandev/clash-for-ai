@@ -41,7 +41,7 @@ relay-switch://v1/import?resource=provider&payload=BASE64URL_JSON
 3. `apiKey`
 
 ```js
-function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+function createRelaySwitchProviderImportUrl({ name, baseUrl, apiKey }) {
   const payload = { name, baseUrl, apiKey };
   const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
@@ -60,7 +60,7 @@ function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
 }
 
 // 在按钮点击事件中使用：
-const url = createClashForAIProviderImportUrl({
+const url = createRelaySwitchProviderImportUrl({
   name: "OpenRouter",
   baseUrl: "https://openrouter.ai/api/v1",
   apiKey: "sk-or-example"
@@ -76,7 +76,7 @@ window.location.href = url;
 
 <script>
   document.getElementById("import-to-relay-switch").addEventListener("click", () => {
-    window.location.href = createClashForAIProviderImportUrl({
+    window.location.href = createRelaySwitchProviderImportUrl({
       name: "Your Relay Name",
       baseUrl: "https://relay.example.com/v1",
       apiKey: "USER_VISIBLE_OR_USER_GENERATED_API_KEY"

@@ -390,7 +390,7 @@ claude-3-7-sonnet</textarea>
     </main>
 
     <script>
-      const providerImportHelperCode = `function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+      const providerImportHelperCode = `function createRelaySwitchProviderImportUrl({ name, baseUrl, apiKey }) {
   const payload = { name, baseUrl, apiKey };
   const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
@@ -429,7 +429,7 @@ claude-3-7-sonnet</textarea>
           .replace(/=+$/g, "");
       }
 
-      function createClashForAIProviderImportUrl({ name, baseUrl, apiKey }) {
+      function createRelaySwitchProviderImportUrl({ name, baseUrl, apiKey }) {
         const payload = { name, baseUrl, apiKey };
         const json = JSON.stringify(payload);
         const bytes = new TextEncoder().encode(json);
@@ -503,7 +503,7 @@ claude-3-7-sonnet</textarea>
         const { resource, payload } = getCurrentPayload();
         const url =
           resource === "provider"
-            ? createClashForAIProviderImportUrl(payload)
+            ? createRelaySwitchProviderImportUrl(payload)
             : `relay-switch://v1/import?resource=${resource}&payload=${toBase64Url(payload)}`;
         payloadJson.textContent = JSON.stringify(payload, null, 2);
         deepLinkUrl.textContent = url;
