@@ -115,7 +115,7 @@ jobs:
         run: |
           cd dist/server
           VERSION="${GITHUB_REF_NAME}"
-          sha256sum *.tar.gz > "clash-for-ai-server_${VERSION}_SHA256SUMS.txt"
+          sha256sum *.tar.gz > "relay-switch-server_${VERSION}_SHA256SUMS.txt"
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2

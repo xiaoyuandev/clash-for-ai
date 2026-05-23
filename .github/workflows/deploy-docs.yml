@@ -55,7 +55,7 @@ jobs:
 
       - name: Build docs
         env:
-          DOCS_SITE_URL: https://www.clashforai.com
+          DOCS_SITE_URL: https://www.relayswitch.dev
         run: pnpm docs:build
 
       - name: Upload Pages artifact

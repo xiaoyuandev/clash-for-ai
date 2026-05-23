@@ -1,4 +1,4 @@
-# Clash for AI v{{VERSION}}
+# Relay Switch v{{VERSION}}
 
 ## Downloads
 
@@ -11,30 +11,30 @@ Use the packaged desktop app if you want the full Electron experience on macOS, 
 ### macOS
 
 1. Apple Silicon:
-   - `Clash-for-AI-{{VERSION}}-arm64.pkg`
-   - `Clash-for-AI-{{VERSION}}-arm64.dmg`
-   - `Clash-for-AI-{{VERSION}}-mac-arm64.zip`
+   - `Relay-Switch-{{VERSION}}-arm64.pkg`
+   - `Relay-Switch-{{VERSION}}-arm64.dmg`
+   - `Relay-Switch-{{VERSION}}-mac-arm64.zip`
 2. Intel Mac:
    - use the matching `x64` artifact when that build is attached
 
 ### Windows
 
 1. Installer:
-   - `Clash-for-AI-{{VERSION}}-x64-setup.exe`
+   - `Relay-Switch-{{VERSION}}-x64-setup.exe`
 2. If an `arm64` installer is attached, prefer that on Windows on ARM devices
 
 ### Linux
 
-1. `Clash-for-AI-{{VERSION}}-x64.AppImage`
-2. `Clash-for-AI-{{VERSION}}-linux-x64.tar.gz`
+1. `Relay-Switch-{{VERSION}}-x64.AppImage`
+2. `Relay-Switch-{{VERSION}}-linux-x64.tar.gz`
 
 ### WSL / Linux Server
 
 Use the server package if you want browser-based management on `WSL` or a plain `Linux server`.
 
-1. `clash-for-ai-server_{{VERSION}}_linux_amd64.tar.gz`
-2. `clash-for-ai-server_{{VERSION}}_linux_arm64.tar.gz`
-3. `clash-for-ai-server_{{VERSION}}_SHA256SUMS.txt`
+1. `relay-switch-server_{{VERSION}}_linux_amd64.tar.gz`
+2. `relay-switch-server_{{VERSION}}_linux_arm64.tar.gz`
+3. `relay-switch-server_{{VERSION}}_SHA256SUMS.txt`
 
 ## Install Paths
 
@@ -47,19 +47,19 @@ Download the desktop package that matches your OS and launch it normally.
 Latest release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
 Pinned release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install.sh | CLASH_FOR_AI_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 Development-only source install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/clash-for-ai/main/scripts/install-from-source.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install-from-source.sh | bash
 ```
 
 ## Install Notes
@@ -88,13 +88,13 @@ If SmartScreen warns that the publisher is unknown:
 For AppImage:
 
 ```bash
-chmod +x "Clash-for-AI-{{VERSION}}-x64.AppImage"
-./Clash-for-AI-{{VERSION}}-x64.AppImage
+chmod +x "Relay-Switch-{{VERSION}}-x64.AppImage"
+./Relay-Switch-{{VERSION}}-x64.AppImage
 ```
 
 ## Notes
 
-1. The desktop app includes the local `clash-for-ai-core` binary. Users do not need to install Go.
+1. The desktop app includes the local `relay-switch-core` binary. Users do not need to install Go.
 2. Automatic updates are only available in packaged builds.
 3. Provider credentials remain local to the device.
 4. The production server installer uses GitHub Release assets by default.
