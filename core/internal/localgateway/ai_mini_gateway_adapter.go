@@ -67,7 +67,7 @@ func (a *AIMiniGatewayAdapter) StartRuntime(ctx context.Context, input StartRunt
 		}
 	}
 
-	if isClashForAICoreExecutable(input.Executable) {
+	if isRelaySwitchCoreExecutable(input.Executable) {
 		return RuntimeStatus{}, &AdapterError{
 			Code:        AdapterErrorInvalidConfig,
 			Operation:   "start_runtime",
@@ -150,7 +150,7 @@ func (a *AIMiniGatewayAdapter) StartRuntime(ctx context.Context, input StartRunt
 	return a.currentStatus(), nil
 }
 
-func isClashForAICoreExecutable(executable string) bool {
+func isRelaySwitchCoreExecutable(executable string) bool {
 	base := filepath.Base(filepath.Clean(executable))
 	return base == "relay-switch-core" || base == "relay-switch-core.exe"
 }
