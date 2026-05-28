@@ -154,14 +154,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeResponse(w, result)
+	shouldExtractResponseModel := result.finalModel == nil && model == nil && r.URL.Path == "/v1/responses"
+	responseModel := writeResponse(w, result, shouldExtractResponseModel)
 
 	h.recordLog(r.Context(), logging.Entry{
 		ProviderID:   activeProvider.ID,
 		ProviderName: activeProvider.Name,
 		Method:       r.Method,
 		Path:         r.URL.Path,
-		Model:        chooseLogModel(result.finalModel, model),
+		Model:        chooseLogModel(result.finalModel, model, responseModel),
 		StatusCode:   intPtr(result.statusCode),
 		IsStream:     isStreamingRequest(r, body),
 		UpstreamHost: baseURL.Host,
@@ -509,26 +510,79 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 	return lastResult
 }
 
-func writeResponse(w http.ResponseWriter, result forwardResult) {
+func writeResponse(w http.ResponseWriter, result forwardResult, extractResponseModel bool) *string {
 	copyHeaders(w.Header(), result.header)
 	w.WriteHeader(result.statusCode)
 
 	if result.streamBody != nil {
 		defer result.streamBody.Close()
 
+		sniffer := &streamModelSniffer{}
 		if flusher, ok := w.(http.Flusher); ok {
-			_, _ = io.Copy(flushWriter{writer: w, flusher: flusher}, result.streamBody)
+			writer := io.Writer(w)
+			if extractResponseModel {
+				writer = sniffWriter{writer: writer, sniffer: sniffer}
+			}
+			_, _ = io.Copy(flushWriter{writer: writer, flusher: flusher}, result.streamBody)
 			flusher.Flush()
-			return
+			return sniffer.Model()
 		}
 
-		_, _ = io.Copy(w, result.streamBody)
-		return
+		writer := io.Writer(w)
+		if extractResponseModel {
+			writer = sniffWriter{writer: writer, sniffer: sniffer}
+		}
+		_, _ = io.Copy(writer, result.streamBody)
+		return sniffer.Model()
 	}
 
 	if len(result.body) > 0 {
 		_, _ = w.Write(result.body)
 	}
+	if !extractResponseModel {
+		return nil
+	}
+	return extractModelFromResponseBody(result.body)
+}
+
+type sniffWriter struct {
+	writer  io.Writer
+	sniffer *streamModelSniffer
+}
+
+func (w sniffWriter) Write(p []byte) (int, error) {
+	w.sniffer.Write(p)
+	return w.writer.Write(p)
+}
+
+type streamModelSniffer struct {
+	buffer []byte
+	model  *string
+}
+
+func (s *streamModelSniffer) Write(p []byte) {
+	if s == nil || s.model != nil {
+		return
+	}
+
+	const maxSniffBytes = 64 * 1024
+	remaining := maxSniffBytes - len(s.buffer)
+	if remaining <= 0 {
+		return
+	}
+	if len(p) > remaining {
+		p = p[:remaining]
+	}
+
+	s.buffer = append(s.buffer, p...)
+	s.model = extractModelFromStreamBuffer(s.buffer)
+}
+
+func (s *streamModelSniffer) Model() *string {
+	if s == nil || s.model != nil {
+		return s.model
+	}
+	return extractModelFromStreamBuffer(s.buffer)
 }
 
 type flushWriter struct {
@@ -569,11 +623,79 @@ func copyHeaders(target http.Header, source http.Header) {
 	}
 }
 
-func chooseLogModel(finalModel *string, originalModel *string) *string {
-	if finalModel != nil {
-		return finalModel
+func extractModelFromResponseBody(body []byte) *string {
+	if len(body) == 0 {
+		return nil
 	}
-	return originalModel
+
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil
+	}
+	return responseModelID(payload)
+}
+
+func extractModelFromStreamBuffer(buffer []byte) *string {
+	if len(buffer) == 0 {
+		return nil
+	}
+
+	for _, line := range strings.Split(string(buffer), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "" || data == "[DONE]" {
+			continue
+		}
+
+		if model := extractModelFromResponseBody([]byte(data)); model != nil {
+			return model
+		}
+	}
+
+	return nil
+}
+
+func responseModelID(value any) *string {
+	payload, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	if model := stringField(payload, "model"); model != nil {
+		return model
+	}
+
+	response, ok := payload["response"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	return stringField(response, "model")
+}
+
+func stringField(payload map[string]any, key string) *string {
+	value, ok := payload[key].(string)
+	if !ok {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func chooseLogModel(models ...*string) *string {
+	for _, model := range models {
+		if model != nil && strings.TrimSpace(*model) != "" {
+			return model
+		}
+	}
+	return nil
 }
 
 func intPtr(value int) *int {
