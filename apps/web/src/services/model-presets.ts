@@ -1,7 +1,7 @@
 import type { ModelPreset, ModelPresetCatalog, ModelPresetProvider } from "../types/model-preset";
 
 const DEFAULT_MODEL_PRESETS_URL =
-  "https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json";
+  "https://www.relayswitch.dev/model-presets.json";
 const MODEL_PRESETS_CACHE_KEY = "relay-switch:model-presets";
 
 function modelPresetsURL() {

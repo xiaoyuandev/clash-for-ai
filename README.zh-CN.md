@@ -280,7 +280,7 @@ https://www.relayswitch.dev/deeplink.html
 默认配置地址是：
 
 ```text
-https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json
+https://www.relayswitch.dev/model-presets.json
 ```
 
 前端构建时可以通过环境变量覆盖：
@@ -291,7 +291,7 @@ VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web 
 
 前端会在打开 `Models` 页面时拉取这个 JSON，校验表单需要的字段，并把 JSON catalog 存到浏览器 local storage 作为本地缓存。格式不合法的 JSON 不会写入缓存。如果拉取或校验失败，且本地已经有缓存，则继续使用缓存。如果没有缓存，预设列表为空，用户仍然可以手动填写模型表单。
 
-仓库里的 `config/model-presets.json` 默认初始化为空列表：
+源文件是 `config/model-presets.json`。docs 站点构建时会把它发布到默认 URL 对应的静态 JSON endpoint，并在 schema 不合法时让构建失败。仓库里的默认内容初始化为空列表：
 
 ```json
 {
