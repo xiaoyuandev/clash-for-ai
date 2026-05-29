@@ -9,7 +9,8 @@ const pairedSlugs = new Set([
 ]);
 
 const normalizePath = (pathname: string) => {
-  const normalized = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  const hasFileExtension = /\.[^/]+$/.test(pathname);
+  const normalized = pathname.endsWith("/") || hasFileExtension ? pathname : `${pathname}/`;
   return normalized.startsWith("/") ? normalized : `/${normalized}`;
 };
 

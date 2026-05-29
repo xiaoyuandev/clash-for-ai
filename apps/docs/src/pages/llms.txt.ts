@@ -1,6 +1,10 @@
 import type { APIRoute } from "astro";
+import { withSitePath } from "../components/seo-links";
 
-const summary = `# Relay Switch
+const buildSummary = (site: URL | undefined) => {
+  const url = (path: string) => withSitePath(site, path);
+
+  return `# Relay Switch
 
 Relay Switch is a local AI gateway and desktop control panel for managing OpenAI-compatible providers, model sources, and AI coding tools.
 
@@ -9,6 +13,16 @@ It gives Cursor, Claude Code, Codex, Cherry Studio, OpenAI SDK scripts, and othe
 http://127.0.0.1:3456/v1
 
 Use Relay Switch when you want to switch providers and models without editing every tool configuration. It is designed for local provider switching, model source management, request logs, desktop configuration, and WSL / Linux Server gateway management.
+
+## Product facts
+
+- Product name: Relay Switch
+- Category: local AI gateway, desktop control panel, OpenAI-compatible gateway, developer tool
+- Main endpoint: http://127.0.0.1:3456/v1
+- Supported management surfaces: Electron desktop app, supplementary Web / PWA UI for WSL and Linux Server
+- Supported client patterns: Cursor, Claude Code, Codex CLI, Cherry Studio, OpenAI SDK scripts, and other OpenAI-compatible tools
+- Main use cases: switch AI relay providers, manage provider API keys locally, manage model sources, inspect request logs, connect multiple AI tools to one stable local endpoint
+- Repository: https://github.com/xiaoyuandev/relay-switch
 
 ## Chinese summary
 
@@ -22,25 +36,32 @@ http://127.0.0.1:3456/v1
 
 ## English pages
 
-- https://www.relayswitch.dev/
-- https://www.relayswitch.dev/introduction/
-- https://www.relayswitch.dev/quick-start/
-- https://www.relayswitch.dev/user-guide/
-- https://www.relayswitch.dev/tool-integration/
-- https://www.relayswitch.dev/deep-link-import/
-- https://www.relayswitch.dev/providers/
-- https://www.relayswitch.dev/faq/
+- ${url("/")}
+- ${url("/introduction/")}
+- ${url("/quick-start/")}
+- ${url("/user-guide/")}
+- ${url("/tool-integration/")}
+- ${url("/deep-link-import/")}
+- ${url("/providers/")}
+- ${url("/faq/")}
 
 ## Chinese pages
 
-- https://www.relayswitch.dev/zh-cn/
-- https://www.relayswitch.dev/zh-cn/introduction/
-- https://www.relayswitch.dev/zh-cn/quick-start/
-- https://www.relayswitch.dev/zh-cn/user-guide/
-- https://www.relayswitch.dev/zh-cn/tool-integration/
-- https://www.relayswitch.dev/zh-cn/deep-link-import/
-- https://www.relayswitch.dev/zh-cn/providers/
-- https://www.relayswitch.dev/zh-cn/faq/
+- ${url("/zh-cn/")}
+- ${url("/zh-cn/introduction/")}
+- ${url("/zh-cn/quick-start/")}
+- ${url("/zh-cn/user-guide/")}
+- ${url("/zh-cn/tool-integration/")}
+- ${url("/zh-cn/deep-link-import/")}
+- ${url("/zh-cn/providers/")}
+- ${url("/zh-cn/faq/")}
+
+## Tools and specs
+
+- Deep Link Generator: ${url("/deeplink.html")}
+- Deep Link Import docs: ${url("/deep-link-import/")}
+- Provider setup docs: ${url("/providers/")}
+- Tool integration docs: ${url("/tool-integration/")}
 
 ## Repository
 
@@ -55,12 +76,13 @@ http://127.0.0.1:3456/v1
 
 Third-party relay providers can publish Relay Switch import links so users can add a Provider without copying API keys manually. The Deep Link documentation explains the supported URL format and privacy recommendations:
 
-- English: https://www.relayswitch.dev/deep-link-import/
-- Chinese: https://www.relayswitch.dev/zh-cn/deep-link-import/
+- English: ${url("/deep-link-import/")}
+- Chinese: ${url("/zh-cn/deep-link-import/")}
 `;
+};
 
-export const GET: APIRoute = () =>
-  new Response(summary, {
+export const GET: APIRoute = ({ site }) =>
+  new Response(buildSummary(site), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8"
     }

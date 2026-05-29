@@ -13,7 +13,7 @@ const escapeXml = (value: string) =>
 
 const getRoutes = async () => {
   const docs = await getCollection("docs", ({ data }) => import.meta.env.MODE !== "production" || data.draft === false);
-  const routes = new Set(["/", "/zh-cn/"]);
+  const routes = new Set(["/", "/zh-cn/", "/deeplink.html"]);
 
   for (const entry of docs) {
     routes.add(toRoute(entry.slug ?? entry.id));
@@ -34,7 +34,7 @@ export const GET: APIRoute = async ({ site }) => {
   const urls = routes
     .map((route) => {
       const loc = withSitePath(site, route);
-      const priority = route === "/" || route === "/zh-cn/" ? "1.0" : "0.7";
+      const priority = route === "/" || route === "/zh-cn/" ? "1.0" : route === "/deeplink.html" ? "0.6" : "0.7";
       const alternateLinks = getAlternateLinks(site, route)
         .map(
           (link) =>
