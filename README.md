@@ -292,7 +292,7 @@ VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web 
 
 The frontend fetches this JSON when the `Models` page opens, validates the fields it needs, and stores the JSON catalog in browser local storage as a local cache. Invalid JSON is not written to the cache. If fetching or validation fails, Relay Switch keeps using the cached catalog when one already exists. If there is no cache, the preset list is empty and users can still fill the model form manually.
 
-The source file is `config/model-presets.json`. The docs site build publishes it to the default URL as a static JSON endpoint and fails the build if the schema is invalid. The repository initializes it with an empty list:
+The source file is `config/model-presets.json`. The docs site build publishes it to the default URL as a static JSON endpoint and fails the build if the schema is invalid. You can validate it locally with `pnpm validate:model-presets`. The repository initializes it with an empty list:
 
 ```json
 {

@@ -50,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate model presets
+        run: pnpm validate:model-presets
+
       - name: Build web UI
         run: pnpm --filter web build
 

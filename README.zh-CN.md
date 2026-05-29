@@ -291,7 +291,7 @@ VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web 
 
 前端会在打开 `Models` 页面时拉取这个 JSON，校验表单需要的字段，并把 JSON catalog 存到浏览器 local storage 作为本地缓存。格式不合法的 JSON 不会写入缓存。如果拉取或校验失败，且本地已经有缓存，则继续使用缓存。如果没有缓存，预设列表为空，用户仍然可以手动填写模型表单。
 
-源文件是 `config/model-presets.json`。docs 站点构建时会把它发布到默认 URL 对应的静态 JSON endpoint，并在 schema 不合法时让构建失败。仓库里的默认内容初始化为空列表：
+源文件是 `config/model-presets.json`。docs 站点构建时会把它发布到默认 URL 对应的静态 JSON endpoint，并在 schema 不合法时让构建失败。你可以用 `pnpm validate:model-presets` 在本地校验。仓库里的默认内容初始化为空列表：
 
 ```json
 {
