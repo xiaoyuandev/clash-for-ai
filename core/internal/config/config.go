@@ -12,7 +12,6 @@ type AppConfig struct {
 	LogLevel                      string
 	GatewayBind                   string
 	WebAssetsDir                  string
-	ModelPresetsURL               string
 	LogRetentionDays              int
 	LogMaxRecords                 int
 	LocalGatewayRuntimeKind       string
@@ -72,7 +71,6 @@ func Load() AppConfig {
 		LogLevel:                      "debug",
 		GatewayBind:                   "127.0.0.1",
 		WebAssetsDir:                  os.Getenv("WEB_ASSETS_DIR"),
-		ModelPresetsURL:               envOrDefault("MODEL_PRESETS_URL", "https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json"),
 		LogRetentionDays:              logRetentionDays,
 		LogMaxRecords:                 logMaxRecords,
 		LocalGatewayRuntimeKind:       envOrDefault("LOCAL_GATEWAY_RUNTIME_KIND", "ai-mini-gateway"),

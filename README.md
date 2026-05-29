@@ -284,19 +284,13 @@ The default source URL is:
 https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json
 ```
 
-You can override it when running the core process:
+You can override it at frontend build time:
 
 ```bash
-MODEL_PRESETS_URL=https://example.com/model-presets.json relay-switch run
+VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web build
 ```
 
-Relay Switch fetches this JSON on startup, validates it, and caches it locally as:
-
-```text
-<CORE_DATA_DIR>/model-presets.json
-```
-
-If fetching fails, Relay Switch keeps using the cached file when one already exists. If there is no cache, the preset list is empty and users can still fill the model form manually.
+The frontend fetches this JSON when the `Models` page opens, validates the fields it needs, and stores the JSON catalog in browser local storage as a local cache. Invalid JSON is not written to the cache. If fetching or validation fails, Relay Switch keeps using the cached catalog when one already exists. If there is no cache, the preset list is empty and users can still fill the model form manually.
 
 The repository initializes `config/model-presets.json` with an empty list:
 

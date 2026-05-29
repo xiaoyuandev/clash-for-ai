@@ -9,21 +9,20 @@ import {
   getLocalGatewayRuntime,
   getLocalGatewaySourceCapabilities,
   getLocalGatewaySources,
-  getModelPresets,
   previewLocalGatewaySourceModels,
   syncLocalGateway,
   updateLocalGatewaySource
 } from "../services/api";
+import { getModelPresets } from "../services/model-presets";
 import type {
   CreateLocalGatewayModelSourceInput,
   LocalGatewayCapabilities,
   LocalGatewayModelSource,
   LocalGatewaySourceCapability,
   LocalGatewaySourceHealthcheck,
-  LocalGatewayRuntimeResponse,
-  ModelPreset,
-  ModelPresetCatalog
+  LocalGatewayRuntimeResponse
 } from "../types/local-gateway";
+import type { ModelPreset, ModelPresetCatalog } from "../types/model-preset";
 import {
   actionRowClass,
   buttonClass,
@@ -227,20 +226,19 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   const loadModelPresets = useCallback(async () => {
     setModelPresetLoading(true);
     try {
-      const catalog = await getModelPresets(apiBase);
+      const catalog = await getModelPresets();
       setModelPresetCatalog(catalog);
     } catch (loadError) {
       setModelPresetCatalog({
         schema_version: 1,
         presets: [],
         source_url: "",
-        cache_path: "",
         last_refresh_error: loadError instanceof Error ? loadError.message : t("common.unknownError")
       });
     } finally {
       setModelPresetLoading(false);
     }
-  }, [apiBase, t]);
+  }, [t]);
 
   useEffect(() => {
     void loadModelPresets();

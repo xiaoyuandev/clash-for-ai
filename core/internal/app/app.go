@@ -15,7 +15,6 @@ import (
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/logging"
-	"github.com/xiaoyuandev/relay-switch/core/internal/modelpreset"
 	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 	"github.com/xiaoyuandev/relay-switch/core/internal/storage"
 	"github.com/xiaoyuandev/relay-switch/core/internal/tooling"
@@ -45,7 +44,6 @@ func Run() error {
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
 	localGatewayService := localgateway.NewService(localGatewayRepository, credentialStore)
-	modelPresetService := modelpreset.NewService(filepath.Join(cfg.DataDir, "model-presets.json"), cfg.ModelPresetsURL)
 	localGatewayAdapter := localgateway.NewAdapter(cfg.LocalGatewayRuntimeKind, nil)
 	localGatewayManager := localgateway.NewManager(localGatewayService, localGatewayAdapter, localgateway.RuntimeConfig{
 		Executable: cfg.LocalGatewayRuntimeExecutable,
@@ -56,12 +54,6 @@ func Run() error {
 	healthService := health.NewService(providerService, credentialStore)
 	toolingService := tooling.NewService(providerService)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
-
-	go func() {
-		if _, err := modelPresetService.Refresh(context.Background()); err != nil {
-			log.Printf("[model-presets] refresh failed: %v", err)
-		}
-	}()
 
 	if _, err := providerService.EnsureManagedLocalGateway(
 		context.Background(),
@@ -96,7 +88,6 @@ func Run() error {
 		logService,
 		localGatewayManager,
 		toolingService,
-		modelPresetService,
 		cfg.HTTPPort,
 		cfg.WebAssetsDir,
 		gatewayHandler,

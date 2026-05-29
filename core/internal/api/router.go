@@ -16,7 +16,6 @@ import (
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/logging"
-	"github.com/xiaoyuandev/relay-switch/core/internal/modelpreset"
 	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 	"github.com/xiaoyuandev/relay-switch/core/internal/tooling"
 )
@@ -27,7 +26,6 @@ type Router struct {
 	logs      *logging.Service
 	local     *localgateway.Manager
 	tools     *tooling.Service
-	presets   *modelpreset.Service
 	httpPort  int
 	webDir    string
 	gateway   http.Handler
@@ -39,7 +37,6 @@ func NewRouter(
 	loggingService *logging.Service,
 	localGatewayManager *localgateway.Manager,
 	toolingService *tooling.Service,
-	modelPresetService *modelpreset.Service,
 	httpPort int,
 	webAssetsDir string,
 	gatewayHandler *gateway.Handler,
@@ -50,7 +47,6 @@ func NewRouter(
 		logs:      loggingService,
 		local:     localGatewayManager,
 		tools:     toolingService,
-		presets:   modelPresetService,
 		httpPort:  httpPort,
 		webDir:    webAssetsDir,
 		gateway:   gatewayHandler,
@@ -61,7 +57,6 @@ func NewRouter(
 	mux.HandleFunc("/api/logs", router.handleLogs)
 	mux.HandleFunc("/api/release", router.handleRelease)
 	mux.HandleFunc("/api/runtime", router.handleRuntime)
-	mux.HandleFunc("/api/model-presets", router.handleModelPresets)
 	mux.HandleFunc("/api/tools", router.handleTools)
 	mux.HandleFunc("/api/tools/", router.handleToolActions)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
@@ -255,22 +250,6 @@ func (r *Router) handleRuntime(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, r.tools.Runtime())
-}
-
-func (r *Router) handleModelPresets(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if r.presets == nil {
-		writeJSON(w, http.StatusOK, modelpreset.CatalogResponse{
-			SchemaVersion: 1,
-			Presets:       []modelpreset.Preset{},
-		})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, r.presets.Get(req.Context()))
 }
 
 func (r *Router) handleTools(w http.ResponseWriter, req *http.Request) {
