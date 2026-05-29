@@ -556,8 +556,8 @@ func (w sniffWriter) Write(p []byte) (int, error) {
 }
 
 type streamModelSniffer struct {
-	buffer []byte
-	model  *string
+	pending string
+	model   *string
 }
 
 func (s *streamModelSniffer) Write(p []byte) {
@@ -565,24 +565,34 @@ func (s *streamModelSniffer) Write(p []byte) {
 		return
 	}
 
-	const maxSniffBytes = 64 * 1024
-	remaining := maxSniffBytes - len(s.buffer)
-	if remaining <= 0 {
-		return
-	}
-	if len(p) > remaining {
-		p = p[:remaining]
-	}
+	s.pending += string(p)
+	for {
+		index := strings.IndexByte(s.pending, '\n')
+		if index < 0 {
+			const maxPendingLineBytes = 1024 * 1024
+			if len(s.pending) > maxPendingLineBytes {
+				s.pending = s.pending[len(s.pending)-maxPendingLineBytes:]
+			}
+			return
+		}
 
-	s.buffer = append(s.buffer, p...)
-	s.model = extractModelFromStreamBuffer(s.buffer)
+		line := s.pending[:index]
+		s.pending = s.pending[index+1:]
+		if model := extractModelFromStreamLine(line); model != nil {
+			s.model = model
+			return
+		}
+	}
 }
 
 func (s *streamModelSniffer) Model() *string {
 	if s == nil || s.model != nil {
 		return s.model
 	}
-	return extractModelFromStreamBuffer(s.buffer)
+	if s.pending == "" {
+		return nil
+	}
+	return extractModelFromStreamLine(s.pending)
 }
 
 type flushWriter struct {
@@ -641,22 +651,26 @@ func extractModelFromStreamBuffer(buffer []byte) *string {
 	}
 
 	for _, line := range strings.Split(string(buffer), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-
-		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if data == "" || data == "[DONE]" {
-			continue
-		}
-
-		if model := extractModelFromResponseBody([]byte(data)); model != nil {
+		if model := extractModelFromStreamLine(line); model != nil {
 			return model
 		}
 	}
 
 	return nil
+}
+
+func extractModelFromStreamLine(line string) *string {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "data:") {
+		return nil
+	}
+
+	data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+	if data == "" || data == "[DONE]" {
+		return nil
+	}
+
+	return extractModelFromResponseBody([]byte(data))
 }
 
 func responseModelID(value any) *string {
@@ -665,16 +679,30 @@ func responseModelID(value any) *string {
 		return nil
 	}
 
-	if model := stringField(payload, "model"); model != nil {
+	if model := modelField(payload); model != nil {
 		return model
 	}
 
-	response, ok := payload["response"].(map[string]any)
-	if !ok {
-		return nil
+	for _, key := range []string{"response", "message", "metadata"} {
+		nested, ok := payload[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		if model := responseModelID(nested); model != nil {
+			return model
+		}
 	}
 
-	return stringField(response, "model")
+	return nil
+}
+
+func modelField(payload map[string]any) *string {
+	for _, key := range []string{"model", "model_id", "model_slug"} {
+		if model := stringField(payload, key); model != nil {
+			return model
+		}
+	}
+	return nil
 }
 
 func stringField(payload map[string]any, key string) *string {
