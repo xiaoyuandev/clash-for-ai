@@ -11,6 +11,7 @@ import type {
   LocalGatewaySourceCapability,
   LocalGatewaySourceHealthcheck,
   LocalGatewayRuntimeResponse,
+  ModelPresetCatalog,
   PreviewLocalGatewayModelSourceInput,
   SyncLocalGatewayResponse
 } from "../types/local-gateway";
@@ -134,6 +135,14 @@ export async function getRuntime(apiBase?: string): Promise<RuntimeInfo> {
     `${getApiBase(apiBase)}/api/runtime`,
     {},
     "Runtime request failed"
+  );
+}
+
+export async function getModelPresets(apiBase?: string): Promise<ModelPresetCatalog> {
+  return fetchJson<ModelPresetCatalog>(
+    `${getApiBase(apiBase)}/api/model-presets`,
+    {},
+    "Model presets request failed"
   );
 }
 

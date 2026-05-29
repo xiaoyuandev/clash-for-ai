@@ -274,6 +274,101 @@ This means the relationship is:
 2. that local gateway becomes one provider option inside `Providers`
 3. `Providers` remains the place where the user selects between remote relay services and the local Models Gateway
 
+#### Model preset configuration
+
+The `Models` form can load optional model presets from a remote JSON file. Presets are only a shortcut for filling the form. The final `Name`, `Provider Type`, `Base URL`, `API Key`, and `Model IDs` are still controlled by the user before saving.
+
+The default source URL is:
+
+```text
+https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json
+```
+
+You can override it when running the core process:
+
+```bash
+MODEL_PRESETS_URL=https://example.com/model-presets.json relay-switch run
+```
+
+Relay Switch fetches this JSON on startup, validates it, and caches it locally as:
+
+```text
+<CORE_DATA_DIR>/model-presets.json
+```
+
+If fetching fails, Relay Switch keeps using the cached file when one already exists. If there is no cache, the preset list is empty and users can still fill the model form manually.
+
+The repository initializes `config/model-presets.json` with an empty list:
+
+```json
+{
+  "schema_version": 1,
+  "updated_at": "",
+  "presets": []
+}
+```
+
+Example configuration:
+
+```json
+{
+  "schema_version": 1,
+  "updated_at": "2026-05-29",
+  "presets": [
+    {
+      "id": "openai-gpt-4o",
+      "label": "OpenAI GPT-4o",
+      "description": "OpenAI GPT-4o through the official OpenAI-compatible endpoint.",
+      "aliases": ["gpt-4o", "4o"],
+      "providers": [
+        {
+          "id": "openai",
+          "label": "OpenAI",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.openai.com/v1",
+          "models_api": "supported",
+          "model_ids": []
+        }
+      ],
+      "tags": ["openai", "popular"]
+    },
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "description": "DeepSeek OpenAI-compatible endpoint with preset model IDs.",
+      "aliases": ["deepseek-chat", "deepseek-reasoner"],
+      "providers": [
+        {
+          "id": "deepseek",
+          "label": "DeepSeek",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.deepseek.com/v1",
+          "models_api": "unsupported",
+          "model_ids": ["deepseek-chat", "deepseek-reasoner"]
+        }
+      ],
+      "tags": ["deepseek", "popular", "reasoning"]
+    }
+  ]
+}
+```
+
+Field notes:
+
+1. `schema_version` must be `1`.
+2. `presets[].id` must be unique.
+3. `presets[].label` is shown in the `Name` input dropdown.
+4. `aliases` and `tags` are used for filtering the dropdown.
+5. `providers[].provider_type` must be `openai-compatible` or `anthropic-compatible`.
+6. `providers[].base_url` is copied into the form after the preset provider is selected.
+7. `providers[].models_api` can be:
+   - `supported`: Relay Switch should try to fetch model IDs after the user enters an API key.
+   - `unsupported`: Relay Switch should use the configured `model_ids`.
+   - `auto`: reserved for providers where behavior is not known yet.
+8. `providers[].model_ids` can be empty when `models_api` is `supported`. It must contain at least one model ID when `models_api` is `unsupported`.
+9. `disabled: true` hides a preset without deleting it from the JSON.
+10. `deprecated: true` keeps a preset available while marking it for future cleanup.
+
 ### 3. Tools
 
 The `Tools` page helps client tools connect to Relay Switch correctly.

@@ -421,7 +421,7 @@ func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.
 		t.Fatalf("ensure managed local gateway: %v", err)
 	}
 
-	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService), 3456, "", gatewayHandler)
+	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService), nil, 3456, "", gatewayHandler)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/providers/provider-local-gateway/activate", nil)
 	rec := httptest.NewRecorder()
@@ -501,7 +501,7 @@ func newTestRouterWithLogs(t *testing.T, adapter localgateway.GatewayAdapter, ru
 	}
 	manager := localgateway.NewManager(localService, adapter, runtime)
 
-	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService), 3456, "", gatewayHandler), loggingService
+	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService), nil, 3456, "", gatewayHandler), loggingService
 }
 
 type localgatewaySpyAdapter struct {

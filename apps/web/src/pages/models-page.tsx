@@ -9,6 +9,7 @@ import {
   getLocalGatewayRuntime,
   getLocalGatewaySourceCapabilities,
   getLocalGatewaySources,
+  getModelPresets,
   previewLocalGatewaySourceModels,
   syncLocalGateway,
   updateLocalGatewaySource
@@ -19,7 +20,9 @@ import type {
   LocalGatewayModelSource,
   LocalGatewaySourceCapability,
   LocalGatewaySourceHealthcheck,
-  LocalGatewayRuntimeResponse
+  LocalGatewayRuntimeResponse,
+  ModelPreset,
+  ModelPresetCatalog
 } from "../types/local-gateway";
 import {
   actionRowClass,
@@ -127,9 +130,14 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     "openai-compatible" | "anthropic-compatible"
   >("openai-compatible");
   const [sourceModelIDsInput, setSourceModelIDsInput] = useState("");
+  const [sourceSelectedPresetID, setSourceSelectedPresetID] = useState("");
+  const [sourcePresetMenuOpen, setSourcePresetMenuOpen] = useState(false);
+  const [sourceModelIDsTouched, setSourceModelIDsTouched] = useState(false);
   const [sourceModelOptions, setSourceModelOptions] = useState<string[]>([]);
   const [sourceModelsMessage, setSourceModelsMessage] = useState<string | null>(null);
   const [sourceModelsMessageTone, setSourceModelsMessageTone] = useState<"default" | "success" | "error">("default");
+  const [modelPresetCatalog, setModelPresetCatalog] = useState<ModelPresetCatalog | null>(null);
+  const [modelPresetLoading, setModelPresetLoading] = useState(false);
   const [checkingSourceHealthID, setCheckingSourceHealthID] = useState<string | null>(null);
   const autoDetectRequestRef = useRef(0);
 
@@ -216,6 +224,28 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     };
   }, [apiBase, refreshToken, t]);
 
+  const loadModelPresets = useCallback(async () => {
+    setModelPresetLoading(true);
+    try {
+      const catalog = await getModelPresets(apiBase);
+      setModelPresetCatalog(catalog);
+    } catch (loadError) {
+      setModelPresetCatalog({
+        schema_version: 1,
+        presets: [],
+        source_url: "",
+        cache_path: "",
+        last_refresh_error: loadError instanceof Error ? loadError.message : t("common.unknownError")
+      });
+    } finally {
+      setModelPresetLoading(false);
+    }
+  }, [apiBase, t]);
+
+  useEffect(() => {
+    void loadModelPresets();
+  }, [loadModelPresets]);
+
   const runtimeStateTone =
     runtime.runtime.healthy && runtime.runtime.running
       ? "success"
@@ -226,6 +256,52 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   const sourceCapabilityByID = useMemo(() => {
     return new Map(sourceCapabilities.map((item) => [item.source_id, item]));
   }, [sourceCapabilities]);
+
+  const activeModelPresets = useMemo(() => {
+    return (modelPresetCatalog?.presets ?? []).filter((item) => !item.disabled);
+  }, [modelPresetCatalog]);
+
+  const selectedModelPreset = useMemo(() => {
+    if (!sourceSelectedPresetID) {
+      return null;
+    }
+    return activeModelPresets.find((item) => item.id === sourceSelectedPresetID) ?? null;
+  }, [activeModelPresets, sourceSelectedPresetID]);
+
+  const filteredModelPresets = useMemo(() => {
+    const query = sourceName.trim().toLowerCase();
+    if (!query) {
+      return activeModelPresets.slice(0, 8);
+    }
+    return activeModelPresets
+      .filter((preset) => {
+        const searchable = [preset.label, preset.id, ...(preset.aliases ?? []), ...(preset.tags ?? [])]
+          .join(" ")
+          .toLowerCase();
+        return searchable.includes(query);
+      })
+      .slice(0, 8);
+  }, [activeModelPresets, sourceName]);
+
+  const selectedPresetProvider = useMemo(() => {
+    if (!selectedModelPreset) {
+      return null;
+    }
+    return (
+      selectedModelPreset.providers.find((item) => item.provider_type === sourceProviderType) ??
+      selectedModelPreset.providers[0] ??
+      null
+    );
+  }, [selectedModelPreset, sourceProviderType]);
+
+  const providerTypeOptions = useMemo(() => {
+    if (!selectedModelPreset) {
+      return ["openai-compatible", "anthropic-compatible"] as const;
+    }
+    return Array.from(
+      new Set(selectedModelPreset.providers.map((item) => item.provider_type))
+    ) as Array<"openai-compatible" | "anthropic-compatible">;
+  }, [selectedModelPreset]);
 
   function closeForm() {
     resetForm();
@@ -240,6 +316,9 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     setShowSourceAPIKey(false);
     setSourceProviderType("openai-compatible");
     setSourceModelIDsInput("");
+    setSourceSelectedPresetID("");
+    setSourcePresetMenuOpen(false);
+    setSourceModelIDsTouched(false);
     setSourceModelOptions([]);
     setSourceModelsMessage(null);
     setSourceModelsMessageTone("default");
@@ -254,6 +333,9 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     setShowSourceAPIKey(false);
     setSourceProviderType(source.provider_type);
     setSourceModelIDsInput(modelIDs.join(", "));
+    setSourceSelectedPresetID("");
+    setSourcePresetMenuOpen(false);
+    setSourceModelIDsTouched(true);
     setSourceModelOptions(modelIDs);
     setSourceModelsMessage(null);
     setSourceModelsMessageTone("default");
@@ -273,6 +355,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
 
   function handleSourceBaseURLChange(value: string) {
     setSourceBaseURL(value);
+    setSourceSelectedPresetID("");
     clearFetchedSourceModels();
   }
 
@@ -283,11 +366,59 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   function handleSourceProviderTypeChange(value: "openai-compatible" | "anthropic-compatible") {
     setSourceProviderType(value);
     clearFetchedSourceModels();
+    if (selectedModelPreset) {
+      applyPresetProvider(selectedModelPreset, value);
+    }
+  }
+
+  function handleSourceNameChange(value: string) {
+    setSourceName(value);
+    setSourceSelectedPresetID("");
+    setSourcePresetMenuOpen(true);
+  }
+
+  function handleSourceModelIDsChange(value: string) {
+    setSourceModelIDsInput(value);
+    setSourceSelectedPresetID("");
+    setSourceModelIDsTouched(true);
+  }
+
+  function applyPresetProvider(preset: ModelPreset, providerType: "openai-compatible" | "anthropic-compatible") {
+    const provider =
+      preset.providers.find((item) => item.provider_type === providerType) ?? preset.providers[0];
+    if (!provider) {
+      return;
+    }
+
+    setSourceProviderType(provider.provider_type);
+    setSourceBaseURL(provider.base_url);
+    setSourceModelOptions(provider.model_ids);
+    setSourceModelIDsInput(provider.model_ids.join(", "));
+    setSourceModelIDsTouched(false);
+    if (provider.models_api === "unsupported" && provider.model_ids.length > 0) {
+      setSourceModelsMessage(t("models.form.presetModelFallback", { count: provider.model_ids.length }));
+      setSourceModelsMessageTone("success");
+    } else {
+      setSourceModelsMessage(t("models.form.presetApplied", { label: preset.label }));
+      setSourceModelsMessageTone("success");
+    }
+  }
+
+  function applyModelPreset(preset: ModelPreset) {
+    const provider = preset.providers[0];
+    setSourceSelectedPresetID(preset.id);
+    setSourceName(preset.label);
+    setSourcePresetMenuOpen(false);
+    if (provider) {
+      applyPresetProvider(preset, provider.provider_type);
+    }
+    autoDetectRequestRef.current += 1;
   }
 
   function applyFetchedSourceModels(modelIDs: string[]) {
     setSourceModelOptions(modelIDs);
     setSourceModelIDsInput(modelIDs.join(", "));
+    setSourceModelIDsTouched(false);
   }
 
   function parseModelIDs(value: string) {
@@ -302,9 +433,17 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
       return;
     }
 
+    if (selectedPresetProvider?.models_api === "unsupported") {
+      return;
+    }
+
     if (!sourceBaseURL.trim() || !sourceAPIKey.trim()) {
       setSourceModelsMessage(null);
       setSourceModelsMessageTone("default");
+      return;
+    }
+
+    if (sourceModelIDsTouched && sourceModelIDsInput.trim()) {
       return;
     }
 
@@ -345,6 +484,15 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
             return;
           }
 
+          if (selectedPresetProvider && selectedPresetProvider.model_ids.length > 0) {
+            applyFetchedSourceModels(selectedPresetProvider.model_ids);
+            setSourceModelsMessage(
+              t("models.form.presetModelFallback", { count: selectedPresetProvider.model_ids.length })
+            );
+            setSourceModelsMessageTone("success");
+            return;
+          }
+
           setSourceModelOptions([]);
           setSourceModelsMessage(
             t("models.form.autoDetectFailed", {
@@ -359,7 +507,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     return () => {
       window.clearTimeout(timeoutID);
     };
-  }, [apiBase, formOpen, sourceAPIKey, sourceBaseURL, sourceProviderType, t]);
+  }, [apiBase, formOpen, selectedPresetProvider, sourceAPIKey, sourceBaseURL, sourceModelIDsInput, sourceModelIDsTouched, sourceProviderType, t]);
 
   async function handleSaveSource(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -861,11 +1009,40 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
             <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleSaveSource}>
               <label className={labelClass}>
                 <span className={fieldLabelClass}>{t("models.form.name")}</span>
-                <input
-                  className={inputClass}
-                  value={sourceName}
-                  onChange={(event) => setSourceName(event.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    className={inputClass}
+                    value={sourceName}
+                    onFocus={() => setSourcePresetMenuOpen(true)}
+                    onBlur={() => window.setTimeout(() => setSourcePresetMenuOpen(false), 120)}
+                    onChange={(event) => handleSourceNameChange(event.target.value)}
+                    placeholder={t("models.form.namePlaceholder")}
+                    autoComplete="off"
+                  />
+                  {sourcePresetMenuOpen ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-64 overflow-y-auto rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-popup)] p-1 shadow-[var(--shadow-panel)]">
+                      {filteredModelPresets.length > 0 ? (
+                        filteredModelPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className="block w-full rounded-lg px-3 py-2 text-left transition hover:[background:var(--panel-soft)]"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => applyModelPreset(preset)}
+                          >
+                            <span className="block text-sm font-semibold text-[color:var(--color-heading)]">
+                              {preset.label}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-2 text-xs text-[color:var(--color-muted)]">
+                          {modelPresetLoading ? t("common.loading") : t("models.form.namePresetEmpty")}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </label>
               <label className={labelClass}>
                 <span className={fieldLabelClass}>{t("models.form.providerType")}</span>
@@ -878,10 +1055,13 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
                     )
                   }
                 >
-                  <option value="openai-compatible">{t("models.form.providerTypeOpenAI")}</option>
-                  <option value="anthropic-compatible">
-                    {t("models.form.providerTypeAnthropic")}
-                  </option>
+                  {providerTypeOptions.map((providerType) => (
+                    <option key={providerType} value={providerType}>
+                      {providerType === "openai-compatible"
+                        ? t("models.form.providerTypeOpenAI")
+                        : t("models.form.providerTypeAnthropic")}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className={labelClass}>
@@ -928,6 +1108,15 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
               <label className={`${labelClass} md:col-span-2`}>
                 <span className={fieldLabelClass}>{t("models.form.models")}</span>
                 <div className="grid gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-3">
+                  {selectedPresetProvider ? (
+                    <p className={metaClass}>
+                      {t("models.form.presetSource", {
+                        provider: selectedPresetProvider.provider_type,
+                        baseUrl: selectedPresetProvider.base_url
+                      })}
+                    </p>
+                  ) : null}
+
                   <div className="space-y-2">
                     <span
                       className={
@@ -971,7 +1160,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
                       <textarea
                         className={`${inputClass} min-h-24`}
                         value={sourceModelIDsInput}
-                        onChange={(event) => setSourceModelIDsInput(event.target.value)}
+                        onChange={(event) => handleSourceModelIDsChange(event.target.value)}
                         placeholder={t("models.form.modelsPlaceholder")}
                       />
                     </label>

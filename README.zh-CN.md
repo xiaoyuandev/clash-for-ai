@@ -273,6 +273,101 @@ https://www.relayswitch.dev/deeplink.html
 2. 这个本地 gateway 会作为一个 Provider 出现在 `Providers` 页面
 3. `Providers` 页面最终负责让用户在“远程中转服务”和“本地 Models Gateway”之间切换
 
+#### 模型预设配置
+
+`Models` 表单可以从远程 JSON 加载可选的模型预设。预设只是辅助填写表单的快捷方式，最终保存的 `Name`、`Provider Type`、`Base URL`、`API Key` 和 `Model IDs` 仍然以用户在表单里的最终输入为准。
+
+默认配置地址是：
+
+```text
+https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/config/model-presets.json
+```
+
+运行 core 时可以通过环境变量覆盖：
+
+```bash
+MODEL_PRESETS_URL=https://example.com/model-presets.json relay-switch run
+```
+
+Relay Switch 会在启动时拉取这个 JSON，校验通过后缓存到本地：
+
+```text
+<CORE_DATA_DIR>/model-presets.json
+```
+
+如果拉取失败，且本地已经有缓存，则继续使用缓存。如果没有缓存，预设列表为空，用户仍然可以手动填写模型表单。
+
+仓库里的 `config/model-presets.json` 默认初始化为空列表：
+
+```json
+{
+  "schema_version": 1,
+  "updated_at": "",
+  "presets": []
+}
+```
+
+示例配置：
+
+```json
+{
+  "schema_version": 1,
+  "updated_at": "2026-05-29",
+  "presets": [
+    {
+      "id": "openai-gpt-4o",
+      "label": "OpenAI GPT-4o",
+      "description": "OpenAI GPT-4o through the official OpenAI-compatible endpoint.",
+      "aliases": ["gpt-4o", "4o"],
+      "providers": [
+        {
+          "id": "openai",
+          "label": "OpenAI",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.openai.com/v1",
+          "models_api": "supported",
+          "model_ids": []
+        }
+      ],
+      "tags": ["openai", "popular"]
+    },
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "description": "DeepSeek OpenAI-compatible endpoint with preset model IDs.",
+      "aliases": ["deepseek-chat", "deepseek-reasoner"],
+      "providers": [
+        {
+          "id": "deepseek",
+          "label": "DeepSeek",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.deepseek.com/v1",
+          "models_api": "unsupported",
+          "model_ids": ["deepseek-chat", "deepseek-reasoner"]
+        }
+      ],
+      "tags": ["deepseek", "popular", "reasoning"]
+    }
+  ]
+}
+```
+
+字段说明：
+
+1. `schema_version` 必须是 `1`。
+2. `presets[].id` 必须唯一。
+3. `presets[].label` 会显示在 `Name` 输入框的下拉列表里。
+4. `aliases` 和 `tags` 会参与下拉列表搜索过滤。
+5. `providers[].provider_type` 必须是 `openai-compatible` 或 `anthropic-compatible`。
+6. `providers[].base_url` 会在选择对应 provider 后自动填入表单。
+7. `providers[].models_api` 可选值：
+   - `supported`：用户填写 API Key 后，Relay Switch 会尝试自动拉取模型 ID。
+   - `unsupported`：Relay Switch 会直接使用 JSON 里的 `model_ids`。
+   - `auto`：预留给暂时不确定行为的 provider。
+8. 当 `models_api` 是 `supported` 时，`providers[].model_ids` 可以为空数组。当 `models_api` 是 `unsupported` 时，必须至少配置一个模型 ID。
+9. `disabled: true` 可以隐藏某个 preset，但不需要从 JSON 里删除。
+10. `deprecated: true` 可以保留某个 preset，同时标记它后续会清理。
+
 ### 3. Tools
 
 `Tools` 页面用于帮助客户端工具正确接入 Relay Switch。
