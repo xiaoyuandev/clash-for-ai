@@ -1,5 +1,67 @@
 {
   "schema_version": 1,
-  "updated_at": "",
-  "presets": []
+  "updated_at": "2026-05-31",
+  "presets": [
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "aliases": ["deepseek-v4-pro", "deepseek-v4-flash"],
+      "providers": [
+        {
+          "id": "deepseek",
+          "label": "DeepSeek",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.deepseek.com",
+          "models_api": "unsupported",
+          "model_ids": ["deepseek-v4-pro", "deepseek-v4-flash"]
+        },
+        {
+          "id": "deepseek",
+          "label": "DeepSeek",
+          "provider_type": "anthropic-compatible",
+          "base_url": "https://api.deepseek.com/anthropic",
+          "models_api": "unsupported",
+          "model_ids": ["deepseek-v4-pro", "deepseek-v4-flash"]
+        }
+      ]
+    },
+    {
+      "id": "minimax",
+      "label": "MiniMax",
+      "aliases": ["MiniMax-M2.7"],
+      "providers": [
+        {
+          "id": "minimax",
+          "label": "MiniMax",
+          "provider_type": "openai-compatible",
+          "base_url": "https://api.minimaxi.com/v1",
+          "models_api": "supported",
+          "model_ids": []
+        },
+        {
+          "id": "minimax",
+          "label": "MiniMax",
+          "provider_type": "anthropic-compatible",
+          "base_url": "https://api.minimaxi.com/anthropic",
+          "models_api": "supported",
+          "model_ids": []
+        }
+      ]
+    },
+    {
+      "id": "zhipu-glm",
+      "label": "Zhipu GLM",
+      "aliases": ["glm-5.1"],
+      "providers": [
+        {
+          "id": "zhipu-glm",
+          "label": "Zhipu GLM",
+          "provider_type": "anthropic-compatible",
+          "base_url": "https://open.bigmodel.cn/api/anthropic",
+          "models_api": "supported",
+          "model_ids": []
+        }
+      ]
+    }
+  ]
 }

@@ -268,18 +268,20 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
 
   const filteredModelPresets = useMemo(() => {
     const query = sourceName.trim().toLowerCase();
+    const compatiblePresets = activeModelPresets.filter((preset) =>
+      preset.providers.some((provider) => provider.provider_type === sourceProviderType)
+    );
+
     if (!query) {
-      return activeModelPresets.slice(0, 8);
+      return compatiblePresets.slice(0, 8);
     }
-    return activeModelPresets
+    return compatiblePresets
       .filter((preset) => {
-        const searchable = [preset.label, preset.id, ...(preset.aliases ?? []), ...(preset.tags ?? [])]
-          .join(" ")
-          .toLowerCase();
+        const searchable = [preset.label, preset.id, ...(preset.aliases ?? [])].join(" ").toLowerCase();
         return searchable.includes(query);
       })
       .slice(0, 8);
-  }, [activeModelPresets, sourceName]);
+  }, [activeModelPresets, sourceName, sourceProviderType]);
 
   const selectedPresetProvider = useMemo(() => {
     if (!selectedModelPreset) {
@@ -351,6 +353,15 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     setSourceModelsMessageTone("default");
   }
 
+  function clearPresetSourceFields() {
+    setSourceSelectedPresetID("");
+    setSourceBaseURL("");
+    setSourceProviderType("openai-compatible");
+    setSourceModelIDsInput("");
+    setSourceModelIDsTouched(false);
+    clearFetchedSourceModels();
+  }
+
   function handleSourceBaseURLChange(value: string) {
     setSourceBaseURL(value);
     setSourceSelectedPresetID("");
@@ -371,7 +382,11 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
 
   function handleSourceNameChange(value: string) {
     setSourceName(value);
-    setSourceSelectedPresetID("");
+    if (!value.trim()) {
+      clearPresetSourceFields();
+    } else {
+      setSourceSelectedPresetID("");
+    }
     setSourcePresetMenuOpen(true);
   }
 
@@ -403,7 +418,8 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   }
 
   function applyModelPreset(preset: ModelPreset) {
-    const provider = preset.providers[0];
+    const provider =
+      preset.providers.find((item) => item.provider_type === sourceProviderType) ?? preset.providers[0];
     setSourceSelectedPresetID(preset.id);
     setSourceName(preset.label);
     setSourcePresetMenuOpen(false);

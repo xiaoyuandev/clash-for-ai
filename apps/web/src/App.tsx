@@ -18,6 +18,7 @@ import {
   type ReleaseMetadata,
   type WebRuntimeOverview
 } from "./services/api";
+import { getModelPresets } from "./services/model-presets";
 import { compareVersions } from "./utils/version";
 import {
   appBackdropClass,
@@ -84,6 +85,14 @@ export default function App() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+
+    void getModelPresets();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

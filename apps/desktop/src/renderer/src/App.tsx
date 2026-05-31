@@ -6,6 +6,7 @@ import {
   createProvider,
   syncLocalGateway
 } from "./services/api";
+import { getModelPresets } from "./services/model-presets";
 import { LogsPage } from "./pages/logs-page";
 import { ModelsPage } from "./pages/models-page";
 import { ProvidersPage } from "./pages/providers-page";
@@ -329,6 +330,14 @@ export default function App() {
       : null;
   const canScheduleAutoUpdateCheck = Boolean(window.desktopBridge && desktopState);
   const updateStatus = desktopState?.updates.status;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+
+    void getModelPresets();
+  }, []);
 
   useEffect(() => {
     if (!window.desktopBridge) {

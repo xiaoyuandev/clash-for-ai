@@ -2,10 +2,11 @@ import type { ModelPreset, ModelPresetCatalog, ModelPresetProvider } from "../ty
 
 const DEFAULT_MODEL_PRESETS_URL =
   "https://www.relayswitch.dev/model-presets.json";
+const DEV_MODEL_PRESETS_URL = "/model-presets.json";
 const MODEL_PRESETS_CACHE_KEY = "relay-switch:model-presets";
 
 function modelPresetsURL() {
-  return import.meta.env.VITE_MODEL_PRESETS_URL?.trim() || DEFAULT_MODEL_PRESETS_URL;
+  return import.meta.env.VITE_MODEL_PRESETS_URL?.trim() || (import.meta.env.DEV ? DEV_MODEL_PRESETS_URL : DEFAULT_MODEL_PRESETS_URL);
 }
 
 function errorMessage(error: unknown) {
