@@ -52,7 +52,7 @@ func Run() error {
 		DataDir:    cfg.LocalGatewayRuntimeDataDir,
 	})
 	healthService := health.NewService(providerService, credentialStore)
-	toolingService := tooling.NewService(providerService)
+	toolingService := tooling.NewService(providerService, cfg.DataDir)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
 
 	if _, err := providerService.EnsureManagedLocalGateway(
@@ -81,6 +81,8 @@ func Run() error {
 			}
 		}
 	}
+
+	toolingService.BootstrapCodexModelCatalog(context.Background())
 
 	handler := api.NewRouter(
 		providerService,

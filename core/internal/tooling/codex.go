@@ -170,13 +170,13 @@ func buildCodexConfig(existingContent string, apiPort int) string {
 			continue
 		}
 
-		if currentTable == "" && strings.HasPrefix(trimmed, "model_provider") {
+		if currentTable == "" && isTomlAssignment(trimmed, "model_provider") {
 			replacedTopLevelProvider = true
 			rewritten = append(rewritten, nextModelProviderLine)
 			continue
 		}
 
-		if inOpenAISection && strings.HasPrefix(trimmed, "base_url") {
+		if inOpenAISection && isTomlAssignment(trimmed, "base_url") {
 			replacedBaseURL = true
 			rewritten = append(rewritten, `base_url = "http://127.0.0.1:`+intToString(apiPort)+`/v1"`)
 			continue

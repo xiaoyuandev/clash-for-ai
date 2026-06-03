@@ -25,13 +25,17 @@ type Repository interface {
 }
 
 type InMemoryRepository struct {
-	mu    sync.RWMutex
-	items []Provider
+	mu           sync.RWMutex
+	items        []Provider
+	codexModels  map[string][]CodexModel
+	selectedByID map[string][]SelectedModel
 }
 
 func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{
-		items: []Provider{},
+		items:        []Provider{},
+		codexModels:  map[string][]CodexModel{},
+		selectedByID: map[string][]SelectedModel{},
 	}
 }
 
@@ -68,19 +72,43 @@ func (r *InMemoryRepository) Create(_ context.Context, item Provider) (Provider,
 	return item, nil
 }
 
-func (r *InMemoryRepository) ListSelectedModels(context.Context, string) ([]SelectedModel, error) {
-	return []SelectedModel{}, nil
+func (r *InMemoryRepository) ListSelectedModels(_ context.Context, providerID string) ([]SelectedModel, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	items := r.selectedByID[providerID]
+	result := make([]SelectedModel, len(items))
+	copy(result, items)
+	return result, nil
 }
 
-func (r *InMemoryRepository) ReplaceSelectedModels(context.Context, string, []SelectedModel) error {
+func (r *InMemoryRepository) ReplaceSelectedModels(_ context.Context, providerID string, items []SelectedModel) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	next := make([]SelectedModel, len(items))
+	copy(next, items)
+	r.selectedByID[providerID] = next
 	return nil
 }
 
-func (r *InMemoryRepository) ListCodexModels(context.Context, string) ([]CodexModel, error) {
-	return []CodexModel{}, nil
+func (r *InMemoryRepository) ListCodexModels(_ context.Context, providerID string) ([]CodexModel, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	items := r.codexModels[providerID]
+	result := make([]CodexModel, len(items))
+	copy(result, items)
+	return result, nil
 }
 
-func (r *InMemoryRepository) ReplaceCodexModels(context.Context, string, []CodexModel) error {
+func (r *InMemoryRepository) ReplaceCodexModels(_ context.Context, providerID string, items []CodexModel) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	next := make([]CodexModel, len(items))
+	copy(next, items)
+	r.codexModels[providerID] = next
 	return nil
 }
 
@@ -119,6 +147,8 @@ func (r *InMemoryRepository) Delete(_ context.Context, id string) error {
 	for i := range r.items {
 		if r.items[i].ID == id {
 			r.items = append(r.items[:i], r.items[i+1:]...)
+			delete(r.selectedByID, id)
+			delete(r.codexModels, id)
 			return nil
 		}
 	}

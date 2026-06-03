@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -380,6 +381,58 @@ func TestProviderModelTestEndpoint(t *testing.T) {
 	}
 }
 
+func TestProviderCodexModelsSyncsActiveProviderCatalog(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	handler := newTestRouter(t, nil, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+
+	first := createProviderViaAPI(t, handler, "First Provider")
+	second := createProviderViaAPI(t, handler, "Second Provider")
+
+	activateReq := httptest.NewRequest(http.MethodPost, "/api/providers/"+first.ID+"/activate", nil)
+	activateRec := httptest.NewRecorder()
+	handler.ServeHTTP(activateRec, activateReq)
+	if activateRec.Code != http.StatusOK {
+		t.Fatalf("unexpected first activate status: %d body=%s", activateRec.Code, activateRec.Body.String())
+	}
+
+	nonActiveReq := httptest.NewRequest(http.MethodPut, "/api/providers/"+second.ID+"/codex-models", bytes.NewBufferString(`[{"model_id":"second-model","display_name":"Second Model","enabled":true,"position":0}]`))
+	nonActiveRec := httptest.NewRecorder()
+	handler.ServeHTTP(nonActiveRec, nonActiveReq)
+	if nonActiveRec.Code != http.StatusOK {
+		t.Fatalf("unexpected non-active codex models status: %d body=%s", nonActiveRec.Code, nonActiveRec.Body.String())
+	}
+	if models := readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-models.json")); len(models) != 0 {
+		t.Fatalf("non-active provider should not sync relay models: %+v", models)
+	}
+
+	activeReq := httptest.NewRequest(http.MethodPut, "/api/providers/"+first.ID+"/codex-models", bytes.NewBufferString(`[{"model_id":"first-model","display_name":"First Model","enabled":true,"position":0}]`))
+	activeRec := httptest.NewRecorder()
+	handler.ServeHTTP(activeRec, activeReq)
+	if activeRec.Code != http.StatusOK {
+		t.Fatalf("unexpected active codex models status: %d body=%s", activeRec.Code, activeRec.Body.String())
+	}
+	models := readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-models.json"))
+	if len(models) != 1 || models[0]["slug"] != "first-model" {
+		t.Fatalf("active provider should sync relay models: %+v", models)
+	}
+
+	switchReq := httptest.NewRequest(http.MethodPost, "/api/providers/"+second.ID+"/activate", nil)
+	switchRec := httptest.NewRecorder()
+	handler.ServeHTTP(switchRec, switchReq)
+	if switchRec.Code != http.StatusOK {
+		t.Fatalf("unexpected second activate status: %d body=%s", switchRec.Code, switchRec.Body.String())
+	}
+	models = readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-models.json"))
+	if len(models) != 1 || models[0]["slug"] != "second-model" {
+		t.Fatalf("provider activation should sync new active provider models: %+v", models)
+	}
+}
+
 func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -421,7 +474,7 @@ func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.
 		t.Fatalf("ensure managed local gateway: %v", err)
 	}
 
-	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService), 3456, "", gatewayHandler)
+	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService, t.TempDir()), 3456, "", gatewayHandler)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/providers/provider-local-gateway/activate", nil)
 	rec := httptest.NewRecorder()
@@ -438,6 +491,46 @@ func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.
 	if payload["error"] != string(localgateway.AdapterErrorConflict) {
 		t.Fatalf("unexpected activation error payload: %+v", payload)
 	}
+}
+
+func createProviderViaAPI(t *testing.T, handler http.Handler, name string) provider.Provider {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/providers", bytes.NewBufferString(`{
+		"name":"`+name+`",
+		"base_url":"https://api.example.com/v1",
+		"api_key":"sk-test",
+		"auth_mode":"bearer",
+		"extra_headers":{},
+		"claude_code_model_map":{"opus":"","sonnet":"","haiku":""}
+	}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected provider create status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var created provider.Provider
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
+	}
+	return created
+}
+
+func readRouterCodexCatalogModels(t *testing.T, path string) []map[string]any {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read catalog %s: %v", path, err)
+	}
+	var payload struct {
+		Models []map[string]any `json:"models"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode catalog %s: %v", path, err)
+	}
+	return payload.Models
 }
 
 func assertLocalGatewaySourceResponseIncludesAPIKey(t *testing.T, body []byte) {
@@ -501,7 +594,7 @@ func newTestRouterWithLogs(t *testing.T, adapter localgateway.GatewayAdapter, ru
 	}
 	manager := localgateway.NewManager(localService, adapter, runtime)
 
-	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService), 3456, "", gatewayHandler), loggingService
+	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService, t.TempDir()), 3456, "", gatewayHandler), loggingService
 }
 
 type localgatewaySpyAdapter struct {

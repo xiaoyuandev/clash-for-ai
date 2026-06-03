@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/xiaoyuandev/relay-switch/core/internal/provider"
 )
@@ -13,11 +14,19 @@ import (
 var ErrNoBackupAvailable = errors.New("no backup file is available to restore")
 
 type Service struct {
-	providers *provider.Service
+	providers     *provider.Service
+	dataDir       string
+	catalogURL    string
+	catalogClient httpClient
 }
 
-func NewService(providers *provider.Service) *Service {
-	return &Service{providers: providers}
+func NewService(providers *provider.Service, dataDir string) *Service {
+	return &Service{
+		providers:     providers,
+		dataDir:       dataDir,
+		catalogURL:    codexDefaultModelsURL,
+		catalogClient: httpClientWithTimeout(8 * time.Second),
+	}
 }
 
 func (s *Service) List(ctx context.Context, apiPort int) ([]ToolIntegrationState, error) {

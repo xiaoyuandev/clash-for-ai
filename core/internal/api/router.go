@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -333,6 +334,7 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 			return
 		}
 
+		r.syncCodexModelCatalog(req.Context())
 		writeJSON(w, http.StatusOK, item)
 	case len(parts) == 2 && parts[1] == "models" && req.Method == http.MethodGet:
 		items, err := r.providers.FetchModels(req.Context(), parts[0])
@@ -429,6 +431,7 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 			return
 		}
 
+		r.syncCodexModelCatalogForProvider(req.Context(), parts[0])
 		writeJSON(w, http.StatusOK, items)
 	case len(parts) == 2 && parts[1] == "healthcheck" && req.Method == http.MethodPost:
 		result, err := r.health.CheckProvider(req.Context(), parts[0])
@@ -489,6 +492,27 @@ func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (r *Router) syncCodexModelCatalog(ctx context.Context) {
+	if r.tools == nil {
+		return
+	}
+	if err := r.tools.SyncCodexModelCatalog(ctx); err != nil {
+		log.Printf("[codex] model catalog sync failed: %v", err)
+	}
+}
+
+func (r *Router) syncCodexModelCatalogForProvider(ctx context.Context, providerID string) {
+	active, err := r.providers.GetActive(ctx)
+	if err != nil {
+		log.Printf("[codex] check active provider for catalog sync failed: %v", err)
+		return
+	}
+	if active == nil || active.ID != providerID {
+		return
+	}
+	r.syncCodexModelCatalog(ctx)
 }
 
 func (r *Router) handleLocalGatewayRuntime(w http.ResponseWriter, req *http.Request) {
