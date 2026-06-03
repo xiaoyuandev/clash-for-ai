@@ -5,6 +5,7 @@ import {
   activateProvider,
   createProvider,
   deleteProvider,
+  getCodexModelCatalogState,
   getHealth,
   getLocalGatewayRuntime,
   getProviderCodexModels,
@@ -13,6 +14,7 @@ import {
   runProviderHealthcheck,
   runProviderModelTest,
   type ProviderModelTestResult,
+  updateCodexModelCatalogState,
   updateProvider,
   updateProviderCodexModels
 } from "../services/api";
@@ -133,6 +135,9 @@ export function ProvidersPage({
   ]);
   const [loadingCodexModels, setLoadingCodexModels] = useState(false);
   const [savingCodexModels, setSavingCodexModels] = useState(false);
+  const [codexModelCatalogEnabled, setCodexModelCatalogEnabled] = useState(false);
+  const [loadingCodexModelCatalog, setLoadingCodexModelCatalog] = useState(false);
+  const [updatingCodexModelCatalog, setUpdatingCodexModelCatalog] = useState(false);
   const [codexModelsDirty, setCodexModelsDirty] = useState(false);
   const [dragOverCodexEntryId, setDragOverCodexEntryId] = useState<string | null>(null);
   const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
@@ -299,6 +304,35 @@ export function ProvidersPage({
     }
 
     void loadProviderModels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, selectedProvider?.id, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCodexModelCatalogState() {
+      setLoadingCodexModelCatalog(true);
+      try {
+        const state = await getCodexModelCatalogState(apiBase);
+        if (!cancelled) {
+          setCodexModelCatalogEnabled(state.enabled);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setCodexModelCatalogEnabled(false);
+          setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCodexModelCatalog(false);
+        }
+      }
+    }
+
+    void loadCodexModelCatalogState();
 
     return () => {
       cancelled = true;
@@ -771,6 +805,21 @@ export function ProvidersPage({
       return false;
     } finally {
       setSavingCodexModels(false);
+    }
+  }
+
+  async function handleToggleCodexModelCatalog() {
+    const nextEnabled = !codexModelCatalogEnabled;
+    setUpdatingCodexModelCatalog(true);
+    setError(null);
+
+    try {
+      const state = await updateCodexModelCatalogState(nextEnabled, apiBase);
+      setCodexModelCatalogEnabled(state.enabled);
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : t("common.unknownError"));
+    } finally {
+      setUpdatingCodexModelCatalog(false);
     }
   }
 
@@ -1327,6 +1376,40 @@ export function ProvidersPage({
                       </>
                     ) : (
                       <>
+                        <div className="mt-3 rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className={fieldLabelClass}>
+                                {t("providers.detail.codexModelCatalogToggle")}
+                              </p>
+                              <p className={`${metaClass} mt-1`}>
+                                {t("providers.detail.codexModelCatalogToggleMeta")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={codexModelCatalogEnabled}
+                              aria-label={t("providers.detail.codexModelCatalogToggle")}
+                              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full border px-1 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                codexModelCatalogEnabled
+                                  ? "[border-color:var(--success-border)] [background:var(--success-soft)]"
+                                  : "[border-color:var(--border-soft)] [background:var(--panel-solid)]"
+                              }`}
+                              disabled={loadingCodexModelCatalog || updatingCodexModelCatalog}
+                              onClick={() => void handleToggleCodexModelCatalog()}
+                            >
+                              <span
+                                className={`h-5 w-5 rounded-full transition ${
+                                  codexModelCatalogEnabled
+                                    ? "translate-x-5 bg-[color:var(--accent-strong)]"
+                                    : "translate-x-0 bg-[color:var(--color-subtle)]"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+
                         <div className="mt-3">
                           <p className={metaClass}>
                             {savingCodexModels

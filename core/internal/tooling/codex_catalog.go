@@ -40,10 +40,13 @@ type codexModelsCatalog struct {
 	Models []map[string]any `json:"models"`
 }
 
+type CodexModelCatalogState struct {
+	Enabled     bool   `json:"enabled"`
+	CatalogPath string `json:"catalog_path"`
+}
+
 func (s *Service) BootstrapCodexModelCatalog(ctx context.Context) {
-	if err := s.SyncCodexModelCatalog(ctx); err != nil {
-		log.Printf("[codex] initial model catalog sync failed: %v", err)
-	}
+	_ = ctx
 
 	go func() {
 		refreshCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -51,10 +54,6 @@ func (s *Service) BootstrapCodexModelCatalog(ctx context.Context) {
 
 		if err := s.RefreshCodexDefaultModelsCatalog(refreshCtx); err != nil {
 			log.Printf("[codex] refresh default model catalog failed: %v", err)
-			return
-		}
-		if err := s.SyncCodexModelCatalog(context.Background()); err != nil {
-			log.Printf("[codex] model catalog sync after refresh failed: %v", err)
 		}
 	}()
 }
@@ -127,21 +126,43 @@ func (s *Service) SyncCodexModelCatalog(ctx context.Context) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s *Service) GetCodexModelCatalogState() (CodexModelCatalogState, error) {
 	content, err := readOptionalText(codexConfigPath())
 	if err != nil {
-		return err
+		return CodexModelCatalogState{}, err
 	}
-	nextContent := setTopLevelTomlString(content, "model_catalog_json", codexRelaySwitchCatalogPath())
+
+	catalogPath := codexRelaySwitchCatalogPath()
+	return CodexModelCatalogState{
+		Enabled:     readTopLevelTomlValue(content, "model_catalog_json") == catalogPath,
+		CatalogPath: catalogPath,
+	}, nil
+}
+
+func (s *Service) SetCodexModelCatalogEnabled(enabled bool) (CodexModelCatalogState, error) {
+	content, err := readOptionalText(codexConfigPath())
+	if err != nil {
+		return CodexModelCatalogState{}, err
+	}
+
+	nextContent := removeTopLevelTomlKey(content, "model_catalog_json")
+	if enabled {
+		nextContent = setTopLevelTomlString(nextContent, "model_catalog_json", codexRelaySwitchCatalogPath())
+	}
+
 	if nextContent != content {
 		if err := ensureDir(codexConfigPath()); err != nil {
-			return err
+			return CodexModelCatalogState{}, err
 		}
 		if err := os.WriteFile(codexConfigPath(), []byte(nextContent), 0o644); err != nil {
-			return fmt.Errorf("write codex config model_catalog_json: %w", err)
+			return CodexModelCatalogState{}, fmt.Errorf("write codex config model_catalog_json: %w", err)
 		}
 	}
 
-	return nil
+	return s.GetCodexModelCatalogState()
 }
 
 func (s *Service) activeCodexModels(ctx context.Context) ([]provider.CodexModel, error) {
@@ -322,6 +343,37 @@ func setTopLevelTomlRaw(content string, key string, value string) string {
 		lines = append(lines[:insertAt], append([]string{nextLine, ""}, lines[insertAt:]...)...)
 	}
 	return strings.TrimRight(strings.Join(lines, "\n"), "\n\r\t ") + "\n"
+}
+
+func removeTopLevelTomlKey(content string, key string) string {
+	lines := []string{}
+	if strings.TrimSpace(content) != "" {
+		lines = strings.Split(strings.TrimRight(content, "\n\r\t "), "\n")
+	}
+
+	removed := false
+	inTopLevel := true
+	next := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inTopLevel = false
+			next = append(next, line)
+			continue
+		}
+		if inTopLevel && trimmed != "" && !strings.HasPrefix(trimmed, "#") && isTomlAssignment(trimmed, key) {
+			removed = true
+			continue
+		}
+		next = append(next, line)
+	}
+	if !removed {
+		return content
+	}
+	if len(next) == 0 {
+		return ""
+	}
+	return strings.TrimRight(strings.Join(next, "\n"), "\n\r\t ") + "\n"
 }
 
 func tomlQuote(value string) string {

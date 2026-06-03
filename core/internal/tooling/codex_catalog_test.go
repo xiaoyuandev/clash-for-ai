@@ -69,9 +69,8 @@ func TestSyncCodexModelCatalogWritesRelaySwitchFiles(t *testing.T) {
 		t.Fatalf("relay model should be appended to catalog: %+v", fullCatalog.Models[len(fullCatalog.Models)-1])
 	}
 
-	config := readTestText(t, codexConfigPath())
-	if !strings.Contains(config, `model_catalog_json = "`+codexRelaySwitchCatalogPath()+`"`) {
-		t.Fatalf("config missing model_catalog_json:\n%s", config)
+	if fileExists(codexConfigPath()) {
+		t.Fatalf("sync should not write codex config: %s", codexConfigPath())
 	}
 }
 
@@ -103,8 +102,8 @@ func TestSyncCodexModelCatalogUsesDefaultCatalogWhenNoActiveModels(t *testing.T)
 	if len(fullCatalog.Models) == 0 {
 		t.Fatal("default catalog should not be empty")
 	}
-	if !strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = "`) {
-		t.Fatal("config should keep model_catalog_json even with no active codex models")
+	if fileExists(codexConfigPath()) {
+		t.Fatalf("sync should not write codex config: %s", codexConfigPath())
 	}
 }
 
@@ -128,6 +127,23 @@ func TestRefreshCodexDefaultModelsCatalogWritesCache(t *testing.T) {
 	}
 }
 
+func TestBootstrapCodexModelCatalogDoesNotSyncRelayFilesOrConfig(t *testing.T) {
+	service, _ := newCodexCatalogTestService(t)
+	service.catalogURL = ""
+
+	service.BootstrapCodexModelCatalog(context.Background())
+
+	if fileExists(codexRelaySwitchModelsPath()) {
+		t.Fatalf("bootstrap should not write relay models: %s", codexRelaySwitchModelsPath())
+	}
+	if fileExists(codexRelaySwitchCatalogPath()) {
+		t.Fatalf("bootstrap should not write relay catalog: %s", codexRelaySwitchCatalogPath())
+	}
+	if fileExists(codexConfigPath()) {
+		t.Fatalf("bootstrap should not write codex config: %s", codexConfigPath())
+	}
+}
+
 func TestSyncCodexModelCatalogPrefersDefaultCache(t *testing.T) {
 	service, _ := newCodexCatalogTestService(t)
 	writeTestText(t, service.codexDefaultModelsCachePath(), `{"models":[{"slug":"cached","display_name":"Cached","visibility":"list","supported_in_api":true}]}`+"\n")
@@ -139,6 +155,73 @@ func TestSyncCodexModelCatalogPrefersDefaultCache(t *testing.T) {
 	catalog := readCatalogFile(t, codexRelaySwitchCatalogPath())
 	if len(catalog.Models) != 1 || catalog.Models[0]["slug"] != "cached" {
 		t.Fatalf("sync should use cached default catalog: %+v", catalog.Models)
+	}
+}
+
+func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
+	service, _ := newCodexCatalogTestService(t)
+
+	state, err := service.GetCodexModelCatalogState()
+	if err != nil {
+		t.Fatalf("get state: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("missing config should be disabled: %+v", state)
+	}
+	if state.CatalogPath != codexRelaySwitchCatalogPath() {
+		t.Fatalf("unexpected catalog path: %+v", state)
+	}
+
+	writeTestText(t, codexConfigPath(), `model_catalog_json = "/tmp/other.json"`+"\n")
+	state, err = service.GetCodexModelCatalogState()
+	if err != nil {
+		t.Fatalf("get state with other catalog: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("non-relay catalog should be disabled: %+v", state)
+	}
+
+	state, err = service.SetCodexModelCatalogEnabled(true)
+	if err != nil {
+		t.Fatalf("enable catalog: %v", err)
+	}
+	if !state.Enabled {
+		t.Fatalf("enabled state expected: %+v", state)
+	}
+	if !strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = "`+codexRelaySwitchCatalogPath()+`"`) {
+		t.Fatalf("config missing relay catalog:\n%s", readTestText(t, codexConfigPath()))
+	}
+
+	state, err = service.SetCodexModelCatalogEnabled(false)
+	if err != nil {
+		t.Fatalf("disable catalog: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("disabled state expected: %+v", state)
+	}
+	if strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = `) {
+		t.Fatalf("config should remove model_catalog_json:\n%s", readTestText(t, codexConfigPath()))
+	}
+}
+
+func TestRemoveTopLevelTomlKeyDoesNotRemoveSimilarOrNestedKey(t *testing.T) {
+	content := strings.Join([]string{
+		`model_catalog_json = "/tmp/catalog.json"`,
+		`model_catalog_json_extra = "keep"`,
+		"",
+		"[model_providers.OpenAI]",
+		`model_catalog_json = "nested"`,
+	}, "\n") + "\n"
+
+	updated := removeTopLevelTomlKey(content, "model_catalog_json")
+	if strings.Contains(updated, `model_catalog_json = "/tmp/catalog.json"`) {
+		t.Fatalf("top-level key should be removed:\n%s", updated)
+	}
+	if !strings.Contains(updated, `model_catalog_json_extra = "keep"`) {
+		t.Fatalf("similar key should be preserved:\n%s", updated)
+	}
+	if !strings.Contains(updated, `model_catalog_json = "nested"`) {
+		t.Fatalf("nested key should be preserved:\n%s", updated)
 	}
 }
 

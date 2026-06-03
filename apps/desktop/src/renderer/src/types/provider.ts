@@ -29,6 +29,11 @@ export interface CodexModelEntry {
   context_window?: number;
 }
 
+export interface CodexModelCatalogState {
+  enabled: boolean;
+  catalog_path: string;
+}
+
 export interface Provider {
   id: string;
   name: string;

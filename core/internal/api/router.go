@@ -59,6 +59,7 @@ func NewRouter(
 	mux.HandleFunc("/api/release", router.handleRelease)
 	mux.HandleFunc("/api/runtime", router.handleRuntime)
 	mux.HandleFunc("/api/tools", router.handleTools)
+	mux.HandleFunc("/api/tools/codex-model-catalog", router.handleCodexModelCatalog)
 	mux.HandleFunc("/api/tools/", router.handleToolActions)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
 	mux.HandleFunc("/api/local-gateway/capabilities", router.handleLocalGatewayCapabilities)
@@ -269,6 +270,40 @@ func (r *Router) handleTools(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleCodexModelCatalog(w http.ResponseWriter, req *http.Request) {
+	if r.tools == nil {
+		http.Error(w, "tooling service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	switch req.Method {
+	case http.MethodGet:
+		state, err := r.tools.GetCodexModelCatalogState()
+		if err != nil {
+			http.Error(w, "failed to inspect codex model catalog", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	case http.MethodPut:
+		var input struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		state, err := r.tools.SetCodexModelCatalogEnabled(input.Enabled)
+		if err != nil {
+			http.Error(w, "failed to update codex model catalog", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleToolActions(w http.ResponseWriter, req *http.Request) {

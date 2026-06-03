@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
@@ -433,6 +434,53 @@ func TestProviderCodexModelsSyncsActiveProviderCatalog(t *testing.T) {
 	}
 }
 
+func TestCodexModelCatalogAPIReadsAndWritesConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	handler := newTestRouter(t, nil, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/tools/codex-model-catalog", nil)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("unexpected initial get status: %d body=%s", getRec.Code, getRec.Body.String())
+	}
+	var state struct {
+		Enabled     bool   `json:"enabled"`
+		CatalogPath string `json:"catalog_path"`
+	}
+	if err := json.Unmarshal(getRec.Body.Bytes(), &state); err != nil {
+		t.Fatalf("decode initial state: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("initial state should be disabled: %+v", state)
+	}
+
+	putReq := httptest.NewRequest(http.MethodPut, "/api/tools/codex-model-catalog", bytes.NewBufferString(`{"enabled":true}`))
+	putRec := httptest.NewRecorder()
+	handler.ServeHTTP(putRec, putReq)
+	if putRec.Code != http.StatusOK {
+		t.Fatalf("unexpected enable status: %d body=%s", putRec.Code, putRec.Body.String())
+	}
+	if !strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `model_catalog_json = "`) {
+		t.Fatalf("config should contain model_catalog_json after enable")
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodPut, "/api/tools/codex-model-catalog", bytes.NewBufferString(`{"enabled":false}`))
+	deleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("unexpected disable status: %d body=%s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `model_catalog_json = `) {
+		t.Fatalf("config should remove model_catalog_json after disable")
+	}
+}
+
 func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -531,6 +579,16 @@ func readRouterCodexCatalogModels(t *testing.T, path string) []map[string]any {
 		t.Fatalf("decode catalog %s: %v", path, err)
 	}
 	return payload.Models
+}
+
+func readRouterText(t *testing.T, path string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
 }
 
 func assertLocalGatewaySourceResponseIncludesAPIKey(t *testing.T, body []byte) {
