@@ -53,6 +53,15 @@ type SelectedModel struct {
 	Position int    `json:"position"`
 }
 
+type CodexModel struct {
+	ProviderID    string `json:"provider_id,omitempty"`
+	ModelID       string `json:"model_id"`
+	DisplayName   string `json:"display_name"`
+	Enabled       bool   `json:"enabled"`
+	Position      int    `json:"position"`
+	ContextWindow *int   `json:"context_window,omitempty"`
+}
+
 type ModelTestResult struct {
 	ModelID     string `json:"model_id"`
 	Status      string `json:"status"`

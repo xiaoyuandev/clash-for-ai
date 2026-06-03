@@ -8,16 +8,18 @@ import {
   deleteProvider,
   getHealth,
   getLocalGatewayRuntime,
+  getProviderCodexModels,
   getTools,
   getProviderModels,
   getProviders,
   runProviderHealthcheck,
   runProviderModelTest,
   type ProviderModelTestResult,
-  updateProvider
+  updateProvider,
+  updateProviderCodexModels
 } from "../services/api";
 import type { LocalGatewayRuntimeStatus } from "../types/local-gateway";
-import type { ClaudeCodeModelMap, Provider } from "../types/provider";
+import type { ClaudeCodeModelMap, CodexModelEntry, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
 import {
   buttonClass,
@@ -49,6 +51,42 @@ type ModelTestState = {
   result?: ProviderModelTestResult;
   error?: string;
 };
+
+type ModelMappingMode = "claude-code" | "codex";
+
+type CodexModelDraft = CodexModelEntry & {
+  draft_id: string;
+};
+
+function createDraftId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `codex-model-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createEmptyCodexModelDraft(): CodexModelDraft {
+  return {
+    draft_id: createDraftId(),
+    model_id: "",
+    display_name: "",
+    enabled: true,
+    position: 0
+  };
+}
+
+function toCodexModelDrafts(items: CodexModelEntry[]): CodexModelDraft[] {
+  if (items.length === 0) {
+    return [createEmptyCodexModelDraft()];
+  }
+  return items.map((item, index) => ({
+    ...item,
+    display_name: item.model_id,
+    enabled: item.enabled ?? true,
+    position: index,
+    draft_id: createDraftId()
+  }));
+}
 
 interface ProvidersPageProps {
   desktopState: {
@@ -98,10 +136,22 @@ export function ProvidersPage({
   });
   const [localGatewayRuntime, setLocalGatewayRuntime] = useState<LocalGatewayRuntimeStatus | null>(null);
   const [savingClaudeMap, setSavingClaudeMap] = useState(false);
+  const [modelMappingMode, setModelMappingMode] = useState<ModelMappingMode>("claude-code");
+  const [codexModelEntries, setCodexModelEntries] = useState<CodexModelDraft[]>(() => [
+    createEmptyCodexModelDraft()
+  ]);
+  const [loadingCodexModels, setLoadingCodexModels] = useState(false);
+  const [savingCodexModels, setSavingCodexModels] = useState(false);
+  const [codexModelsDirty, setCodexModelsDirty] = useState(false);
+  const [dragOverCodexEntryId, setDragOverCodexEntryId] = useState<string | null>(null);
   const [draggedProviderModelId, setDraggedProviderModelId] = useState<string | null>(null);
   const [draggedClaudeSlot, setDraggedClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
   const [dragOverClaudeSlot, setDragOverClaudeSlot] = useState<keyof ClaudeCodeModelMap | null>(null);
   const testingProviderIDRef = useRef<string | null>(null);
+  const codexAutosaveTimerRef = useRef<number | null>(null);
+  const codexSaveInFlightRef = useRef(false);
+  const codexSavePendingRef = useRef(false);
+  const codexLatestEntriesRef = useRef<CodexModelDraft[]>([]);
 
   const selectedProvider =
     providers.find((provider) => provider.id === selectedProviderId) ??
@@ -277,6 +327,77 @@ export function ProvidersPage({
       }
     );
   }, [selectedProvider?.claude_code_model_map, selectedProvider?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCodexModels(providerID: string) {
+      setLoadingCodexModels(true);
+      try {
+        const items = await getProviderCodexModels(providerID, apiBase);
+        if (cancelled) {
+          return;
+        }
+        setCodexModelEntries(toCodexModelDrafts(items));
+        setCodexModelsDirty(false);
+        setModelMappingMode(items.length > 0 ? "codex" : "claude-code");
+      } catch (loadError) {
+        if (!cancelled) {
+          setCodexModelEntries([createEmptyCodexModelDraft()]);
+          setCodexModelsDirty(false);
+          setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingCodexModels(false);
+        }
+      }
+    }
+
+    if (!selectedProvider) {
+      setCodexModelEntries([createEmptyCodexModelDraft()]);
+      setCodexModelsDirty(false);
+      setModelMappingMode("claude-code");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void loadCodexModels(selectedProvider.id);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, selectedProvider?.id, t]);
+
+  useEffect(() => {
+    if (!codexModelsDirty || !selectedProvider || loadingCodexModels) {
+      return;
+    }
+
+    if (codexAutosaveTimerRef.current !== null) {
+      window.clearTimeout(codexAutosaveTimerRef.current);
+    }
+
+    const providerID = selectedProvider.id;
+    codexLatestEntriesRef.current = codexModelEntries.map((entry) => ({ ...entry }));
+    if (codexSaveInFlightRef.current) {
+      codexSavePendingRef.current = true;
+      return;
+    }
+
+    codexAutosaveTimerRef.current = window.setTimeout(() => {
+      codexAutosaveTimerRef.current = null;
+      void flushCodexModelEntries(providerID);
+    }, 700);
+
+    return () => {
+      if (codexAutosaveTimerRef.current !== null) {
+        window.clearTimeout(codexAutosaveTimerRef.current);
+        codexAutosaveTimerRef.current = null;
+      }
+    };
+  }, [codexModelEntries, codexModelsDirty, loadingCodexModels, selectedProvider?.id]);
 
   async function refreshProviders(preferredProviderId?: string) {
     const [providersData, localGatewayRuntimeData] = await Promise.all([
@@ -559,6 +680,122 @@ export function ProvidersPage({
     setDraggedProviderModelId(null);
     setDraggedClaudeSlot(null);
     setDragOverClaudeSlot(null);
+    setDragOverCodexEntryId(null);
+  }
+
+  function updateCodexModelEntry(draftID: string, patch: Partial<CodexModelEntry>) {
+    setCodexModelEntries((current) =>
+      current.map((entry, index) =>
+        entry.draft_id === draftID
+          ? {
+              ...entry,
+              ...patch,
+              position: index
+            }
+          : entry
+      )
+    );
+    setCodexModelsDirty(true);
+  }
+
+  function clearOrRemoveCodexModelEntry(draftID: string) {
+    setCodexModelEntries((current) => {
+      if (current.length === 1) {
+        return [createEmptyCodexModelDraft()];
+      }
+      return current
+        .filter((entry) => entry.draft_id !== draftID)
+        .map((entry, index) => ({
+          ...entry,
+          position: index
+        }));
+    });
+    setCodexModelsDirty(true);
+  }
+
+  function assignCodexModelEntry(draftID: string, modelID: string) {
+    setCodexModelEntries((current) =>
+      current.map((entry, index) =>
+        entry.draft_id === draftID
+          ? {
+              ...entry,
+              model_id: modelID,
+              display_name: modelID,
+              enabled: true,
+              position: index
+            }
+          : entry
+      )
+    );
+    setCodexModelsDirty(true);
+  }
+
+  async function flushCodexModelEntries(providerID: string) {
+    if (codexSaveInFlightRef.current) {
+      codexSavePendingRef.current = true;
+      return;
+    }
+
+    codexSaveInFlightRef.current = true;
+    try {
+      for (;;) {
+        codexSavePendingRef.current = false;
+        const entriesSnapshot = codexLatestEntriesRef.current.map((entry) => ({ ...entry }));
+        const saved = await persistCodexModelEntries(providerID, entriesSnapshot);
+        if (!saved) {
+          setCodexModelsDirty(true);
+          return;
+        }
+        if (!codexSavePendingRef.current) {
+          setCodexModelsDirty(false);
+          return;
+        }
+      }
+    } finally {
+      codexSaveInFlightRef.current = false;
+    }
+  }
+
+  async function persistCodexModelEntries(providerID: string, entries: CodexModelDraft[]) {
+    const payload: CodexModelEntry[] = entries
+      .map((entry, index) => {
+        const modelID = entry.model_id.trim();
+        return {
+          model_id: modelID,
+          display_name: modelID,
+          enabled: true,
+          position: index
+        };
+      })
+      .filter((entry) => entry.model_id !== "");
+
+    setSavingCodexModels(true);
+    setError(null);
+
+    try {
+      await updateProviderCodexModels(providerID, payload, apiBase);
+      return true;
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("common.unknownError"));
+      return false;
+    } finally {
+      setSavingCodexModels(false);
+    }
+  }
+
+  function addCodexModelEntry() {
+    setCodexModelEntries((current) => {
+      if (current.length === 1 && current[0].model_id.trim() === "") {
+        return current;
+      }
+      return [
+        ...current,
+        {
+          ...createEmptyCodexModelDraft(),
+          position: current.length
+        }
+      ];
+    });
   }
 
   function startEditing(provider: Provider) {
@@ -939,122 +1176,270 @@ export function ProvidersPage({
                   </section>
 
                   <section className="flex min-h-0 flex-col overflow-hidden">
-                    <div className={sectionHeadClass}>
-                      <div className="space-y-1">
-                        <h3 className={sectionTitleClass}>{t("providers.detail.claudeSlotsTitle")}</h3>
-                        <p className={sectionMetaClass}>{t("providers.detail.claudeSlotsMeta")}</p>
-                      </div>
-                    </div>
-                    <p className={`${metaClass} mt-3`}>
-                      {savingClaudeMap
-                        ? t("providers.detail.claudeSlotsSaving")
-                        : t("providers.detail.claudeSlotsAuto")}
-                    </p>
-
-                    <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                    <div
+                      className="inline-flex w-fit rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1"
+                      role="tablist"
+                      aria-label={t("providers.detail.modelMappingTitle")}
+                    >
                       {(
                         [
-                          ["opus", t("providers.detail.claudeSlot.opus")],
-                          ["sonnet", t("providers.detail.claudeSlot.sonnet")],
-                          ["haiku", t("providers.detail.claudeSlot.haiku")]
+                          ["claude-code", t("providers.detail.modelMappingTab.claude")],
+                          ["codex", t("providers.detail.modelMappingTab.codex")]
                         ] as const
-                      ).map(([slot, label]) => {
-                        const assignedModelID = claudeCodeModelMap[slot];
-                        const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
-                        const isDragOver = dragOverClaudeSlot === slot;
+                      ).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          role="tab"
+                          aria-selected={modelMappingMode === mode}
+                          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                            modelMappingMode === mode
+                              ? "[background:var(--accent-soft)] text-[color:var(--accent)]"
+                              : "text-[color:var(--color-muted)] hover:text-[color:var(--color-text)]"
+                          }`}
+                          onClick={() => setModelMappingMode(mode)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
 
-                        return (
-                          <article
-                            key={slot}
-                            className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
-                              isDragOver
-                                ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
-                                : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
-                            }`}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                              setDragOverClaudeSlot(slot);
-                            }}
-                            onDragLeave={() => {
-                              setDragOverClaudeSlot((current) => (current === slot ? null : current));
-                            }}
-                            onDrop={() => {
-                              if (draggedProviderModelId) {
-                                assignClaudeSlot(slot, draggedProviderModelId);
-                              } else if (draggedClaudeSlot) {
-                                const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
-                                if (nextModelID) {
-                                  const nextMap = {
-                                    ...claudeCodeModelMap,
-                                    [slot]: nextModelID
-                                  };
-                                  if (draggedClaudeSlot !== slot) {
-                                    nextMap[draggedClaudeSlot] = "";
+                    <div className={`${sectionHeadClass} mt-3`}>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className={sectionTitleClass}>{t("providers.detail.modelMappingTitle")}</h3>
+                          <span className="group relative inline-flex">
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold [border-color:var(--border-soft)] text-[color:var(--color-muted)] hover:text-[color:var(--color-text)]"
+                              aria-label={t("providers.detail.modelMappingMeta")}
+                            >
+                              i
+                            </button>
+                            <span
+                              className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-72 -translate-x-1/2 rounded-lg border px-3 py-2 text-xs leading-5 shadow-lg group-hover:block [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)]"
+                              role="tooltip"
+                            >
+                              {t("providers.detail.modelMappingMeta")}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {modelMappingMode === "claude-code" ? (
+                      <>
+                        <p className={`${metaClass} mt-3`}>
+                          {savingClaudeMap
+                            ? t("providers.detail.claudeSlotsSaving")
+                            : t("providers.detail.claudeSlotsAuto")}
+                        </p>
+
+                        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                          {(
+                            [
+                              ["opus", t("providers.detail.claudeSlot.opus")],
+                              ["sonnet", t("providers.detail.claudeSlot.sonnet")],
+                              ["haiku", t("providers.detail.claudeSlot.haiku")]
+                            ] as const
+                          ).map(([slot, label]) => {
+                            const assignedModelID = claudeCodeModelMap[slot];
+                            const assignedModel = providerModels.find((model) => model.id === assignedModelID) ?? null;
+                            const isDragOver = dragOverClaudeSlot === slot;
+
+                            return (
+                              <article
+                                key={slot}
+                                className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow,transform] duration-200 ${
+                                  isDragOver
+                                    ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                    : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                                }`}
+                                onDragOver={(event) => {
+                                  event.preventDefault();
+                                  setDragOverClaudeSlot(slot);
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverClaudeSlot((current) => (current === slot ? null : current));
+                                }}
+                                onDrop={() => {
+                                  if (draggedProviderModelId) {
+                                    assignClaudeSlot(slot, draggedProviderModelId);
+                                  } else if (draggedClaudeSlot) {
+                                    const nextModelID = claudeCodeModelMap[draggedClaudeSlot];
+                                    if (nextModelID) {
+                                      const nextMap = {
+                                        ...claudeCodeModelMap,
+                                        [slot]: nextModelID
+                                      };
+                                      if (draggedClaudeSlot !== slot) {
+                                        nextMap[draggedClaudeSlot] = "";
+                                      }
+                                      void persistClaudeCodeModelMap(nextMap);
+                                    }
                                   }
-                                  void persistClaudeCodeModelMap(nextMap);
-                                }
-                              }
-                              resetClaudeDragState();
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className={fieldLabelClass}>{label}</p>
-                                <p className={`${metaClass} mt-1.5`}>
-                                  {assignedModelID
-                                    ? t("providers.detail.claudeSlot.ready")
-                                    : t("providers.detail.claudeSlot.dropHint")}
-                                </p>
-                              </div>
-                              {assignedModelID ? (
-                                <button
-                                  type="button"
-                                  className={buttonClass("ghost")}
-                                  onClick={() => clearClaudeSlot(slot)}
-                                >
-                                  {t("providers.detail.claudeSlot.clear")}
-                                </button>
-                              ) : null}
-                            </div>
+                                  resetClaudeDragState();
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className={fieldLabelClass}>{label}</p>
+                                    <p className={`${metaClass} mt-1.5`}>
+                                      {assignedModelID
+                                        ? t("providers.detail.claudeSlot.ready")
+                                        : t("providers.detail.claudeSlot.dropHint")}
+                                    </p>
+                                  </div>
+                                  {assignedModelID ? (
+                                    <button
+                                      type="button"
+                                      className={buttonClass("ghost")}
+                                      onClick={() => clearClaudeSlot(slot)}
+                                    >
+                                      {t("providers.detail.claudeSlot.clear")}
+                                    </button>
+                                  ) : null}
+                                </div>
 
-                            <div className="mt-4 rounded-[18px] border border-dashed p-4">
-                              {assignedModelID ? (
-                                <div
-                                  className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
-                                  draggable
-                                  onDragStart={() => {
-                                    setDraggedProviderModelId(null);
-                                    setDraggedClaudeSlot(slot);
+                                <div className="mt-4 rounded-[18px] border border-dashed p-4">
+                                  {assignedModelID ? (
+                                    <div
+                                      className="flex cursor-grab items-start gap-3 active:cursor-grabbing"
+                                      draggable
+                                      onDragStart={() => {
+                                        setDraggedProviderModelId(null);
+                                        setDraggedClaudeSlot(slot);
+                                      }}
+                                      onDragEnd={() => {
+                                        resetClaudeDragState();
+                                      }}
+                                    >
+                                      <span className={iconBadgeClass}>
+                                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                          <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+                                        </svg>
+                                      </span>
+                                      <div className="min-w-0">
+                                        <p className={monoClass}>{assignedModelID}</p>
+                                        <p className={`${metaClass} mt-1.5`}>
+                                          {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                        </p>
+                                      </div>
+                                      <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
+                                        :::
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="py-3 text-center">
+                                      <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mt-3">
+                          <p className={metaClass}>
+                            {savingCodexModels
+                              ? t("providers.detail.codexModelsSaving")
+                              : t("providers.detail.codexModelsMeta")}
+                          </p>
+                        </div>
+
+                        {loadingCodexModels ? (
+                          <div className="mt-4 min-h-0 flex-1">
+                            <div className={emptyStateClass}>{t("common.loading")}</div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                            {codexModelEntries.map((entry, index) => {
+                              const isDragOver = dragOverCodexEntryId === entry.draft_id;
+                              const modelIDInputID = `codex-model-id-${entry.draft_id}`;
+
+                              return (
+                                <article
+                                  key={entry.draft_id}
+                                  className={`rounded-[20px] border p-4 transition-[background,border-color,box-shadow] duration-200 ${
+                                    isDragOver
+                                      ? "[border-color:var(--accent)] [background:color-mix(in_srgb,var(--panel-soft)_84%,var(--accent)_16%)] shadow-[0_18px_32px_rgba(15,23,42,0.12)]"
+                                      : "[border-color:var(--border-soft)] [background:var(--panel-soft)]"
+                                  }`}
+                                  onDragOver={(event) => {
+                                    event.preventDefault();
+                                    setDragOverCodexEntryId(entry.draft_id);
                                   }}
-                                  onDragEnd={() => {
+                                  onDragLeave={() => {
+                                    setDragOverCodexEntryId((current) =>
+                                      current === entry.draft_id ? null : current
+                                    );
+                                  }}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    if (draggedProviderModelId) {
+                                      assignCodexModelEntry(entry.draft_id, draggedProviderModelId);
+                                    }
                                     resetClaudeDragState();
                                   }}
                                 >
-                                  <span className={iconBadgeClass}>
-                                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                      <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
-                                    </svg>
-                                  </span>
-                                  <div className="min-w-0">
-                                    <p className={monoClass}>{assignedModelID}</p>
-                                    <p className={`${metaClass} mt-1.5`}>
-                                      {assignedModel?.owned_by ?? t("models.available.ownerUnknown")}
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className={fieldLabelClass}>
+                                      {t("providers.detail.codexModelEntry", { index: String(index + 1) })}
                                     </p>
+                                    <button
+                                      type="button"
+                                      className={iconButtonSmallClass}
+                                      onClick={() => clearOrRemoveCodexModelEntry(entry.draft_id)}
+                                      aria-label={t("providers.detail.codexModelRemove")}
+                                      title={t("providers.detail.codexModelRemove")}
+                                    >
+                                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M5 11h14v2H5z" />
+                                      </svg>
+                                    </button>
                                   </div>
-                                  <span className="pt-1 text-[11px] font-bold uppercase tracking-[0.3em] text-[color:var(--accent)]/75">
-                                    :::
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="py-3 text-center">
-                                  <p className={metaClass}>{t("providers.detail.claudeSlot.unset")}</p>
-                                </div>
-                              )}
+
+                                  <div className="mt-3">
+                                    <label className={labelClass} htmlFor={modelIDInputID}>
+                                      <span className={fieldLabelClass}>
+                                        {t("providers.detail.codexModelID")}
+                                      </span>
+                                      <input
+                                        id={modelIDInputID}
+                                        className={inputClass}
+                                        value={entry.model_id}
+                                        onChange={(event) =>
+                                          updateCodexModelEntry(entry.draft_id, {
+                                            model_id: event.target.value,
+                                            display_name: event.target.value
+                                          })
+                                        }
+                                        placeholder={t("providers.detail.codexModelIDPlaceholder")}
+                                      />
+                                    </label>
+                                  </div>
+
+                                </article>
+                              );
+                            })}
+
+                            <div className="flex justify-center pt-1">
+                              <button
+                                type="button"
+                                className={`${buttonClass("secondary")} w-full justify-center`}
+                                onClick={addCodexModelEntry}
+                              >
+                                {t("providers.detail.codexModelAdd")}
+                              </button>
                             </div>
-                          </article>
-                        );
-                      })}
-                    </div>
+                            <p className={metaClass}>{t("providers.detail.codexRestartHint")}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </section>
               </div>
             </div>

@@ -20,6 +20,15 @@ export interface ClaudeCodeModelMap {
   haiku: string;
 }
 
+export interface CodexModelEntry {
+  provider_id?: string;
+  model_id: string;
+  display_name: string;
+  enabled: boolean;
+  position: number;
+  context_window?: number;
+}
+
 export interface Provider {
   id: string;
   name: string;

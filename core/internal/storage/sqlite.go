@@ -168,6 +168,29 @@ ON provider_selected_models (provider_id, position ASC);`
 		return fmt.Errorf("migrate provider_selected_models index: %w", err)
 	}
 
+	const providerCodexModelsTable = `
+CREATE TABLE IF NOT EXISTS provider_codex_models (
+	provider_id TEXT NOT NULL,
+	model_id TEXT NOT NULL,
+	display_name TEXT NOT NULL,
+	enabled INTEGER NOT NULL DEFAULT 1,
+	position INTEGER NOT NULL,
+	context_window INTEGER,
+	PRIMARY KEY (provider_id, model_id)
+);`
+
+	if _, err := s.DB.Exec(providerCodexModelsTable); err != nil {
+		return fmt.Errorf("migrate provider_codex_models table: %w", err)
+	}
+
+	const providerCodexModelsIndex = `
+CREATE INDEX IF NOT EXISTS idx_provider_codex_models_position
+ON provider_codex_models (provider_id, position ASC);`
+
+	if _, err := s.DB.Exec(providerCodexModelsIndex); err != nil {
+		return fmt.Errorf("migrate provider_codex_models index: %w", err)
+	}
+
 	const localGatewayModelSourcesTable = `
 CREATE TABLE IF NOT EXISTS local_gateway_model_sources (
 	id TEXT PRIMARY KEY,

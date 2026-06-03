@@ -129,6 +129,11 @@ export const messages = {
     "providers.detail.baseUrl": "Base URL",
     "providers.detail.health": "Health",
     "providers.detail.apiKey": "API Key",
+    "providers.detail.modelMappingTitle": "Model Mapping",
+    "providers.detail.modelMappingMeta":
+      "Configure model names for connected coding tools. Codex model list changes require restarting Codex CLI.",
+    "providers.detail.modelMappingTab.claude": "Claude Code Slots",
+    "providers.detail.modelMappingTab.codex": "Codex Model List",
     "providers.detail.claudeSlotsTitle": "Claude Code Model Slots",
     "providers.detail.claudeSlotsMeta":
       "Choose which provider model should fill the Opus, Sonnet, and Haiku slots when this provider is active.",
@@ -141,6 +146,16 @@ export const messages = {
     "providers.detail.claudeSlot.dropHint": "Drag a model here",
     "providers.detail.claudeSlot.ready": "Mapped model",
     "providers.detail.claudeSlot.clear": "Clear",
+    "providers.detail.codexModelsMeta":
+      "Drag or type model names. Changes save to this provider's Codex model list.",
+    "providers.detail.codexModelsSaving": "Saving Codex model list...",
+    "providers.detail.codexModelEntry": "Codex model #{index}",
+    "providers.detail.codexModelID": "Model name",
+    "providers.detail.codexModelIDPlaceholder": "Example: deepseek-chat",
+    "providers.detail.codexModelRemove": "Remove model entry",
+    "providers.detail.codexModelAdd": "Add model mapping slot",
+    "providers.detail.codexRestartHint":
+      "These entries are saved to the current provider's Codex model list.",
     "providers.detail.modelsCount": "{count} supported",
     "providers.detail.modelsEmpty": "No supported models found for this provider.",
     "providers.detail.capabilities": "Capabilities",
@@ -601,6 +616,11 @@ export const messages = {
     "providers.detail.baseUrl": "Base URL",
     "providers.detail.health": "健康状态",
     "providers.detail.apiKey": "API Key",
+    "providers.detail.modelMappingTitle": "模型映射",
+    "providers.detail.modelMappingMeta":
+      "为不同编码工具配置模型名称。Codex 模型列表更新后，需要重启 Codex CLI 才能刷新菜单。",
+    "providers.detail.modelMappingTab.claude": "Claude Code 槽位",
+    "providers.detail.modelMappingTab.codex": "Codex 模型列表",
     "providers.detail.claudeSlotsTitle": "Claude Code 模型槽位",
     "providers.detail.claudeSlotsMeta":
       "为当前供应商选择 Opus、Sonnet、Haiku 三个槽位实际对应的 provider 模型。该供应商激活时，一键配置会使用这里的映射。",
@@ -613,6 +633,15 @@ export const messages = {
     "providers.detail.claudeSlot.dropHint": "把模型拖到这里",
     "providers.detail.claudeSlot.ready": "已映射模型",
     "providers.detail.claudeSlot.clear": "清空",
+    "providers.detail.codexModelsMeta": "拖入或填写模型名后会保存到当前供应商的 Codex 模型列表。",
+    "providers.detail.codexModelsSaving": "正在保存 Codex 模型列表...",
+    "providers.detail.codexModelEntry": "Codex 模型 #{index}",
+    "providers.detail.codexModelID": "模型名",
+    "providers.detail.codexModelIDPlaceholder": "例如：deepseek-chat",
+    "providers.detail.codexModelRemove": "移除模型条目",
+    "providers.detail.codexModelAdd": "添加模型映射槽位",
+    "providers.detail.codexRestartHint":
+      "这些条目会保存到当前供应商的 Codex 模型列表。",
     "providers.detail.modelsCount": "支持 {count} 个模型",
     "providers.detail.modelsEmpty": "当前供应商没有返回可用模型。",
     "providers.detail.capabilities": "能力",

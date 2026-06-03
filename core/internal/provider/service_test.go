@@ -233,6 +233,94 @@ func TestTestModelAvailabilityUsesAnthropicMessages(t *testing.T) {
 	}
 }
 
+func TestReplaceCodexModelsNormalizesAndPersists(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:    "Codex Models",
+		BaseURL: "https://api.example.com/v1",
+		APIKey:  "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	contextWindow := 128000
+	saved, err := service.ReplaceCodexModels(ctx, item.ID, []CodexModel{
+		{ModelID: " qwen-plus ", DisplayName: "", Enabled: true, ContextWindow: &contextWindow},
+		{ModelID: "", DisplayName: "skip", Enabled: true},
+		{ModelID: "qwen-plus", DisplayName: "duplicate", Enabled: true},
+		{ModelID: " deepseek-chat ", DisplayName: " DeepSeek Chat ", Enabled: true},
+	})
+	if err != nil {
+		t.Fatalf("replace codex models: %v", err)
+	}
+	if len(saved) != 2 {
+		t.Fatalf("unexpected saved models: %+v", saved)
+	}
+	if saved[0].ProviderID != item.ID || saved[0].ModelID != "qwen-plus" || saved[0].DisplayName != "qwen-plus" || saved[0].Position != 0 {
+		t.Fatalf("unexpected first model: %+v", saved[0])
+	}
+	if saved[0].ContextWindow == nil || *saved[0].ContextWindow != contextWindow {
+		t.Fatalf("unexpected context window: %+v", saved[0].ContextWindow)
+	}
+	if saved[1].ModelID != "deepseek-chat" || saved[1].DisplayName != "DeepSeek Chat" || saved[1].Position != 1 {
+		t.Fatalf("unexpected second model: %+v", saved[1])
+	}
+
+	list, err := service.ListCodexModels(ctx, item.ID)
+	if err != nil {
+		t.Fatalf("list codex models: %v", err)
+	}
+	if len(list) != 2 || list[0].ModelID != "qwen-plus" || list[1].ModelID != "deepseek-chat" {
+		t.Fatalf("unexpected persisted models: %+v", list)
+	}
+}
+
+func TestReplaceCodexModelsOverwritesAndDeleteProviderClearsModels(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:    "Codex Models",
+		BaseURL: "https://api.example.com/v1",
+		APIKey:  "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	if _, err := service.ReplaceCodexModels(ctx, item.ID, []CodexModel{
+		{ModelID: "first", DisplayName: "First", Enabled: true},
+		{ModelID: "second", DisplayName: "Second", Enabled: true},
+	}); err != nil {
+		t.Fatalf("first replace codex models: %v", err)
+	}
+	if _, err := service.ReplaceCodexModels(ctx, item.ID, []CodexModel{
+		{ModelID: "third", DisplayName: "Third", Enabled: true},
+	}); err != nil {
+		t.Fatalf("second replace codex models: %v", err)
+	}
+
+	list, err := service.ListCodexModels(ctx, item.ID)
+	if err != nil {
+		t.Fatalf("list codex models: %v", err)
+	}
+	if len(list) != 1 || list[0].ModelID != "third" {
+		t.Fatalf("replace should overwrite old models: %+v", list)
+	}
+
+	if err := service.Delete(ctx, item.ID); err != nil {
+		t.Fatalf("delete provider: %v", err)
+	}
+	if _, err := service.ListCodexModels(ctx, item.ID); err != ErrProviderNotFound {
+		t.Fatalf("expected provider not found after delete, got %v", err)
+	}
+}
+
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 

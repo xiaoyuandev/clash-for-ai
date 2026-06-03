@@ -364,6 +364,60 @@ func (s *Service) ReplaceSelectedModels(ctx context.Context, id string, items []
 	return normalized, nil
 }
 
+func (s *Service) ListCodexModels(ctx context.Context, id string) ([]CodexModel, error) {
+	if _, err := s.repository.GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	return s.repository.ListCodexModels(ctx, id)
+}
+
+func (s *Service) ReplaceCodexModels(ctx context.Context, id string, items []CodexModel) ([]CodexModel, error) {
+	if _, err := s.repository.GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+
+	normalized := make([]CodexModel, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+
+	for _, item := range items {
+		modelID := strings.TrimSpace(item.ModelID)
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+
+		displayName := strings.TrimSpace(item.DisplayName)
+		if displayName == "" {
+			displayName = modelID
+		}
+
+		var contextWindow *int
+		if item.ContextWindow != nil && *item.ContextWindow > 0 {
+			value := *item.ContextWindow
+			contextWindow = &value
+		}
+
+		seen[modelID] = struct{}{}
+		normalized = append(normalized, CodexModel{
+			ProviderID:    id,
+			ModelID:       modelID,
+			DisplayName:   displayName,
+			Enabled:       item.Enabled,
+			Position:      len(normalized),
+			ContextWindow: contextWindow,
+		})
+	}
+
+	if err := s.repository.ReplaceCodexModels(ctx, id, normalized); err != nil {
+		return nil, err
+	}
+
+	return normalized, nil
+}
+
 func (s *Service) Delete(ctx context.Context, id string) error {
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {

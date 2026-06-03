@@ -141,6 +141,88 @@ VALUES (?, ?, ?)`,
 	return nil
 }
 
+func (r *SQLiteRepository) ListCodexModels(ctx context.Context, providerID string) ([]CodexModel, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT provider_id, model_id, display_name, enabled, position, context_window
+FROM provider_codex_models
+WHERE provider_id = ?
+ORDER BY position ASC, model_id ASC`, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("list codex models: %w", err)
+	}
+	defer rows.Close()
+
+	items := []CodexModel{}
+	for rows.Next() {
+		var (
+			item          CodexModel
+			enabled       int
+			contextWindow sql.NullInt64
+		)
+		if err := rows.Scan(
+			&item.ProviderID,
+			&item.ModelID,
+			&item.DisplayName,
+			&enabled,
+			&item.Position,
+			&contextWindow,
+		); err != nil {
+			return nil, fmt.Errorf("scan codex model: %w", err)
+		}
+		item.Enabled = enabled != 0
+		if contextWindow.Valid {
+			value := int(contextWindow.Int64)
+			item.ContextWindow = &value
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate codex models: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *SQLiteRepository) ReplaceCodexModels(ctx context.Context, providerID string, items []CodexModel) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin replace codex models tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM provider_codex_models WHERE provider_id = ?`, providerID); err != nil {
+		return fmt.Errorf("delete codex models: %w", err)
+	}
+
+	for index, item := range items {
+		var contextWindow any
+		if item.ContextWindow != nil && *item.ContextWindow > 0 {
+			contextWindow = *item.ContextWindow
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO provider_codex_models (provider_id, model_id, display_name, enabled, position, context_window)
+VALUES (?, ?, ?, ?, ?, ?)`,
+			providerID,
+			item.ModelID,
+			item.DisplayName,
+			boolToInt(item.Enabled),
+			index,
+			contextWindow,
+		); err != nil {
+			return fmt.Errorf("insert codex model: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit replace codex models tx: %w", err)
+	}
+
+	return nil
+}
+
 func (r *SQLiteRepository) Create(ctx context.Context, item Provider) (Provider, error) {
 	extraHeadersJSON, err := json.Marshal(item.ExtraHeaders)
 	if err != nil {
@@ -244,6 +326,9 @@ WHERE id = ?`,
 func (r *SQLiteRepository) Delete(ctx context.Context, id string) error {
 	if _, err := r.db.ExecContext(ctx, `DELETE FROM provider_selected_models WHERE provider_id = ?`, id); err != nil {
 		return fmt.Errorf("delete selected models for provider: %w", err)
+	}
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM provider_codex_models WHERE provider_id = ?`, id); err != nil {
+		return fmt.Errorf("delete codex models for provider: %w", err)
 	}
 
 	result, err := r.db.ExecContext(ctx, `DELETE FROM providers WHERE id = ?`, id)
