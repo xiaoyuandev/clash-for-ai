@@ -288,14 +288,15 @@ func (r *Router) handleCodexModelCatalog(w http.ResponseWriter, req *http.Reques
 		writeJSON(w, http.StatusOK, state)
 	case http.MethodPut:
 		var input struct {
-			Enabled bool `json:"enabled"`
+			Enabled            *bool `json:"enabled"`
+			HideOfficialModels *bool `json:"hide_official_models"`
 		}
 		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		state, err := r.tools.SetCodexModelCatalogEnabled(input.Enabled)
+		state, err := r.tools.UpdateCodexModelCatalogState(req.Context(), input.Enabled, input.HideOfficialModels)
 		if err != nil {
 			http.Error(w, "failed to update codex model catalog", http.StatusInternalServerError)
 			return

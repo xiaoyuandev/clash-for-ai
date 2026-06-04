@@ -22,6 +22,7 @@ const (
 	codexDefaultModelsCacheFilename = "codex-models.json"
 	codexRelaySwitchModelsFilename  = "relay-switch-models.json"
 	codexRelaySwitchCatalogFilename = "relay-switch-model-catalog.json"
+	codexHideOfficialModelsKey      = "relay_switch_hide_official_models"
 	defaultCodexContextWindow       = 128000
 )
 
@@ -41,12 +42,15 @@ type codexModelsCatalog struct {
 }
 
 type CodexModelCatalogState struct {
-	Enabled     bool   `json:"enabled"`
-	CatalogPath string `json:"catalog_path"`
+	Enabled            bool   `json:"enabled"`
+	CatalogPath        string `json:"catalog_path"`
+	HideOfficialModels bool   `json:"hide_official_models"`
 }
 
 func (s *Service) BootstrapCodexModelCatalog(ctx context.Context) {
-	_ = ctx
+	if err := s.SyncCodexModelCatalog(ctx); err != nil {
+		log.Printf("[codex] initial model catalog sync failed: %v", err)
+	}
 
 	go func() {
 		refreshCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -54,6 +58,10 @@ func (s *Service) BootstrapCodexModelCatalog(ctx context.Context) {
 
 		if err := s.RefreshCodexDefaultModelsCatalog(refreshCtx); err != nil {
 			log.Printf("[codex] refresh default model catalog failed: %v", err)
+			return
+		}
+		if err := s.SyncCodexModelCatalog(context.Background()); err != nil {
+			log.Printf("[codex] model catalog sync after refresh failed: %v", err)
 		}
 	}()
 }
@@ -99,6 +107,14 @@ func (s *Service) RefreshCodexDefaultModelsCatalog(ctx context.Context) error {
 }
 
 func (s *Service) SyncCodexModelCatalog(ctx context.Context) error {
+	hideOfficialModels, err := s.codexHideOfficialModels()
+	if err != nil {
+		return err
+	}
+	return s.syncCodexModelCatalog(ctx, hideOfficialModels)
+}
+
+func (s *Service) syncCodexModelCatalog(ctx context.Context, hideOfficialModels bool) error {
 	defaultCatalog, err := s.loadCodexDefaultModelsCatalog()
 	if err != nil {
 		return err
@@ -112,6 +128,9 @@ func (s *Service) SyncCodexModelCatalog(ctx context.Context) error {
 	relayModels := buildRelaySwitchCodexModels(activeModels)
 	catalogModels := make([]map[string]any, 0, len(defaultCatalog.Models)+len(relayModels))
 	catalogModels = append(catalogModels, cloneCodexModelMaps(defaultCatalog.Models)...)
+	if hideOfficialModels {
+		hideCodexModelMaps(catalogModels)
+	}
 	catalogModels = append(catalogModels, relayModels...)
 
 	codexDir := filepath.Dir(codexConfigPath())
@@ -137,20 +156,45 @@ func (s *Service) GetCodexModelCatalogState() (CodexModelCatalogState, error) {
 
 	catalogPath := codexRelaySwitchCatalogPath()
 	return CodexModelCatalogState{
-		Enabled:     readTopLevelTomlValue(content, "model_catalog_json") == catalogPath,
-		CatalogPath: catalogPath,
+		Enabled:            readTopLevelTomlValue(content, "model_catalog_json") == catalogPath,
+		CatalogPath:        catalogPath,
+		HideOfficialModels: readTopLevelTomlBool(content, codexHideOfficialModelsKey),
 	}, nil
 }
 
-func (s *Service) SetCodexModelCatalogEnabled(enabled bool) (CodexModelCatalogState, error) {
+func (s *Service) SetCodexModelCatalogEnabled(ctx context.Context, enabled bool) (CodexModelCatalogState, error) {
+	return s.UpdateCodexModelCatalogState(ctx, &enabled, nil)
+}
+
+func (s *Service) UpdateCodexModelCatalogState(ctx context.Context, enabled *bool, hideOfficialModels *bool) (CodexModelCatalogState, error) {
 	content, err := readOptionalText(codexConfigPath())
 	if err != nil {
 		return CodexModelCatalogState{}, err
 	}
 
-	nextContent := removeTopLevelTomlKey(content, "model_catalog_json")
-	if enabled {
-		nextContent = setTopLevelTomlString(nextContent, "model_catalog_json", codexRelaySwitchCatalogPath())
+	desiredHideOfficialModels := readTopLevelTomlBool(content, codexHideOfficialModelsKey)
+	if hideOfficialModels != nil {
+		desiredHideOfficialModels = *hideOfficialModels
+	}
+	if hideOfficialModels != nil || (enabled != nil && *enabled) {
+		if err := s.syncCodexModelCatalog(ctx, desiredHideOfficialModels); err != nil {
+			return CodexModelCatalogState{}, err
+		}
+	}
+
+	nextContent := content
+	if hideOfficialModels != nil {
+		nextContent = removeTopLevelTomlKey(nextContent, codexHideOfficialModelsKey)
+		if *hideOfficialModels {
+			nextContent = setTopLevelTomlRaw(nextContent, codexHideOfficialModelsKey, "true")
+		}
+	}
+
+	if enabled != nil {
+		nextContent = removeTopLevelTomlKey(nextContent, "model_catalog_json")
+		if *enabled {
+			nextContent = setTopLevelTomlString(nextContent, "model_catalog_json", codexRelaySwitchCatalogPath())
+		}
 	}
 
 	if nextContent != content {
@@ -163,6 +207,14 @@ func (s *Service) SetCodexModelCatalogEnabled(enabled bool) (CodexModelCatalogSt
 	}
 
 	return s.GetCodexModelCatalogState()
+}
+
+func (s *Service) codexHideOfficialModels() (bool, error) {
+	content, err := readOptionalText(codexConfigPath())
+	if err != nil {
+		return false, err
+	}
+	return readTopLevelTomlBool(content, codexHideOfficialModelsKey), nil
 }
 
 func (s *Service) activeCodexModels(ctx context.Context) ([]provider.CodexModel, error) {
@@ -305,6 +357,12 @@ func cloneCodexModelMaps(items []map[string]any) []map[string]any {
 	return cloned
 }
 
+func hideCodexModelMaps(items []map[string]any) {
+	for _, item := range items {
+		item["visibility"] = "hide"
+	}
+}
+
 func setTopLevelTomlString(content string, key string, value string) string {
 	return setTopLevelTomlRaw(content, key, tomlQuote(value))
 }
@@ -386,4 +444,23 @@ func isTomlAssignment(trimmedLine string, key string) bool {
 		return false
 	}
 	return strings.HasPrefix(strings.TrimSpace(trimmedLine[len(key):]), "=")
+}
+
+func readTopLevelTomlBool(content string, key string) bool {
+	currentTable := ""
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			currentTable = strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+			continue
+		}
+		if currentTable != "" || trimmed == "" || strings.HasPrefix(trimmed, "#") || !isTomlAssignment(trimmed, key) {
+			continue
+		}
+		rawValue := strings.TrimSpace(trimmed[len(key):])
+		rawValue = strings.TrimSpace(strings.TrimPrefix(rawValue, "="))
+		fields := strings.Fields(rawValue)
+		return len(fields) > 0 && fields[0] == "true"
+	}
+	return false
 }

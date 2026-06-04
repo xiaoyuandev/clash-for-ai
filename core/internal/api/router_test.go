@@ -450,14 +450,40 @@ func TestCodexModelCatalogAPIReadsAndWritesConfig(t *testing.T) {
 		t.Fatalf("unexpected initial get status: %d body=%s", getRec.Code, getRec.Body.String())
 	}
 	var state struct {
-		Enabled     bool   `json:"enabled"`
-		CatalogPath string `json:"catalog_path"`
+		Enabled            bool   `json:"enabled"`
+		CatalogPath        string `json:"catalog_path"`
+		HideOfficialModels bool   `json:"hide_official_models"`
 	}
 	if err := json.Unmarshal(getRec.Body.Bytes(), &state); err != nil {
 		t.Fatalf("decode initial state: %v", err)
 	}
 	if state.Enabled {
 		t.Fatalf("initial state should be disabled: %+v", state)
+	}
+	if state.HideOfficialModels {
+		t.Fatalf("initial state should not hide official models: %+v", state)
+	}
+
+	hideReq := httptest.NewRequest(http.MethodPut, "/api/tools/codex-model-catalog", bytes.NewBufferString(`{"hide_official_models":true}`))
+	hideRec := httptest.NewRecorder()
+	handler.ServeHTTP(hideRec, hideReq)
+	if hideRec.Code != http.StatusOK {
+		t.Fatalf("unexpected hide status: %d body=%s", hideRec.Code, hideRec.Body.String())
+	}
+	if err := json.Unmarshal(hideRec.Body.Bytes(), &state); err != nil {
+		t.Fatalf("decode hide state: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("hide-only update should not enable model catalog: %+v", state)
+	}
+	if !state.HideOfficialModels {
+		t.Fatalf("hide official models should be enabled: %+v", state)
+	}
+	if !strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `relay_switch_hide_official_models = true`) {
+		t.Fatalf("config should contain hide official models")
+	}
+	if models := readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-model-catalog.json")); len(models) == 0 {
+		t.Fatal("hide official update should write relay catalog")
 	}
 
 	putReq := httptest.NewRequest(http.MethodPut, "/api/tools/codex-model-catalog", bytes.NewBufferString(`{"enabled":true}`))
@@ -469,6 +495,15 @@ func TestCodexModelCatalogAPIReadsAndWritesConfig(t *testing.T) {
 	if !strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `model_catalog_json = "`) {
 		t.Fatalf("config should contain model_catalog_json after enable")
 	}
+	if !strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `relay_switch_hide_official_models = true`) {
+		t.Fatalf("enabled-only update should keep hide official models")
+	}
+	if models := readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-models.json")); len(models) != 0 {
+		t.Fatalf("enable should write empty relay models without active codex models: %+v", models)
+	}
+	if models := readRouterCodexCatalogModels(t, filepath.Join(home, ".codex", "relay-switch-model-catalog.json")); len(models) == 0 {
+		t.Fatal("enable should write relay catalog")
+	}
 
 	deleteReq := httptest.NewRequest(http.MethodPut, "/api/tools/codex-model-catalog", bytes.NewBufferString(`{"enabled":false}`))
 	deleteRec := httptest.NewRecorder()
@@ -478,6 +513,15 @@ func TestCodexModelCatalogAPIReadsAndWritesConfig(t *testing.T) {
 	}
 	if strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `model_catalog_json = `) {
 		t.Fatalf("config should remove model_catalog_json after disable")
+	}
+	if !strings.Contains(readRouterText(t, filepath.Join(home, ".codex", "config.toml")), `relay_switch_hide_official_models = true`) {
+		t.Fatalf("disable enabled should not clear hide official models")
+	}
+	if !routerFileExists(filepath.Join(home, ".codex", "relay-switch-models.json")) {
+		t.Fatal("disable should keep relay models")
+	}
+	if !routerFileExists(filepath.Join(home, ".codex", "relay-switch-model-catalog.json")) {
+		t.Fatal("disable should keep relay catalog")
 	}
 }
 
@@ -589,6 +633,11 @@ func readRouterText(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(content)
+}
+
+func routerFileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func assertLocalGatewaySourceResponseIncludesAPIKey(t *testing.T, body []byte) {

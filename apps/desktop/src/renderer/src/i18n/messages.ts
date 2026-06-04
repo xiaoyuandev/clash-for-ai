@@ -149,9 +149,8 @@ export const messages = {
     "providers.detail.codexModelsMeta":
       "Drag or type model names. Changes save to this provider's Codex model list.",
     "providers.detail.codexModelsSaving": "Saving Codex model list...",
-    "providers.detail.codexModelCatalogToggle": "Enable third-party models in Codex",
-    "providers.detail.codexModelCatalogToggleMeta":
-      "Controls whether Codex reads the Relay Switch model catalog.",
+    "providers.detail.codexModelCatalogToggle": "Enable third-party models",
+    "providers.detail.codexHideOfficialModelsToggle": "Hide official models",
     "providers.detail.codexModelEntry": "Codex model #{index}",
     "providers.detail.codexModelID": "Model name",
     "providers.detail.codexModelIDPlaceholder": "Example: deepseek-chat",
@@ -638,9 +637,8 @@ export const messages = {
     "providers.detail.claudeSlot.clear": "清空",
     "providers.detail.codexModelsMeta": "拖入或填写模型名后会保存到当前供应商的 Codex 模型列表。",
     "providers.detail.codexModelsSaving": "正在保存 Codex 模型列表...",
-    "providers.detail.codexModelCatalogToggle": "在 Codex 中启用第三方大模型",
-    "providers.detail.codexModelCatalogToggleMeta":
-      "控制 Codex 是否读取 Relay Switch 维护的模型目录。",
+    "providers.detail.codexModelCatalogToggle": "启用第三方模型",
+    "providers.detail.codexHideOfficialModelsToggle": "隐藏官方大模型",
     "providers.detail.codexModelEntry": "Codex 模型 #{index}",
     "providers.detail.codexModelID": "模型名",
     "providers.detail.codexModelIDPlaceholder": "例如：deepseek-chat",

@@ -32,6 +32,7 @@ export interface CodexModelEntry {
 export interface CodexModelCatalogState {
   enabled: boolean;
   catalog_path: string;
+  hide_official_models: boolean;
 }
 
 export interface Provider {

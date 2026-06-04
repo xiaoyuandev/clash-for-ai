@@ -369,7 +369,7 @@ export async function getCodexModelCatalogState(
 }
 
 export async function updateCodexModelCatalogState(
-  enabled: boolean,
+  patch: Partial<Pick<CodexModelCatalogState, "enabled" | "hide_official_models">>,
   apiBase?: string
 ): Promise<CodexModelCatalogState> {
   return fetchJson<CodexModelCatalogState>(
@@ -379,7 +379,7 @@ export async function updateCodexModelCatalogState(
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ enabled })
+      body: JSON.stringify(patch)
     },
     "Update Codex model catalog failed"
   );

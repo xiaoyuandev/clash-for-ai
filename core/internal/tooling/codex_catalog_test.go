@@ -127,17 +127,19 @@ func TestRefreshCodexDefaultModelsCatalogWritesCache(t *testing.T) {
 	}
 }
 
-func TestBootstrapCodexModelCatalogDoesNotSyncRelayFilesOrConfig(t *testing.T) {
+func TestBootstrapCodexModelCatalogSyncsRelayFilesWithoutConfig(t *testing.T) {
 	service, _ := newCodexCatalogTestService(t)
 	service.catalogURL = ""
 
 	service.BootstrapCodexModelCatalog(context.Background())
 
-	if fileExists(codexRelaySwitchModelsPath()) {
-		t.Fatalf("bootstrap should not write relay models: %s", codexRelaySwitchModelsPath())
+	relayModels := readCatalogFile(t, codexRelaySwitchModelsPath())
+	if len(relayModels.Models) != 0 {
+		t.Fatalf("bootstrap relay models should be empty without active provider: %+v", relayModels.Models)
 	}
-	if fileExists(codexRelaySwitchCatalogPath()) {
-		t.Fatalf("bootstrap should not write relay catalog: %s", codexRelaySwitchCatalogPath())
+	fullCatalog := readCatalogFile(t, codexRelaySwitchCatalogPath())
+	if len(fullCatalog.Models) == 0 {
+		t.Fatal("bootstrap should write default full catalog")
 	}
 	if fileExists(codexConfigPath()) {
 		t.Fatalf("bootstrap should not write codex config: %s", codexConfigPath())
@@ -158,6 +160,63 @@ func TestSyncCodexModelCatalogPrefersDefaultCache(t *testing.T) {
 	}
 }
 
+func TestSyncCodexModelCatalogCanHideOfficialModels(t *testing.T) {
+	service, providerService := newCodexCatalogTestService(t)
+	ctx := context.Background()
+	writeTestText(t, service.codexDefaultModelsCachePath(), `{"models":[{"slug":"official","display_name":"Official","visibility":"list","supported_in_api":true}]}`+"\n")
+
+	item, err := providerService.Create(ctx, provider.CreateInput{
+		Name:    "Third Party",
+		BaseURL: "https://api.example.com/v1",
+		APIKey:  "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if _, err := providerService.Activate(ctx, item.ID); err != nil {
+		t.Fatalf("activate provider: %v", err)
+	}
+	if _, err := providerService.ReplaceCodexModels(ctx, item.ID, []provider.CodexModel{
+		{ModelID: "third-party", DisplayName: "Third Party", Enabled: true},
+	}); err != nil {
+		t.Fatalf("replace codex models: %v", err)
+	}
+
+	hideOfficial := true
+	if _, err := service.UpdateCodexModelCatalogState(ctx, nil, &hideOfficial); err != nil {
+		t.Fatalf("hide official models: %v", err)
+	}
+	catalog := readCatalogFile(t, codexRelaySwitchCatalogPath())
+	if len(catalog.Models) != 2 {
+		t.Fatalf("unexpected catalog models: %+v", catalog.Models)
+	}
+	if catalog.Models[0]["slug"] != "official" || catalog.Models[0]["visibility"] != "hide" {
+		t.Fatalf("official model should be hidden: %+v", catalog.Models[0])
+	}
+	if catalog.Models[1]["slug"] != "third-party" || catalog.Models[1]["visibility"] != "list" {
+		t.Fatalf("third-party model should stay listed: %+v", catalog.Models[1])
+	}
+	if strings.Contains(readTestText(t, service.codexDefaultModelsCachePath()), `"visibility":"hide"`) {
+		t.Fatal("default catalog cache should not be modified")
+	}
+
+	hideOfficial = false
+	state, err := service.UpdateCodexModelCatalogState(ctx, nil, &hideOfficial)
+	if err != nil {
+		t.Fatalf("show official models: %v", err)
+	}
+	if state.HideOfficialModels {
+		t.Fatalf("hide official models should be disabled: %+v", state)
+	}
+	if strings.Contains(readTestText(t, codexConfigPath()), codexHideOfficialModelsKey) {
+		t.Fatalf("hide official key should be removed:\n%s", readTestText(t, codexConfigPath()))
+	}
+	catalog = readCatalogFile(t, codexRelaySwitchCatalogPath())
+	if catalog.Models[0]["slug"] != "official" || catalog.Models[0]["visibility"] != "list" {
+		t.Fatalf("official model should restore original visibility: %+v", catalog.Models[0])
+	}
+}
+
 func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	service, _ := newCodexCatalogTestService(t)
 
@@ -168,11 +227,17 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	if state.Enabled {
 		t.Fatalf("missing config should be disabled: %+v", state)
 	}
+	if state.HideOfficialModels {
+		t.Fatalf("missing config should not hide official models: %+v", state)
+	}
 	if state.CatalogPath != codexRelaySwitchCatalogPath() {
 		t.Fatalf("unexpected catalog path: %+v", state)
 	}
 
-	writeTestText(t, codexConfigPath(), `model_catalog_json = "/tmp/other.json"`+"\n")
+	writeTestText(t, codexConfigPath(), strings.Join([]string{
+		`model_catalog_json = "/tmp/other.json"`,
+		codexHideOfficialModelsKey + ` = true`,
+	}, "\n")+"\n")
 	state, err = service.GetCodexModelCatalogState()
 	if err != nil {
 		t.Fatalf("get state with other catalog: %v", err)
@@ -180,8 +245,11 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	if state.Enabled {
 		t.Fatalf("non-relay catalog should be disabled: %+v", state)
 	}
+	if !state.HideOfficialModels {
+		t.Fatalf("hide official models should be read from config: %+v", state)
+	}
 
-	state, err = service.SetCodexModelCatalogEnabled(true)
+	state, err = service.SetCodexModelCatalogEnabled(context.Background(), true)
 	if err != nil {
 		t.Fatalf("enable catalog: %v", err)
 	}
@@ -191,8 +259,14 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	if !strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = "`+codexRelaySwitchCatalogPath()+`"`) {
 		t.Fatalf("config missing relay catalog:\n%s", readTestText(t, codexConfigPath()))
 	}
+	if !fileExists(codexRelaySwitchModelsPath()) {
+		t.Fatalf("enable should write relay models: %s", codexRelaySwitchModelsPath())
+	}
+	if !fileExists(codexRelaySwitchCatalogPath()) {
+		t.Fatalf("enable should write relay catalog: %s", codexRelaySwitchCatalogPath())
+	}
 
-	state, err = service.SetCodexModelCatalogEnabled(false)
+	state, err = service.SetCodexModelCatalogEnabled(context.Background(), false)
 	if err != nil {
 		t.Fatalf("disable catalog: %v", err)
 	}
@@ -201,6 +275,12 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	}
 	if strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = `) {
 		t.Fatalf("config should remove model_catalog_json:\n%s", readTestText(t, codexConfigPath()))
+	}
+	if !fileExists(codexRelaySwitchModelsPath()) {
+		t.Fatalf("disable should keep relay models: %s", codexRelaySwitchModelsPath())
+	}
+	if !fileExists(codexRelaySwitchCatalogPath()) {
+		t.Fatalf("disable should keep relay catalog: %s", codexRelaySwitchCatalogPath())
 	}
 }
 

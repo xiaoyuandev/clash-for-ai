@@ -145,6 +145,7 @@ export function ProvidersPage({
   const [loadingCodexModels, setLoadingCodexModels] = useState(false);
   const [savingCodexModels, setSavingCodexModels] = useState(false);
   const [codexModelCatalogEnabled, setCodexModelCatalogEnabled] = useState(false);
+  const [hideOfficialCodexModels, setHideOfficialCodexModels] = useState(false);
   const [loadingCodexModelCatalog, setLoadingCodexModelCatalog] = useState(false);
   const [updatingCodexModelCatalog, setUpdatingCodexModelCatalog] = useState(false);
   const [codexModelsDirty, setCodexModelsDirty] = useState(false);
@@ -328,10 +329,12 @@ export function ProvidersPage({
         const state = await getCodexModelCatalogState(apiBase);
         if (!cancelled) {
           setCodexModelCatalogEnabled(state.enabled);
+          setHideOfficialCodexModels(state.hide_official_models);
         }
       } catch (loadError) {
         if (!cancelled) {
           setCodexModelCatalogEnabled(false);
+          setHideOfficialCodexModels(false);
           setError(loadError instanceof Error ? loadError.message : t("common.unknownError"));
         }
       } finally {
@@ -823,8 +826,25 @@ export function ProvidersPage({
     setError(null);
 
     try {
-      const state = await updateCodexModelCatalogState(nextEnabled, apiBase);
+      const state = await updateCodexModelCatalogState({ enabled: nextEnabled }, apiBase);
       setCodexModelCatalogEnabled(state.enabled);
+      setHideOfficialCodexModels(state.hide_official_models);
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : t("common.unknownError"));
+    } finally {
+      setUpdatingCodexModelCatalog(false);
+    }
+  }
+
+  async function handleToggleHideOfficialCodexModels() {
+    const nextHidden = !hideOfficialCodexModels;
+    setUpdatingCodexModelCatalog(true);
+    setError(null);
+
+    try {
+      const state = await updateCodexModelCatalogState({ hide_official_models: nextHidden }, apiBase);
+      setCodexModelCatalogEnabled(state.enabled);
+      setHideOfficialCodexModels(state.hide_official_models);
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : t("common.unknownError"));
     } finally {
@@ -1391,16 +1411,11 @@ export function ProvidersPage({
                       </>
                     ) : (
                       <>
-                        <div className="mt-3 rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-4">
+                        <div className="mt-3 space-y-3 rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-4">
                           <div className="flex items-center justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className={fieldLabelClass}>
-                                {t("providers.detail.codexModelCatalogToggle")}
-                              </p>
-                              <p className={`${metaClass} mt-1`}>
-                                {t("providers.detail.codexModelCatalogToggleMeta")}
-                              </p>
-                            </div>
+                            <p className={`${fieldLabelClass} whitespace-nowrap`}>
+                              {t("providers.detail.codexModelCatalogToggle")}
+                            </p>
                             <button
                               type="button"
                               role="switch"
@@ -1417,6 +1432,32 @@ export function ProvidersPage({
                               <span
                                 className={`h-5 w-5 rounded-full transition ${
                                   codexModelCatalogEnabled
+                                    ? "translate-x-5 bg-[color:var(--accent-strong)]"
+                                    : "translate-x-0 bg-[color:var(--color-subtle)]"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <p className={`${fieldLabelClass} whitespace-nowrap`}>
+                              {t("providers.detail.codexHideOfficialModelsToggle")}
+                            </p>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={hideOfficialCodexModels}
+                              aria-label={t("providers.detail.codexHideOfficialModelsToggle")}
+                              className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full border px-1 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                hideOfficialCodexModels
+                                  ? "[border-color:var(--success-border)] [background:var(--success-soft)]"
+                                  : "[border-color:var(--border-soft)] [background:var(--panel-solid)]"
+                              }`}
+                              disabled={loadingCodexModelCatalog || updatingCodexModelCatalog}
+                              onClick={() => void handleToggleHideOfficialCodexModels()}
+                            >
+                              <span
+                                className={`h-5 w-5 rounded-full transition ${
+                                  hideOfficialCodexModels
                                     ? "translate-x-5 bg-[color:var(--accent-strong)]"
                                     : "translate-x-0 bg-[color:var(--color-subtle)]"
                                 }`}
