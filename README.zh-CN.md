@@ -41,11 +41,13 @@ http://127.0.0.1:3456/v1
 
 ## 它能帮你做什么
 
-1. 管理多个中转 API 服务，每个服务可以暴露多个大模型，例如接入基于 `new-api`、`one-api`、`sub2api` 等方案的中转站供应商
-2. 在本地维护一个 Models Gateway，用来管理希望直接接入原生大模型的使用场景
-3. 提供统一的本地接口 `http://127.0.0.1:3456`，让多个 CLI、桌面客户端和编程工具共用同一个入口
-4. 通过可视化界面管理 Provider、Models、健康检查和请求日志，减少手动编辑配置文件的成本
-5. 支持从网页一键导入 Provider 或 Model 配置，可以直接体验 [Deep Link 导入](https://www.relayswitch.dev/deeplink.html)
+1. 一键切换管理中转 API 服务，而无需重启编程工具。例如基于 `new-api`、`sub2api` 等框架搭建的中转站
+2. 在本地维护一个 Local Gateway，用来管理希望直接接入各类兼容 OpenAI 或者 Anthropic 接口的原生大模型的使用场景。例如 MiniMax、DeepSeek 等。在模型页面添加，在供应商页面启用 LocalGateway 即可使用
+3. 支持各种编程工具，例如 Codex CLI、Claude Code、OpenCode、Codex app、Cursor、VSCode、Cherry Studio
+4. 为本地 AI 工具提供统一接口 `http://127.0.0.1:3456`。切换模型或者切换中转服务不需要重启编程工具，不会每次切换都修改编程工具的配置文件
+5. 跨平台，可以安装在 Windows、macOS、Linux 桌面环境，也可以安装在 Linux server 和 WSL 里使用
+6. 可以一键监测当前 API Key 的可用模型列表，支持只显示可用的模型列表筛选
+7. 支持从网页一键导入 Provider 或 Model 配置，可以直接体验 [Deep Link 导入](https://www.relayswitch.dev/deeplink.html)
 
 ## Screenshot
 
@@ -180,8 +182,8 @@ http://127.0.0.1:3456
 
 完整说明见：
 
-- [WSL / Linux Server 部署与使用说明](./docs/wsl-linux-server-guide.zh-CN.md)
-- [WSL / Linux Server Deployment Guide (English)](./docs/wsl-linux-server-guide.md)
+- [WSL / Linux Server 部署与使用说明](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+- [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
 
 ### 2. 添加 Provider 或 Model 来源
 
@@ -525,9 +527,10 @@ curl http://127.0.0.1:3456/v1/chat/completions \
 
 如果你想看更完整的分步说明、工具接入示例和排障说明，请继续阅读：
 
-- [使用教程](./docs/user-guide.md)
-- [WSL / Linux Server 部署与使用说明](./docs/wsl-linux-server-guide.zh-CN.md)
-- [WSL / Linux Server Deployment Guide (English)](./docs/wsl-linux-server-guide.md)
+- [使用教程](./docs/zh-cn/user-guide.md)
+- [在 Codex 里使用第三方大模型](./docs/zh-cn/codex-third-party-models.md)
+- [WSL / Linux Server 部署与使用说明](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+- [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
 - [English README](./README.md)
 
 如果你是 `WSL` 或 `Linux server` 用户，建议优先阅读 server 部署文档，其中包含 `RELAY_SWITCH_VERSION` 固定版本安装与回滚说明。

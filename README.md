@@ -43,11 +43,13 @@ After that, switching models, relay providers, or local model sources happens in
 
 ## What You Can Do
 
-1. Manage multiple relay API services, with each service exposing multiple models, including providers built on `new-api`, `one-api`, `sub2api`, or similar stacks
-2. Run a local Models Gateway for native model sources that you want to access directly
-3. Expose one local endpoint at `http://127.0.0.1:3456` for CLI tools, desktop clients, coding tools, and scripts
-4. Manage providers, models, health checks, and request logs from a visual UI instead of editing config files by hand
-5. Import Provider or Model configuration from the web with Deep Link, starting from the [Deep Link demo](https://www.relayswitch.dev/deeplink.html)
+1. Switch and manage relay API services with one click, without restarting your coding tools. For example, relay services built on frameworks such as `new-api` or `sub2api`
+2. Maintain a Local Gateway locally for native model scenarios where you want to connect directly to models compatible with OpenAI or Anthropic APIs. For example, MiniMax, DeepSeek, and similar providers. Add them on the Models page, then enable LocalGateway on the Providers page
+3. Support a wide range of coding tools, including Codex CLI, Claude Code, OpenCode, Codex app, Cursor, VSCode, and Cherry Studio
+4. Provide one unified endpoint for local AI tools: `http://127.0.0.1:3456`. Switching models or relay services does not require restarting coding tools, and you do not need to edit tool configuration files every time you switch
+5. Work cross-platform across Windows, macOS, and Linux desktop environments, and also on Linux server and WSL
+6. Detect the model list available to the current API Key with one click, with support for filtering to only show available models
+7. Import Provider or Model configuration from the web with one click, starting from the [Deep Link demo](https://www.relayswitch.dev/deeplink.html)
 
 ## Screenshot
 
@@ -181,8 +183,8 @@ Notes:
 
 Full guide:
 
-- [WSL / Linux Server Deployment Guide](./docs/wsl-linux-server-guide.zh-CN.md)
-- [WSL / Linux Server Deployment Guide (English)](./docs/wsl-linux-server-guide.md)
+- [WSL / Linux Server Deployment Guide](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+- [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
 
 ### 2. Add a Provider or Model source
 
@@ -526,9 +528,10 @@ The actual model that responds still depends on the model name your script sends
 
 If you want fuller step-by-step guidance, tool-specific examples, and troubleshooting notes, continue with:
 
-- [User Guide](./docs/user-guide.md)
-- [WSL / Linux Server Deployment Guide](./docs/wsl-linux-server-guide.zh-CN.md)
-- [WSL / Linux Server Deployment Guide (English)](./docs/wsl-linux-server-guide.md)
+- [User Guide](./docs/zh-cn/user-guide.md)
+- [Use third-party models in Codex](./docs/zh-cn/codex-third-party-models.md)
+- [WSL / Linux Server Deployment Guide](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+- [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
 - [中文 README](./README.zh-CN.md)
 
 If you are deploying on `WSL` or `Linux server`, prefer the server guide first. It also includes pinned release installation using `RELAY_SWITCH_VERSION`.

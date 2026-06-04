@@ -4,7 +4,7 @@
 
 本文档用于指导 `relay-switch` 在发布阶段如何接入和升级内置 `ai-mini-gateway` runtime binary。
 
-它是 [docs/ai-mini-gateway-binary-distribution.md](/Users/yuanjunliang/Documents/workspace/profile/relay-switch/docs/ai-mini-gateway-binary-distribution.md) 的执行手册，重点回答：
+它是 `docs/ai-mini-gateway-binary-distribution.md` 的执行手册，重点回答：
 
 1. 升级 manifest 时具体改什么
 2. 如何准备 release runtime binary
