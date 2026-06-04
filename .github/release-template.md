@@ -15,7 +15,9 @@ Use the packaged desktop app if you want the full Electron experience on macOS, 
    - `Relay-Switch-{{VERSION}}-arm64.dmg`
    - `Relay-Switch-{{VERSION}}-mac-arm64.zip`
 2. Intel Mac:
-   - use the matching `x64` artifact when that build is attached
+   - `Relay-Switch-{{VERSION}}-x64.pkg`
+   - `Relay-Switch-{{VERSION}}-x64.dmg`
+   - `Relay-Switch-{{VERSION}}-mac-x64.zip`
 
 ### Windows
 

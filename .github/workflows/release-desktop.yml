@@ -41,10 +41,16 @@ jobs:
         include:
           - os: macos-latest
             target: mac
+            release_script: release:mac:arm64
+          - os: macos-15-intel
+            target: mac
+            release_script: release:mac:x64
           - os: windows-latest
             target: win
+            release_script: release:win
           - os: ubuntu-latest
             target: linux
+            release_script: release:linux
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -100,4 +106,4 @@ jobs:
       - name: Build and publish desktop release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm --filter desktop release:${{ matrix.target }}
+        run: pnpm --filter desktop ${{ matrix.release_script }}

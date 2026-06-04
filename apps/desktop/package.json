@@ -19,9 +19,13 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --dir",
     "build:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip",
+    "build:mac:arm64": "pnpm build && CORE_GOOS=darwin CORE_GOARCH=arm64 pnpm build:core && AI_MINI_GATEWAY_GOOS=darwin AI_MINI_GATEWAY_GOARCH=arm64 pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --arm64",
+    "build:mac:x64": "pnpm build && CORE_GOOS=darwin CORE_GOARCH=amd64 pnpm build:core && AI_MINI_GATEWAY_GOOS=darwin AI_MINI_GATEWAY_GOARCH=amd64 pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --x64",
     "build:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --win nsis",
     "build:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --linux AppImage tar.gz",
     "release:mac": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --publish always",
+    "release:mac:arm64": "pnpm build && CORE_GOOS=darwin CORE_GOARCH=arm64 pnpm build:core && AI_MINI_GATEWAY_GOOS=darwin AI_MINI_GATEWAY_GOARCH=arm64 pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --arm64 --publish always",
+    "release:mac:x64": "pnpm build && CORE_GOOS=darwin CORE_GOARCH=amd64 pnpm build:core && AI_MINI_GATEWAY_GOOS=darwin AI_MINI_GATEWAY_GOARCH=amd64 pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --mac dmg pkg zip --x64 --publish always",
     "release:win": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --win nsis --publish always",
     "release:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --linux AppImage tar.gz --publish always"
   },
