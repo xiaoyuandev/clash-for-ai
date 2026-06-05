@@ -183,6 +183,166 @@ WHERE scope = ? AND id NOT IN (`+strings.Join(placeholders, ",")+`)`,
 	return nil
 }
 
+func (r *SQLiteRepository) GetSettings(ctx context.Context, pluginID string) (map[string]json.RawMessage, string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT key, value_json, updated_at
+FROM plugin_settings
+WHERE plugin_id = ?
+ORDER BY key ASC`, pluginID)
+	if err != nil {
+		return nil, "", fmt.Errorf("get plugin settings: %w", err)
+	}
+	defer rows.Close()
+
+	values := map[string]json.RawMessage{}
+	updatedAt := ""
+	for rows.Next() {
+		var (
+			key          string
+			valueJSON    string
+			rowUpdatedAt string
+		)
+		if err := rows.Scan(&key, &valueJSON, &rowUpdatedAt); err != nil {
+			return nil, "", fmt.Errorf("scan plugin setting: %w", err)
+		}
+		values[key] = json.RawMessage(valueJSON)
+		if rowUpdatedAt > updatedAt {
+			updatedAt = rowUpdatedAt
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", fmt.Errorf("iterate plugin settings: %w", err)
+	}
+
+	return values, updatedAt, nil
+}
+
+func (r *SQLiteRepository) ReplaceSettings(ctx context.Context, pluginID string, values map[string]json.RawMessage) (string, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("begin replace plugin settings tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plugin_settings WHERE plugin_id = ?`, pluginID); err != nil {
+		return "", fmt.Errorf("delete plugin settings: %w", err)
+	}
+
+	for key, value := range values {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO plugin_settings (plugin_id, key, value_json, updated_at)
+VALUES (?, ?, ?, ?)`,
+			pluginID,
+			key,
+			string(value),
+			now,
+		); err != nil {
+			return "", fmt.Errorf("insert plugin setting: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit replace plugin settings tx: %w", err)
+	}
+
+	return now, nil
+}
+
+func (r *SQLiteRepository) RecordAudit(ctx context.Context, entry AuditLogEntry) (AuditLogEntry, error) {
+	now := time.Now().UTC()
+	if entry.ID == "" {
+		entry.ID = fmt.Sprintf("audit-%d", now.UnixNano())
+	}
+	if entry.Timestamp == "" {
+		entry.Timestamp = now.Format(time.RFC3339)
+	}
+	if entry.Metadata == nil {
+		entry.Metadata = map[string]any{}
+	}
+	var latencyMs any
+	if entry.LatencyMs != nil {
+		latencyMs = *entry.LatencyMs
+	}
+
+	metadataJSON, err := json.Marshal(entry.Metadata)
+	if err != nil {
+		return AuditLogEntry{}, fmt.Errorf("marshal audit metadata: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+INSERT INTO plugin_audit_logs (
+	id, timestamp, plugin_id, plugin_version, capability, action, resource_type, resource_id,
+	status, latency_ms, approval_source, error_message, metadata_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		entry.ID,
+		entry.Timestamp,
+		entry.PluginID,
+		entry.PluginVersion,
+		entry.Capability,
+		entry.Action,
+		nullString(entry.ResourceType),
+		nullString(entry.ResourceID),
+		entry.Status,
+		latencyMs,
+		nullString(entry.ApprovalSource),
+		nullString(entry.ErrorMessage),
+		string(metadataJSON),
+	)
+	if err != nil {
+		return AuditLogEntry{}, fmt.Errorf("record plugin audit log: %w", err)
+	}
+
+	return entry, nil
+}
+
+func (r *SQLiteRepository) ListAudit(ctx context.Context, pluginID string, limit int) ([]AuditLogEntry, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if pluginID == "" {
+		rows, err = r.db.QueryContext(ctx, `
+SELECT id, timestamp, plugin_id, plugin_version, capability, action, resource_type, resource_id,
+       status, latency_ms, approval_source, error_message, metadata_json
+FROM plugin_audit_logs
+ORDER BY timestamp DESC, id DESC
+LIMIT ?`, limit)
+	} else {
+		rows, err = r.db.QueryContext(ctx, `
+SELECT id, timestamp, plugin_id, plugin_version, capability, action, resource_type, resource_id,
+       status, latency_ms, approval_source, error_message, metadata_json
+FROM plugin_audit_logs
+WHERE plugin_id = ?
+ORDER BY timestamp DESC, id DESC
+LIMIT ?`, pluginID, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list plugin audit logs: %w", err)
+	}
+	defer rows.Close()
+
+	items := []AuditLogEntry{}
+	for rows.Next() {
+		item, err := scanAuditLog(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate plugin audit logs: %w", err)
+	}
+
+	return items, nil
+}
+
 type pluginScanner interface {
 	Scan(dest ...any) error
 }
@@ -231,4 +391,68 @@ func boolToInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func nullString(value string) sql.NullString {
+	return sql.NullString{
+		String: value,
+		Valid:  value != "",
+	}
+}
+
+func scanAuditLog(scanner pluginScanner) (AuditLogEntry, error) {
+	var (
+		item           AuditLogEntry
+		resourceType   sql.NullString
+		resourceID     sql.NullString
+		latencyMs      sql.NullInt64
+		approvalSource sql.NullString
+		errorMessage   sql.NullString
+		metadataJSON   sql.NullString
+	)
+
+	if err := scanner.Scan(
+		&item.ID,
+		&item.Timestamp,
+		&item.PluginID,
+		&item.PluginVersion,
+		&item.Capability,
+		&item.Action,
+		&resourceType,
+		&resourceID,
+		&item.Status,
+		&latencyMs,
+		&approvalSource,
+		&errorMessage,
+		&metadataJSON,
+	); err != nil {
+		return AuditLogEntry{}, fmt.Errorf("scan plugin audit log: %w", err)
+	}
+
+	if resourceType.Valid {
+		item.ResourceType = resourceType.String
+	}
+	if resourceID.Valid {
+		item.ResourceID = resourceID.String
+	}
+	if latencyMs.Valid {
+		value := latencyMs.Int64
+		item.LatencyMs = &value
+	}
+	if approvalSource.Valid {
+		item.ApprovalSource = approvalSource.String
+	}
+	if errorMessage.Valid {
+		item.ErrorMessage = errorMessage.String
+	}
+	if metadataJSON.Valid && strings.TrimSpace(metadataJSON.String) != "" {
+		if err := json.Unmarshal([]byte(metadataJSON.String), &item.Metadata); err != nil {
+			return AuditLogEntry{}, fmt.Errorf("decode audit metadata: %w", err)
+		}
+	}
+	if item.Metadata == nil {
+		item.Metadata = map[string]any{}
+	}
+
+	return item, nil
 }

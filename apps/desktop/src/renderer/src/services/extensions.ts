@@ -1,4 +1,10 @@
-import type { ExtensionPlugin } from "../types/extension";
+import type {
+  ExtensionAuditLog,
+  ExtensionCommand,
+  ExtensionCommandResult,
+  ExtensionPlugin,
+  ExtensionSettings
+} from "../types/extension";
 
 function getApiBase(apiBase?: string) {
   return apiBase ?? "http://127.0.0.1:3456";
@@ -76,5 +82,73 @@ export async function disableExtension(id: string, apiBase?: string): Promise<Ex
     `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/disable`,
     { method: "POST" },
     "Disable extension failed"
+  );
+}
+
+export async function getExtensionCommands(apiBase?: string): Promise<ExtensionCommand[]> {
+  return fetchJson<ExtensionCommand[]>(
+    `${getApiBase(apiBase)}/api/extensions/commands`,
+    {},
+    "Extension commands request failed"
+  );
+}
+
+export async function executeExtensionCommand(
+  id: string,
+  apiBase?: string
+): Promise<ExtensionCommandResult> {
+  return fetchJson<ExtensionCommandResult>(
+    `${getApiBase(apiBase)}/api/extensions/commands/${encodeURIComponent(id)}/execute`,
+    { method: "POST" },
+    "Extension command execution failed"
+  );
+}
+
+export async function getExtensionSettings(id: string, apiBase?: string): Promise<ExtensionSettings> {
+  return fetchJson<ExtensionSettings>(
+    `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/settings`,
+    {},
+    "Extension settings request failed"
+  );
+}
+
+export async function updateExtensionSettings(
+  id: string,
+  values: Record<string, unknown>,
+  apiBase?: string
+): Promise<ExtensionSettings> {
+  return fetchJson<ExtensionSettings>(
+    `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/settings`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ values })
+    },
+    "Extension settings update failed"
+  );
+}
+
+export async function getExtensionAuditLogs(
+  id: string,
+  limit = 20,
+  apiBase?: string
+): Promise<ExtensionAuditLog[]> {
+  return fetchJson<ExtensionAuditLog[]>(
+    `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/audit-logs?limit=${limit}`,
+    {},
+    "Extension audit logs request failed"
+  );
+}
+
+export async function getAllExtensionAuditLogs(
+  limit = 100,
+  apiBase?: string
+): Promise<ExtensionAuditLog[]> {
+  return fetchJson<ExtensionAuditLog[]>(
+    `${getApiBase(apiBase)}/api/extensions/audit-logs?limit=${limit}`,
+    {},
+    "Extension audit logs request failed"
   );
 }

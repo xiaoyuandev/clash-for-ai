@@ -2,6 +2,8 @@ package extension
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,6 +154,173 @@ func TestManifestUnknownContributionWarnsButLoads(t *testing.T) {
 	}
 	if len(items[0].Warnings) != 1 || !strings.Contains(items[0].Warnings[0], "futureThings") {
 		t.Fatalf("expected unsupported contribution warning, got %+v", items[0].Warnings)
+	}
+}
+
+func TestServiceSettingsSaveLoadValidateAndAudit(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.settings", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.settings",
+		"name": "Settings",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"settings": {
+				"type": "object",
+				"properties": {
+					"outputDirectory": {
+						"type": "string",
+						"title": "Output Directory",
+						"default": ""
+					},
+					"enabled": {
+						"type": "boolean",
+						"default": true
+					},
+					"tags": {
+						"type": "array",
+						"items": {"type": "string"},
+						"default": []
+					}
+				},
+				"required": ["outputDirectory"]
+			}
+		},
+		"permissions": []
+	}`)
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+
+	initial, err := service.GetSettings(context.Background(), "relay-switch.settings")
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	if initial.EffectiveValues["enabled"] != true {
+		t.Fatalf("expected default effective value, got %+v", initial.EffectiveValues)
+	}
+
+	updated, err := service.UpdateSettings(context.Background(), "relay-switch.settings", UpdateSettingsInput{
+		Values: map[string]json.RawMessage{
+			"outputDirectory": json.RawMessage(`"/tmp/archive"`),
+			"enabled":         json.RawMessage(`false`),
+			"tags":            json.RawMessage(`["codex","claude"]`),
+		},
+	})
+	if err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+	if updated.Values["outputDirectory"] != "/tmp/archive" || updated.EffectiveValues["enabled"] != false {
+		t.Fatalf("unexpected updated settings: %+v", updated)
+	}
+
+	if _, err := service.UpdateSettings(context.Background(), "relay-switch.settings", UpdateSettingsInput{
+		Values: map[string]json.RawMessage{
+			"outputDirectory": json.RawMessage(`123`),
+		},
+	}); !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("expected invalid settings error, got %v", err)
+	}
+
+	audit, err := service.ListAudit(context.Background(), "relay-switch.settings", 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	if len(audit) != 1 || audit[0].Capability != "settings.write" || audit[0].Status != "success" {
+		t.Fatalf("unexpected settings audit entries: %+v", audit)
+	}
+}
+
+func TestServiceCommandExecutionNoopAndAudit(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.commands", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.commands",
+		"name": "Commands",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"commands": [
+				{"id": "commands.sync", "title": "Sync Now", "category": "Archive"}
+			]
+		},
+		"permissions": []
+	}`)
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if _, err := service.Enable(context.Background(), "relay-switch.commands"); err != nil {
+		t.Fatalf("enable plugin: %v", err)
+	}
+
+	commands, err := service.ListCommands(context.Background())
+	if err != nil {
+		t.Fatalf("list commands: %v", err)
+	}
+	if len(commands) != 1 || commands[0].ID != "commands.sync" || !commands[0].Enabled {
+		t.Fatalf("unexpected commands: %+v", commands)
+	}
+
+	result, err := service.ExecuteCommand(context.Background(), "commands.sync")
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.Status != "skipped" || result.AuditLogID == "" {
+		t.Fatalf("unexpected command result: %+v", result)
+	}
+
+	audit, err := service.ListAudit(context.Background(), "relay-switch.commands", 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	if len(audit) != 1 || audit[0].Capability != "commands.execute" || audit[0].Status != "skipped" {
+		t.Fatalf("unexpected command audit entries: %+v", audit)
+	}
+}
+
+func TestServiceCommandExecutionDisabledPluginAuditsFailure(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.disabled-command", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.disabled-command",
+		"name": "Disabled Command",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"commands": [
+				{"id": "disabled.sync", "title": "Sync Now"}
+			]
+		},
+		"permissions": []
+	}`)
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+
+	result, err := service.ExecuteCommand(context.Background(), "disabled.sync")
+	if !errors.Is(err, ErrPluginNotEnabled) {
+		t.Fatalf("expected disabled plugin error, got %v", err)
+	}
+	if result.Status != "failed" || result.AuditLogID == "" {
+		t.Fatalf("unexpected disabled command result: %+v", result)
+	}
+
+	audit, err := service.ListAudit(context.Background(), "relay-switch.disabled-command", 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	if len(audit) != 1 || audit[0].Status != "failed" || audit[0].ErrorMessage == "" {
+		t.Fatalf("unexpected disabled command audit entries: %+v", audit)
 	}
 }
 

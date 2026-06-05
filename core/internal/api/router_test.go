@@ -225,6 +225,138 @@ func TestExtensionEndpointsScanListGetAndToggle(t *testing.T) {
 	}
 }
 
+func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(t.TempDir(), "extensions")
+	writeRouterExtensionManifest(t, root, "relay-switch.milestone-two", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.milestone-two",
+		"name": "Milestone Two",
+		"version": "0.2.0",
+		"description": "Exercises settings commands and audit.",
+		"publisher": "relay-switch",
+		"entry": {"type": "none"},
+		"contributes": {
+			"commands": [
+				{"id": "milestoneTwo.sync", "title": "Sync Now", "category": "Archive"}
+			],
+			"settings": {
+				"type": "object",
+				"properties": {
+					"outputDirectory": {
+						"type": "string",
+						"title": "Output Directory",
+						"default": ""
+					},
+					"autoSync": {
+						"type": "boolean",
+						"default": false
+					}
+				},
+				"required": ["outputDirectory"]
+			}
+		},
+		"permissions": []
+	}`)
+	handler := newTestRouterWithExtensionRoot(t, root)
+
+	rescanReq := httptest.NewRequest(http.MethodPost, "/api/extensions/rescan", nil)
+	rescanRec := httptest.NewRecorder()
+	handler.ServeHTTP(rescanRec, rescanReq)
+	if rescanRec.Code != http.StatusOK {
+		t.Fatalf("unexpected rescan status: %d body=%s", rescanRec.Code, rescanRec.Body.String())
+	}
+
+	enableReq := httptest.NewRequest(http.MethodPost, "/api/extensions/relay-switch.milestone-two/enable", nil)
+	enableRec := httptest.NewRecorder()
+	handler.ServeHTTP(enableRec, enableReq)
+	if enableRec.Code != http.StatusOK {
+		t.Fatalf("unexpected enable status: %d body=%s", enableRec.Code, enableRec.Body.String())
+	}
+
+	commandsReq := httptest.NewRequest(http.MethodGet, "/api/extensions/commands", nil)
+	commandsRec := httptest.NewRecorder()
+	handler.ServeHTTP(commandsRec, commandsReq)
+	if commandsRec.Code != http.StatusOK {
+		t.Fatalf("unexpected commands status: %d body=%s", commandsRec.Code, commandsRec.Body.String())
+	}
+	var commands []extension.CommandContribution
+	if err := json.Unmarshal(commandsRec.Body.Bytes(), &commands); err != nil {
+		t.Fatalf("decode commands: %v", err)
+	}
+	if len(commands) != 1 || commands[0].ID != "milestoneTwo.sync" || !commands[0].Enabled {
+		t.Fatalf("unexpected commands payload: %+v", commands)
+	}
+
+	executeReq := httptest.NewRequest(http.MethodPost, "/api/extensions/commands/milestoneTwo.sync/execute", nil)
+	executeRec := httptest.NewRecorder()
+	handler.ServeHTTP(executeRec, executeReq)
+	if executeRec.Code != http.StatusOK {
+		t.Fatalf("unexpected execute status: %d body=%s", executeRec.Code, executeRec.Body.String())
+	}
+	var executeResult extension.CommandExecutionResult
+	if err := json.Unmarshal(executeRec.Body.Bytes(), &executeResult); err != nil {
+		t.Fatalf("decode execute result: %v", err)
+	}
+	if executeResult.Status != "skipped" || executeResult.AuditLogID == "" {
+		t.Fatalf("unexpected execute result: %+v", executeResult)
+	}
+
+	settingsReq := httptest.NewRequest(http.MethodGet, "/api/extensions/relay-switch.milestone-two/settings", nil)
+	settingsRec := httptest.NewRecorder()
+	handler.ServeHTTP(settingsRec, settingsReq)
+	if settingsRec.Code != http.StatusOK {
+		t.Fatalf("unexpected settings get status: %d body=%s", settingsRec.Code, settingsRec.Body.String())
+	}
+	var settings extension.PluginSettings
+	if err := json.Unmarshal(settingsRec.Body.Bytes(), &settings); err != nil {
+		t.Fatalf("decode settings: %v", err)
+	}
+	if settings.EffectiveValues["autoSync"] != false {
+		t.Fatalf("expected default settings, got %+v", settings)
+	}
+
+	updateSettingsReq := httptest.NewRequest(http.MethodPut, "/api/extensions/relay-switch.milestone-two/settings", bytes.NewBufferString(`{
+		"values": {
+			"outputDirectory": "/tmp/archive",
+			"autoSync": true
+		}
+	}`))
+	updateSettingsRec := httptest.NewRecorder()
+	handler.ServeHTTP(updateSettingsRec, updateSettingsReq)
+	if updateSettingsRec.Code != http.StatusOK {
+		t.Fatalf("unexpected settings update status: %d body=%s", updateSettingsRec.Code, updateSettingsRec.Body.String())
+	}
+	if err := json.Unmarshal(updateSettingsRec.Body.Bytes(), &settings); err != nil {
+		t.Fatalf("decode updated settings: %v", err)
+	}
+	if settings.Values["outputDirectory"] != "/tmp/archive" || settings.EffectiveValues["autoSync"] != true {
+		t.Fatalf("unexpected updated settings: %+v", settings)
+	}
+
+	auditReq := httptest.NewRequest(http.MethodGet, "/api/extensions/relay-switch.milestone-two/audit-logs?limit=10", nil)
+	auditRec := httptest.NewRecorder()
+	handler.ServeHTTP(auditRec, auditReq)
+	if auditRec.Code != http.StatusOK {
+		t.Fatalf("unexpected plugin audit status: %d body=%s", auditRec.Code, auditRec.Body.String())
+	}
+	var audit []extension.AuditLogEntry
+	if err := json.Unmarshal(auditRec.Body.Bytes(), &audit); err != nil {
+		t.Fatalf("decode audit: %v", err)
+	}
+	if len(audit) != 2 {
+		t.Fatalf("expected command and settings audit entries, got %+v", audit)
+	}
+
+	globalAuditReq := httptest.NewRequest(http.MethodGet, "/api/extensions/audit-logs?limit=10", nil)
+	globalAuditRec := httptest.NewRecorder()
+	handler.ServeHTTP(globalAuditRec, globalAuditReq)
+	if globalAuditRec.Code != http.StatusOK {
+		t.Fatalf("unexpected global audit status: %d body=%s", globalAuditRec.Code, globalAuditRec.Body.String())
+	}
+}
+
 func TestLocalGatewaySourceAndSyncEndpoints(t *testing.T) {
 	t.Parallel()
 

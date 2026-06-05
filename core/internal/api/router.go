@@ -66,6 +66,9 @@ func NewRouter(
 	mux.HandleFunc("/api/tools/codex-model-catalog", router.handleCodexModelCatalog)
 	mux.HandleFunc("/api/tools/", router.handleToolActions)
 	mux.HandleFunc("/api/extensions", router.handleExtensions)
+	mux.HandleFunc("/api/extensions/commands", router.handleExtensionCommands)
+	mux.HandleFunc("/api/extensions/commands/", router.handleExtensionCommandActions)
+	mux.HandleFunc("/api/extensions/audit-logs", router.handleExtensionAuditLogs)
 	mux.HandleFunc("/api/extensions/rescan", router.handleExtensionRescan)
 	mux.HandleFunc("/api/extensions/", router.handleExtensionActions)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
@@ -388,6 +391,70 @@ func (r *Router) handleExtensionRescan(w http.ResponseWriter, req *http.Request)
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (r *Router) handleExtensionCommands(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.CommandContribution{})
+		return
+	}
+
+	items, err := r.extensions.ListCommands(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list extension commands", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionCommandActions(w http.ResponseWriter, req *http.Request) {
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	path := strings.TrimPrefix(req.URL.Path, "/api/extensions/commands/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 2 || parts[1] != "execute" || req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	result, err := r.extensions.ExecuteCommand(req.Context(), parts[0])
+	if err != nil {
+		switch {
+		case errors.Is(err, extension.ErrCommandNotFound):
+			http.Error(w, "extension command not found", http.StatusNotFound)
+		case errors.Is(err, extension.ErrPluginNotEnabled):
+			writeJSON(w, http.StatusConflict, result)
+		default:
+			http.Error(w, "failed to execute extension command", http.StatusInternalServerError)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleExtensionAuditLogs(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.AuditLogEntry{})
+		return
+	}
+
+	items, err := r.extensions.ListAudit(req.Context(), "", parseLimitQuery(req, 100))
+	if err != nil {
+		http.Error(w, "failed to list extension audit logs", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (r *Router) handleExtensionActions(w http.ResponseWriter, req *http.Request) {
 	if r.extensions == nil {
 		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
@@ -427,6 +494,37 @@ func (r *Router) handleExtensionActions(w http.ResponseWriter, req *http.Request
 			return
 		}
 		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "settings" && req.Method == http.MethodGet:
+		settings, err := r.extensions.GetSettings(req.Context(), parts[0])
+		if err != nil {
+			writeExtensionSettingsError(w, err, http.StatusConflict)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	case len(parts) == 2 && parts[1] == "settings" && req.Method == http.MethodPut:
+		var input extension.UpdateSettingsInput
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		settings, err := r.extensions.UpdateSettings(req.Context(), parts[0], input)
+		if err != nil {
+			writeExtensionSettingsError(w, err, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	case len(parts) == 2 && parts[1] == "audit-logs" && req.Method == http.MethodGet:
+		items, err := r.extensions.ListAudit(req.Context(), parts[0], parseLimitQuery(req, 100))
+		if err != nil {
+			if errors.Is(err, extension.ErrPluginNotFound) {
+				http.Error(w, "extension not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to list extension audit logs", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -882,6 +980,29 @@ func writeExtensionActionError(w http.ResponseWriter, err error) {
 		return
 	}
 	http.Error(w, err.Error(), http.StatusConflict)
+}
+
+func writeExtensionSettingsError(w http.ResponseWriter, err error, invalidSettingsStatus int) {
+	switch {
+	case errors.Is(err, extension.ErrPluginNotFound):
+		http.Error(w, "extension not found", http.StatusNotFound)
+	case errors.Is(err, extension.ErrPluginInvalid):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, extension.ErrInvalidSettings):
+		http.Error(w, err.Error(), invalidSettingsStatus)
+	default:
+		http.Error(w, "extension settings request failed", http.StatusInternalServerError)
+	}
+}
+
+func parseLimitQuery(req *http.Request, fallback int) int {
+	limit := fallback
+	if rawLimit := req.URL.Query().Get("limit"); rawLimit != "" {
+		if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	return limit
 }
 
 func writeLocalGatewayManagerError(w http.ResponseWriter, err error) {
