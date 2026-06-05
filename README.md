@@ -1,55 +1,54 @@
 # Relay Switch
 
-[English](./README.md) | [中文](./README.zh-CN.md)
+[English](./README.en.md) | [中文](./README.md)
 
-<a href="https://www.relayswitch.dev/" target="_blank" rel="noopener noreferrer">Public Docs</a> | <a href="https://www.relayswitch.dev/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link Import Guide</a> | <a href="https://trendshift.io/repositories/27531" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
+<a href="https://www.relayswitch.dev/" target="_blank" rel="noopener noreferrer">公开文档</a> | <a href="https://www.relayswitch.dev/deep-link-import/" target="_blank" rel="noopener noreferrer">Deep Link 导入说明</a>
 
-<a href="https://www.producthunt.com/products/github-376?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-github-986be850-3079-4734-96bc-d67b24532f07" target="_blank" rel="noopener noreferrer"><img alt="GitHub - Switching and management of major relay API services | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1145071&amp;theme=light&amp;t=1778578640911"></a>
+Relay Switch 把多个 AI 中转 API、原生大模型来源和本地工具接入统一到一个本地入口。
 
-Relay Switch brings multiple AI relay APIs, native model sources, and local AI tools behind one local endpoint.
+如果你经常在 Cursor、Kiro、Cherry Studio、Codex、Claude Code、OpenClaw、Hermes Agent 或自己的脚本里切换模型和服务商配置，Relay Switch 的目标是让你只配置一次本地地址，之后在一个界面里切换上游。
 
-If you switch between models or provider configuration across Cursor, Kiro, Cherry Studio, Codex, Claude Code, OpenClaw, Hermes Agent, or your own scripts, Relay Switch lets you configure one local address once and switch upstreams from a single UI.
+## 目录
 
-## Table of Contents
-
-- [Why Relay Switch](#why-relay-switch)
-- [What You Can Do](#what-you-can-do)
+- [为什么需要 Relay Switch，解决了哪些痛点？](#为什么需要-relay-switch解决了哪些痛点)
+- [它能帮你做什么](#它能帮你做什么)
 - [Screenshot](#screenshot)
-- [Installation & Quick Start](#installation--quick-start)
-- [Desktop Modules](#desktop-modules)
-- [Usage Guide](#usage-guide)
-- [Documentation](#documentation)
-- [FAQ](#faq)
-- [Local Development](#local-development)
-- [Project Structure](#project-structure)
+- [安装 & 快速开始](#安装--快速开始)
+- [桌面端模块说明](#桌面端模块说明)
+- [Provider 和 Model 到底有什么区别？](#provider-和-model-到底有什么区别)
+- [使用指南](#使用指南)
+- [文档入口](#文档入口)
+- [常见问题](#常见问题)
+- [本地开发](#本地开发)
+- [项目结构](#项目结构)
 
-## Why Relay Switch
+## 为什么需要 Relay Switch，解决了哪些痛点？
 
-The hard part for many AI users is not finding a model. It is keeping many providers and tools usable day to day:
+很多 AI 用户真正头疼的不是“没有模型可用”，而是：
 
-1. Relay API providers can be unstable, run out of quota, or go offline, so you need to switch quickly when one provider fails
-2. Multiple coding tools, desktop clients, and SDK scripts often mean repeated configuration changes whenever you change provider
-3. Some users do not want to edit config files frequently, but still need access to multiple model sources
+1. 中转 API 服务商不稳定，其中一家额度用完或者掉线时，需要快速切换到另一家服务商
+2. 同时使用多个编程工具、桌面客户端或 SDK 脚本时，每次切换服务商都要重复修改配置
+3. 部分用户不会、也不想频繁改配置文件，但仍然希望能稳定使用多个模型来源
 
-Relay Switch puts a local gateway in front of your tools.
+Relay Switch 的做法是在你的工具前面放一个本地网关。
 
-Your tools connect once:
+你的工具只需要统一接入一次：
 
 ```text
 http://127.0.0.1:3456/v1
 ```
 
-After that, switching models, relay providers, or local model sources happens inside Relay Switch instead of inside every Cursor, Kiro, Cherry Studio, Codex, Claude Code, or script config.
+之后切换模型、中转 API 服务商或本地模型来源时，只需要在 Relay Switch 里操作，不需要逐个修改 Cursor、Kiro、Cherry Studio、Codex、Claude Code 或脚本配置。
 
-## What You Can Do
+## 它能帮你做什么
 
-1. Switch and manage relay API services with one click, without restarting your coding tools. For example, relay services built on frameworks such as `new-api` or `sub2api`
-2. Maintain a Local Gateway locally for native model scenarios where you want to connect directly to models compatible with OpenAI or Anthropic APIs. For example, MiniMax, DeepSeek, and similar providers. Add them on the Models page, then enable LocalGateway on the Providers page
-3. Support a wide range of coding tools, including Codex CLI, Claude Code, OpenCode, Codex app, Cursor, VSCode, and Cherry Studio
-4. Provide one unified endpoint for local AI tools: `http://127.0.0.1:3456`. Switching models or relay services does not require restarting coding tools, and you do not need to edit tool configuration files every time you switch
-5. Work cross-platform across Windows, macOS, and Linux desktop environments, and also on Linux server and WSL
-6. Detect the model list available to the current API Key with one click, with support for filtering to only show available models
-7. Import Provider or Model configuration from the web with one click, starting from the [Deep Link demo](https://www.relayswitch.dev/deeplink.html)
+1. 一键切换管理中转 API 服务，而无需重启编程工具。例如基于 `new-api`、`sub2api` 等框架搭建的中转站
+2. 在本地维护一个 Local Gateway，用来管理希望直接接入各类兼容 OpenAI 或者 Anthropic 接口的原生大模型的使用场景。例如 MiniMax、DeepSeek 等。在模型页面添加，在供应商页面启用 LocalGateway 即可使用
+3. 支持各种编程工具，例如 Codex CLI、Claude Code、OpenCode、Codex app、Cursor、VSCode、Cherry Studio
+4. 为本地 AI 工具提供统一接口 `http://127.0.0.1:3456`。切换模型或者切换中转服务不需要重启编程工具，不会每次切换都修改编程工具的配置文件
+5. 跨平台，可以安装在 Windows、macOS、Linux 桌面环境，也可以安装在 Linux server 和 WSL 里使用
+6. 可以一键监测当前 API Key 的可用模型列表，支持只显示可用的模型列表筛选
+7. 支持从网页一键导入 Provider 或 Model 配置，可以直接体验 [Deep Link 导入](https://www.relayswitch.dev/deeplink.html)
 
 ## Screenshot
 
@@ -63,70 +62,69 @@ After that, switching models, relay providers, or local model sources happens in
   <img src="./docs/images/readme/tools-config.png" style="width: 49%; height: auto;">
 </p>
 
-## Installation & Quick Start
+## 安装 & 快速开始
 
-### 1. Pick the right runtime
+### 1. 选择适合你的运行方式
 
-**1.1 macOS, Windows, and Ubuntu Desktop users**
+**1.1 macOS、Windows、Ubuntu Desktop 桌面端用户**
 
-The desktop app is recommended. Download the latest build for your platform from the [Release page](https://github.com/xiaoyuandev/relay-switch/releases).
+推荐使用桌面版客户端，可到 [Release页面](https://github.com/xiaoyuandev/relay-switch/releases) 下载对应平台的最新版本
 
-macOS users may see a warning on first install or first launch:
-
-```text
-“Relay Switch” cannot be opened because the developer cannot be verified.
-```
-
-or:
+对于 macOS 用户首次安装启动时可能会看到类似提示：
 
 ```text
-“Relay Switch” cannot be opened because Apple cannot verify it for malicious software.
+“Relay Switch” 无法打开，因为无法验证开发者。
 ```
 
-This happens because the current public macOS distribution uses a free ad-hoc style signing path instead of a full paid Apple Developer trusted distribution chain.
+或者：
 
-If this happens, do this:
+```text
+“Relay Switch” 无法打开，因为 Apple 无法检查其是否包含恶意软件。
+```
 
-1. Move the app into `/Applications` if it is still inside a temporary download folder
-2. In Finder, right click `Relay Switch.app`
-3. Choose `Open`
-4. In the system confirmation dialog, choose `Open` again
+这是因为当前项目的公开分发流程里，macOS 这边采用了免费 ad-hoc 风格的签名路径，而不是完整的付费 Apple开发者账户的 可信分发链路。
 
-If right-click Open still does not work, continue with:
+如果遇到这种情况，用户可以这样操作：
 
-1. Open `System Settings`
-2. Go to `Privacy & Security`
-3. Find the security warning for Relay Switch
-4. Click `Open Anyway`
+1. 如果应用还在下载目录或临时目录中，先移动到 `/Applications`
+2. 在 Finder 中右键 `Relay Switch.app`
+3. 选择 `打开`
+4. 在系统确认框里再次选择 `打开`
 
-If you are comfortable with the command line and have confirmed the app came from the official release page, you can also remove the macOS quarantine attribute with `xattr`:
+如果右键打开后仍然没有成功，可以继续：
+
+1. 打开 `系统设置`
+2. 进入 `隐私与安全性`
+3. 找到 Relay Switch 的安全拦截提示
+4. 点击 `仍要打开`
+
+如果你熟悉命令行，也可以在确认应用来自官方发布页面后，使用 `xattr` 移除 macOS 给应用添加的隔离标记：
 
 ```bash
 sudo xattr -rd com.apple.quarantine "/Applications/Relay Switch.app"
 ```
 
-After that, launch `Relay Switch.app` from Finder or Launchpad.
+执行完成后，再从 Finder 或 Launchpad 启动 `Relay Switch.app`。
 
-After the first successful open, later launches normally stop showing the same warning.
+通常第一次成功打开之后，后续再启动就不会反复出现相同的拦截提示。
 
-If a `.pkg` installer is attached to the release, prefer the `.pkg` build over dragging a raw `.app` bundle manually.
+如果某个 release 同时提供了 `.pkg` 安装包，优先使用 `.pkg` 安装，通常体验会比手动拖拽裸 `.app` 更稳定。
 
-**1.2 WSL or Linux Server users**
 
-Use the command-line installer:
+**1.2 WSL 或 Linux Server 用户** 推荐使用命令行安装：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
 ```
 
-After installation, the default endpoints are:
+安装完成后默认提供：
 
-1. Web management UI: `http://127.0.0.1:3456`
-2. OpenAI-compatible local endpoint: `http://127.0.0.1:3456/v1`
+1. Web 管理界面：`http://127.0.0.1:3456`
+2. OpenAI-compatible 本地入口：`http://127.0.0.1:3456/v1`
 
-**Service management**
+**服务管理**
 
-The installer creates a `systemd --user` service by default:
+默认会安装一个 `systemd --user` 服务：
 
 ```bash
 systemctl --user status relay-switch
@@ -134,7 +132,7 @@ systemctl --user restart relay-switch
 journalctl --user -u relay-switch -n 200 -f
 ```
 
-It also creates a helper command:
+同时也会生成一个辅助命令：
 
 ```bash
 relay-switch start
@@ -145,156 +143,202 @@ relay-switch logs
 relay-switch run
 ```
 
-Notes:
+说明：
 
-1. `start / stop / restart / status / logs` prefer `systemd --user`
-2. `run` starts the core process in the foreground, which is useful for debugging
+1. `start / stop / restart / status / logs` 优先走 `systemd --user`
+2. `run` 会以前台方式直接启动 core，适合调试
 
-**Remote server access**
 
-If you deploy Relay Switch on a remote Linux server, there are usually two access patterns:
+**远程服务器访问方式**
 
-Option 1: SSH tunnel for Web UI access
+如果你是在远程 Linux server 部署，通常有两种方式：
 
-Run this locally:
+- 方式一：通过 SSH 隧道访问 Web UI 管理页面
+
+本地执行：
 
 ```bash
 ssh -N -L 3456:127.0.0.1:3456 user@host
 ```
 
-Then open this in your local browser:
+然后本地浏览器访问：
 
 ```text
 http://127.0.0.1:3456
 ```
 
-Option 2: reverse proxy
+- 方式二：反向代理
 
-Forward your reverse proxy to:
+把你的反向代理转发到：
 
 ```text
 http://127.0.0.1:3456
 ```
 
-Notes:
+注意：
 
-1. The core process binds to `127.0.0.1` by default
-2. The safer approach is to keep that local binding and let Nginx or Caddy handle public access
+1. 当前 core 默认绑定 `127.0.0.1`
+2. 更安全的做法是继续保持本地绑定，再由 Nginx / Caddy 负责公网入口
 
-Full guide:
 
-- [WSL / Linux Server Deployment Guide](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+完整说明见：
+
+- [WSL / Linux Server 部署与使用说明](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
 - [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
 
-### 2. Add a Provider or Model source
+### 2. 添加 Provider 或 Model 来源
 
-Use the `Providers` page to add your relay API provider with `Name`, `Base URL`, and `API Key`.
+在 `Providers` 页面添加你的中转 API 服务商，填写 `Name`、`Base URL` 和 `API Key`。
 
-If you want to connect native model upstreams directly, use the `Models` page to add local model sources and sync them into the local Models Gateway.
+如果你希望直接接入原生大模型，可以在 `Models` 页面添加本地模型来源，并同步到本地 Models Gateway。
 
-### 3. Point your tools to the local endpoint
+### 3. 把工具统一接到本地地址
 
-Most OpenAI-compatible tools can use:
+大多数支持 OpenAI-compatible 接口的工具都可以这样配置：
 
 ```text
 Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-After that, your tools keep using the same local address even when you switch upstream providers or the local Models Gateway. No tool-side config changes are needed.
+之后无论你切换上游 Provider，还是切换本地 Models Gateway，工具侧都可以继续使用同一个本地地址，无需修改工具侧配置。
 
-### 4. Import config from the web
+### 4. 从网页一键导入配置
 
-Relay Switch supports importing Provider or Model configuration from a web page through Deep Link.
+Relay Switch 支持通过 Deep Link 从网页导入 Provider 或 Model 配置。
 
-Relay API providers are welcome to integrate with this flow. See the guide: https://www.relayswitch.dev/deep-link-import/
+> 也欢迎各大中转API服务商接入，接入方式可查看: https://www.relayswitch.dev/deep-link-import/
 
-Try it here:
+可以先体验：
 
 ```text
 https://www.relayswitch.dev/deeplink.html
 ```
 
-## Desktop Modules
+## 桌面端模块说明
 
-The desktop app is organized into five main modules.
+当前桌面应用主要分成五个模块。
+
+### Provider 和 Model 到底有什么区别？
+
+为什么产品里同时有 `Provider` 页面和 `Model` 页面？
+
+一句话解释：`Provider` 用来管理中转站，`Model` 页面背后则是一个运行在本地的 中转站 LocalGateway，用来统一管理原生模型来源。
+
+架构上可以把它理解成这样：
+
+```mermaid
+flowchart LR
+    P[Provider]
+
+    P --> R1[中转站 A\nnew-api]
+    P --> R2[中转站 B\nsub2api]
+    P --> R3[LocalGateway\nModel 页面]
+
+    R1 --> M11[gpt-4.1]
+    R1 --> M12[deepseek-chat]
+    R1 --> M13[qwen-plus]
+
+    R2 --> M21[claude-sonnet]
+    R2 --> M22[gpt-4o]
+    R2 --> M23[gemini-2.5-pro]
+
+    R3 --> M31[glm-4.5]
+    R3 --> M32[minimax-text]
+    R3 --> M33[qwen-max]
+```
+
+这两个页面看起来都和“大模型”有关，但它们解决的问题并不一样：
+
+1. `Provider` 解决的是“我的 Codex、Claude Code、Cursor 应该通过哪个 API 服务出去”
+2. `Model` 解决的是“我本地想管理哪些原生模型来源，并通过 LocalGateway 统一暴露出去”
+
+所以也可以把它理解成：
+
+1. `Provider` 页面面向工具接入和上游切换
+2. `Model` 页面面向原生模型来源管理
+3. LocalGateway 会作为一个可选的 Provider 出现在 `Providers` 页面里
+
+这个拆分的目的不是增加概念，而是为了避免把“切换中转服务”和“管理原生模型来源”混成一类问题。前者更关注 `Base URL`、`API Key`、当前启用哪个上游；后者更关注模型列表、能力差异、协议兼容和本地统一暴露。
+
+更详细的介绍，可以查看：[Provider 和 Model 详细介绍](./docs/zh-cn/provider-vs-model.md)。
 
 ### 1. Providers
 
-The `Providers` page is where you manage the upstream services that the main local gateway can route to.
+`Providers` 页面用于管理主本地网关后面可以切换的上游服务。
 
-In the simplest mental model:
+最容易理解的方式是：
 
-1. `Providers` is for managing relay services
-2. these are usually remote aggregation or proxy platforms
-3. examples include services similar to `new-api`, `one-api`, or `sub2api`
+1. `Providers` 主要用于管理各种中转 API 服务
+2. 这些服务通常是远程聚合或代理平台
+3. 例如类似 `new-api`、`one-api`、`sub2api` 这类服务
 
-Use it to:
+你可以在这里：
 
-1. Add or edit provider connections
-2. Switch the currently active upstream provider
-3. Run provider health checks
-4. Inspect the models a provider exposes
-5. Configure Claude Code model slot mapping for the active provider
+1. 添加和编辑 Provider
+2. 切换当前激活的上游 Provider
+3. 运行 Provider health check
+4. 查看某个 Provider 实际暴露的模型
+5. 为 Claude Code 配置当前 Provider 的模型槽位映射
 
-So if a user mainly wants to switch between different remote relay providers, `Providers` is the primary page.
+所以如果用户主要目的是在多个远程中转服务之间切换，`Providers` 就是最核心的页面。
 
 ### 2. Models
 
-The `Models` page exists for a different problem.
+`Models` 页面要解决的是另一类问题。
 
-It manages a local gateway that runs on your own machine and exposes native model sources in a unified way. Each entry is a model source that can point to:
+它用于管理一个运行在本地的 Models Gateway。这个本地 gateway 会把原生模型上游来源统一整理出来，每一条 source 都可以指向：
 
-1. an OpenAI-compatible upstream
-2. an Anthropic-compatible upstream
+1. OpenAI-compatible 上游
+2. Anthropic-compatible 上游
 
-Use it to:
+你可以在这里：
 
-1. Add local gateway model sources
-2. Auto-detect or manually define model IDs
-3. Enable or disable model sources
-4. Sync those sources into the embedded local gateway runtime
+1. 添加本地模型来源
+2. 自动探测或手动填写模型 ID
+3. 启用或禁用某个模型来源
+4. 把这些来源同步到内嵌的本地 gateway runtime
 
-Why this module exists:
+这个模块存在的原因是：
 
-1. Many native model upstreams are not best managed as one switched relay provider
-2. Different native upstreams expose different model ids and model lists
-3. Users may want a local service that behaves more like running a small `new-api` or `sub2api` style gateway on their own machine
-4. That local gateway can then expose many native upstream models through one controlled local layer
+1. 很多原生大模型上游并不适合直接按“单个激活 Provider”去管理
+2. 不同原生上游会暴露不同的模型 ID 和模型列表
+3. 用户有时需要的是一个运行在本地的兼容网关，效果更像在本机跑一个小型的 `new-api` 或 `sub2api`
+4. 这样就可以把很多兼容 OpenAI-compatible 和 Anthropic-compatible 的原生大模型统一挂到这一层本地 gateway 下面
 
-So the `Models` page introduces a separate local Models Gateway layer. Instead of only switching one active Provider, Relay Switch can now maintain a set of native model sources locally and expose them through a local compatibility gateway.
+所以 `Models` 页面引入的是一层独立的本地 Models Gateway。它不是用来切换远程聚合中转服务，而是让 Relay Switch 可以在本地维护一组原生模型来源，并通过一个本地兼容网关向外暴露。
 
-In practical terms:
+实际关系可以这样理解：
 
-1. `Providers` manages remote relay services and also shows the local Models Gateway as one selectable provider
-2. `Models` manages the internal source list that powers that local Models Gateway
-3. the local Models Gateway is added into the Provider management list by default, so tools can still treat it as one provider option on the main gateway side
+1. `Providers` 负责管理远程中转服务，也负责展示这个本地运行的 Models Gateway
+2. `Models` 负责管理这个本地 Models Gateway 背后的 source 列表
+3. 这个本地 Models Gateway 会默认出现在 `Providers` 管理列表里，作为一个可选择的 Provider
 
-This means the relationship is:
+也就是说：
 
-1. `Models` configures the local gateway's native model sources
-2. that local gateway becomes one provider option inside `Providers`
-3. `Providers` remains the place where the user selects between remote relay services and the local Models Gateway
+1. `Models` 配置的是“本地 gateway 里面有哪些原生模型来源”
+2. 这个本地 gateway 会作为一个 Provider 出现在 `Providers` 页面
+3. `Providers` 页面最终负责让用户在“远程中转服务”和“本地 Models Gateway”之间切换
 
-#### Model preset configuration
+#### 模型预设配置
 
-The `Models` form can load optional model presets from a remote JSON file. Presets are only a shortcut for filling the form. The final `Name`, `Provider Type`, `Base URL`, `API Key`, and `Model IDs` are still controlled by the user before saving.
+`Models` 表单可以从远程 JSON 加载可选的模型预设。预设只是辅助填写表单的快捷方式，最终保存的 `Name`、`Provider Type`、`Base URL`、`API Key` 和 `Model IDs` 仍然以用户在表单里的最终输入为准。
 
-The default source URL is:
+默认配置地址是：
 
 ```text
 https://www.relayswitch.dev/model-presets.json
 ```
 
-You can override it at frontend build time:
+前端构建时可以通过环境变量覆盖：
 
 ```bash
 VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web build
 ```
 
-The frontend fetches this JSON when the `Models` page opens, validates the fields it needs, and stores the JSON catalog in browser local storage as a local cache. Invalid JSON is not written to the cache. If fetching or validation fails, Relay Switch keeps using the cached catalog when one already exists. If there is no cache, the preset list is empty and users can still fill the model form manually.
+前端会在打开 `Models` 页面时拉取这个 JSON，校验表单需要的字段，并把 JSON catalog 存到浏览器 local storage 作为本地缓存。格式不合法的 JSON 不会写入缓存。如果拉取或校验失败，且本地已经有缓存，则继续使用缓存。如果没有缓存，预设列表为空，用户仍然可以手动填写模型表单。
 
-The source file is `config/model-presets.json`. The docs site build publishes it to the default URL as a static JSON endpoint and fails the build if the schema is invalid. You can validate it locally with `pnpm validate:model-presets`. The repository initializes it with an empty list:
+源文件是 `config/model-presets.json`。docs 站点构建时会把它发布到默认 URL 对应的静态 JSON endpoint，并在 schema 不合法时让构建失败。你可以用 `pnpm validate:model-presets` 在本地校验。仓库里的默认内容初始化为空列表：
 
 ```json
 {
@@ -304,7 +348,7 @@ The source file is `config/model-presets.json`. The docs site build publishes it
 }
 ```
 
-Example configuration:
+示例配置：
 
 ```json
 {
@@ -349,148 +393,148 @@ Example configuration:
 }
 ```
 
-Field notes:
+字段说明：
 
-1. `schema_version` must be `1`.
-2. `presets[].id` must be unique.
-3. `presets[].label` is shown in the `Name` input dropdown.
-4. `aliases` and `tags` are used for filtering the dropdown.
-5. `providers[].provider_type` must be `openai-compatible` or `anthropic-compatible`.
-6. `providers[].base_url` is copied into the form after the preset provider is selected.
-7. `providers[].models_api` can be:
-   - `supported`: Relay Switch should try to fetch model IDs after the user enters an API key.
-   - `unsupported`: Relay Switch should use the configured `model_ids`.
-   - `auto`: reserved for providers where behavior is not known yet.
-8. `providers[].model_ids` can be empty when `models_api` is `supported`. It must contain at least one model ID when `models_api` is `unsupported`.
-9. `disabled: true` hides a preset without deleting it from the JSON.
-10. `deprecated: true` keeps a preset available while marking it for future cleanup.
+1. `schema_version` 必须是 `1`。
+2. `presets[].id` 必须唯一。
+3. `presets[].label` 会显示在 `Name` 输入框的下拉列表里。
+4. `aliases` 和 `tags` 会参与下拉列表搜索过滤。
+5. `providers[].provider_type` 必须是 `openai-compatible` 或 `anthropic-compatible`。
+6. `providers[].base_url` 会在选择对应 provider 后自动填入表单。
+7. `providers[].models_api` 可选值：
+   - `supported`：用户填写 API Key 后，Relay Switch 会尝试自动拉取模型 ID。
+   - `unsupported`：Relay Switch 会直接使用 JSON 里的 `model_ids`。
+   - `auto`：预留给暂时不确定行为的 provider。
+8. 当 `models_api` 是 `supported` 时，`providers[].model_ids` 可以为空数组。当 `models_api` 是 `unsupported` 时，必须至少配置一个模型 ID。
+9. `disabled: true` 可以隐藏某个 preset，但不需要从 JSON 里删除。
+10. `deprecated: true` 可以保留某个 preset，同时标记它后续会清理。
 
 ### 3. Tools
 
-The `Tools` page helps client tools connect to Relay Switch correctly.
+`Tools` 页面用于帮助客户端工具正确接入 Relay Switch。
 
-Use it to:
+你可以在这里：
 
-1. Copy ready-to-use local endpoint values
-2. Run one-click setup for supported tools such as Codex CLI and Claude Code
-3. Follow guided setup for tools like Cursor, Cherry Studio, and SDK scripts
-4. Drag supported models into Claude Code model slots, then switch between them in Claude Code with the `/model` command
+1. 复制已经整理好的本地接入参数
+2. 对 Codex CLI、Claude Code 执行一键接入
+3. 查看 Cursor、Cherry Studio、SDK 脚本等工具的接入说明
+4. 通过拖拽的方式将支持的模型匹配到 Claude Code 对应模型上，在 Claude Code 对话里通过 `/model` 命令切换对应的模型
 
 ### 4. Logs
 
-The `Logs` page shows request history flowing through the local gateway.
+`Logs` 页面用于查看经过本地网关的请求历史。
 
-Use it to:
+你可以在这里：
 
-1. Inspect recent requests
-2. See provider, model, path, and latency information
-3. Read failures when an upstream provider behaves incorrectly
+1. 查看最近请求
+2. 查看 Provider、Model、路径、延迟等信息
+3. 当上游异常时，直接读取失败记录
 
 ### 5. Settings
 
-The `Settings` page is the system control area for the desktop app itself.
+`Settings` 页面用于管理桌面应用本身的系统行为。
 
-Use it to:
+你可以在这里：
 
-1. View runtime status
-2. Adjust local ports
-3. Check for desktop updates
-4. Control launch and tray behavior
-   - Launch at login
-   - Launch hidden
-   - Close to tray
+1. 查看运行时状态
+2. 修改本地端口
+3. 检查桌面应用更新
+4. 控制启动与托盘行为
+   - 开机自启
+   - 静默启动
+   - 关闭时最小化到托盘
 
-## Usage Guide
+## 使用指南
 
-Here is the basic flow for connecting tools through Relay Switch.
+下面是把工具接入 Relay Switch 的基本流程。
 
-### 1. Add a provider in Relay Switch
+### 1. 在 Relay Switch 里添加 Provider
 
-Open the `Providers` page in the desktop app and fill in:
+打开桌面应用中的 `Providers` 页面，填写：
 
 1. `Name`
 2. `Base URL`
 3. `API Key`
 
-For OpenAI-compatible relay providers, the Base URL usually ends with `/v1`.
+对于 OpenAI-compatible 中转服务，通常推荐填写带 `/v1` 的 Base URL。
 
-For other compatible APIs, whether `/v1` should be included depends on the upstream implementation. At the moment, OpenAI-compatible upstreams are the clearest and most mature path in Relay Switch.
+对于其他兼容接口，是否填写 `/v1` 取决于上游文档和实际实现。当前项目对 OpenAI-compatible 场景支持最成熟。
 
 <p align="center">
   <img src="./docs/images/readme/quick-start-provider-form.png" style="width: 100%; height: auto;">
 </p>
 
-### 2. Point your tool to the local endpoint
+### 2. 把工具接到本地地址
 
-In most supported tools, configure:
+大多数支持 OpenAI-compatible 接口的工具都可以这样配置：
 
 ```text
 Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-If the local app selects another port at runtime, use the actual `connected api base` shown in the desktop UI.
+如果运行时使用的不是 `3456`，请以桌面应用里显示的 `connected api base` 为准。
 
-### 3. Use the `Tools` page when you need tool-specific setup
+### 3. 需要时在 `Tools` 页面完成专用接入
 
-The `Tools` page provides:
+`Tools` 页面会提供：
 
-1. Copy-ready connection values
-2. One-click setup for Codex CLI and Claude Code
-3. Setup guidance for tools such as Cursor, Cherry Studio, and SDK scripts
-4. Drag-and-drop model mapping for Claude Code model slots, so you can switch mapped models in Claude Code with the `/model` command
+1. 可直接复制的接入参数
+2. 对 Codex CLI、Claude Code 的一键配置能力
+3. 对 Cursor、Cherry Studio、SDK 脚本等场景的接入引导
+4. 通过拖拽的方式将支持的模型匹配到 Claude Code 对应模型上，在 Claude Code 对话里通过 `/model` 命令切换对应的模型
 
-### CLI Tools
+### CLI 工具
 
-For OpenAI-compatible CLI tools such as Codex CLI, set environment variables in the current shell before launching the tool:
+对于 Codex CLI 这类 OpenAI 兼容 CLI，先在当前 shell 中设置环境变量，再启动工具：
 
 ```bash
 export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
 export OPENAI_API_KEY="dummy"
 ```
 
-Then start the CLI from the same terminal session.
+然后在同一个终端会话里启动 CLI。
 
-For Claude Code style tools, Relay Switch currently provides an Anthropic-style environment variable setup flow:
+对于 Claude Code 这类 Anthropic 风格工具，当前项目提供了对应的环境变量接入方式：
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:3456"
 export ANTHROPIC_AUTH_TOKEN="dummy"
 ```
 
-Inside Relay Switch, you can also open the `Tools` page and use the built-in one-click setup flow for supported CLIs.
+在 Relay Switch 中，你也可以直接打开 `Tools` 页面，使用对已支持 CLI 的一键接入流程。
 
-One clarification: the most stable local access path in the current release is still the OpenAI-compatible one. Anthropic-style local access and upstream compatibility are still being improved. If your tool also supports a custom OpenAI-compatible endpoint, prefer `http://127.0.0.1:3456/v1`.
+需要说明的是：当前版本最稳定的本地入口仍然是 OpenAI-compatible 这条链路；Anthropic 风格本地接入和上游兼容能力仍在持续完善。如果你的工具同时支持自定义 OpenAI-compatible endpoint，优先使用 `http://127.0.0.1:3456/v1` 会更稳妥。
 
-### IDEs And Plugins
+### IDE / 插件 / 桌面客户端
 
-For IDEs, editor plugins, and desktop chat clients, open the provider settings and fill in:
+对于 IDE、编辑器插件和桌面聊天客户端，打开它们的 Provider 配置页面并填写：
 
 ```text
 Base URL: http://127.0.0.1:3456/v1
 API Key: dummy
 ```
 
-Inside Relay Switch, open the `Tools` page to find the recommended connection values for supported tools.
+在 Relay Switch 里，你也可以进入 `Tools` 页面查看这些已整理好的接入参数。
 
 <p align="center">
   <img src="./docs/images/readme/settings.png" style="width: 49%; height: auto;">
   <img src="./docs/images/readme/connectatool.png" style="width: 49%; height: auto;">
 </p>
 
-For tools like Cursor or Cherry Studio, if there is a provider type or protocol field, choose an OpenAI-compatible custom provider mode first, then paste the values above.
+如果工具像 Cursor 或 Cherry Studio 一样还要求选择 Provider Type / Protocol，请优先选择 OpenAI-compatible 自定义 Provider 模式，再填写上面的参数。
 
-In Cursor specifically, open its custom provider settings, choose an OpenAI-compatible provider mode, then fill in the local Base URL and `dummy` API key.
+对于 Cursor，可以进入它的自定义 Provider 配置界面，选择 OpenAI-compatible 模式，然后填写本地 Base URL 和 `dummy` API Key。
 
 <p align="center">
   <img src="./docs/images/readme/corsor-config.png" style="width: 72%; height: auto;">
 </p>
 
-### SDK Scripts And Local Apps
+### SDK 脚本 / 本地应用
 
-If you want to interact with the currently active model provider from your own scripts, point your SDK or HTTP client to the local Relay Switch gateway instead of the upstream relay directly.
+如果你希望在自己的脚本里，通过 Relay Switch 和当前激活的 Provider 交互，只需要把 SDK 或 HTTP 请求指向本地网关，而不是直接请求上游中转服务。
 
-Example with the OpenAI SDK:
+使用 OpenAI SDK 的示例：
 
 ```ts
 import OpenAI from "openai";
@@ -508,7 +552,7 @@ const response = await client.responses.create({
 console.log(response.output_text);
 ```
 
-You can do the same thing with plain HTTP requests:
+也可以直接使用 HTTP 请求：
 
 ```bash
 curl http://127.0.0.1:3456/v1/chat/completions \
@@ -522,130 +566,133 @@ curl http://127.0.0.1:3456/v1/chat/completions \
   }'
 ```
 
-The actual model that responds still depends on the model name your script sends and on which provider is currently active in the desktop app.
+最终由哪个模型实际响应，仍然取决于你的脚本发送的模型名，以及桌面应用里当前激活的是哪个 Provider。
 
-## Documentation
+## 文档入口
 
-If you want fuller step-by-step guidance, tool-specific examples, and troubleshooting notes, continue with:
+如果你想看更完整的分步说明、工具接入示例和排障说明，请继续阅读：
 
-- [User Guide](./docs/zh-cn/user-guide.md)
-- [Use third-party models in Codex](./docs/zh-cn/codex-third-party-models.md)
-- [WSL / Linux Server Deployment Guide](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
+- [使用教程](./docs/zh-cn/user-guide.md)
+- [Provider 和 Model 详细介绍](./docs/zh-cn/provider-vs-model.md)
+- [在 Codex 里使用第三方大模型](./docs/zh-cn/codex-third-party-models.md)
+- [WSL / Linux Server 部署与使用说明](./docs/zh-cn/wsl-linux-server-guide.zh-CN.md)
 - [WSL / Linux Server Deployment Guide (English)](./docs/en/wsl-linux-server-guide.md)
-- [中文 README](./README.zh-CN.md)
+- [English README](./README.en.md)
 
-If you are deploying on `WSL` or `Linux server`, prefer the server guide first. It also includes pinned release installation using `RELAY_SWITCH_VERSION`.
+如果你是 `WSL` 或 `Linux server` 用户，建议优先阅读 server 部署文档，其中包含 `RELAY_SWITCH_VERSION` 固定版本安装与回滚说明。
 
-## How To Read Protocol Support Today
+## 当前更适合怎样理解协议支持
 
-In practice, many upstream gateways expose both OpenAI-compatible and Anthropic-compatible APIs.
+通常情况下，上游 Gateway 会同时支持 OpenAI 和 Anthropic 两种协议标准。
 
-Relay Switch is designed around those two compatibility families, but the current implementation is not equally mature in both directions:
+Relay Switch 当前也围绕这两类兼容接口设计，但从实际实现成熟度看：
 
-1. OpenAI-compatible local access is the clearest and most stable primary path
-2. Anthropic-compatible upstream auth handling and some tool integrations are already covered
-3. Full Anthropic-style local protocol coverage is still being improved
+1. OpenAI-compatible 本地接入是当前最清晰、最稳定的主路径
+2. Anthropic-compatible 上游认证和部分工具接入已经覆盖
+3. Anthropic 风格的完整本地协议支持仍在持续完善
 
-Because of that, for tools that let you choose a custom OpenAI-compatible endpoint, that path is currently the safest default.
+因此，README 和接入建议里凡是能选择 OpenAI-compatible 自定义 endpoint 的工具，当前都建议优先走这条路径。
 
-## About Model Lists
+## 关于模型列表
 
-Provider model list fetching exists, but it should be understood as a compatibility feature rather than a guaranteed capability of every upstream.
+Provider 模型列表获取已经实现，但它更适合被理解为“兼容能力”而不是“所有上游都保证提供的标准能力”。
 
-Common reasons include:
+原因通常包括：
 
-1. Different gateways expose model list endpoints differently
-2. Some upstreams do not expose a standard model list endpoint at all
-3. Returned JSON payloads may vary
+1. 不同 Gateway 的模型列表 endpoint 可能不完全一致
+2. 有些上游不提供标准模型列表接口
+3. 返回 JSON 结构可能有差异
 
-So a provider can still be usable for request forwarding even if its model list is incomplete or unavailable.
+所以如果某个 Provider 能正常转发请求，但模型列表显示不完整，并不一定代表这个 Provider 本身不可用。
 
-## FAQ
+## 常见问题
 
 <details>
-<summary>Are request logs uploaded to any remote service?</summary>
+<summary>用户的请求日志记录会上传到远端吗？</summary>
 
-No. Request logs are stored locally on your machine only. We do not upload any request log records to any remote service.
+不会。用户的请求日志记录仅保存在本地，我们不会上传任何日志记录到远端。
 
 </details>
 
 <details>
-<summary>Why does macOS show “the developer cannot be verified” on first install?</summary>
+<summary>为什么 macOS 初次安装会提示“无法验证开发者”？</summary>
 
-Current public macOS builds may still show a Gatekeeper warning on first install or first launch because the project is currently distributed with a free ad-hoc style signing path instead of a fully trusted paid Apple distribution chain for every released artifact.
+当前公开发布的 macOS 构建，在用户第一次安装或第一次启动时，仍然可能出现 Gatekeeper 安全拦截。
 
-That is why users may see messages like:
+原因是：当前项目的公开分发流程里，macOS 这边仍然采用了免费 ad-hoc 风格的签名路径，而不是对所有公开产物都走完整的付费 Apple 可信分发链路。
 
-```text
-“Relay Switch” cannot be opened because the developer cannot be verified.
-```
-
-or:
+这也是为什么用户可能会看到类似提示：
 
 ```text
-“Relay Switch” cannot be opened because Apple cannot verify it for malicious software.
+“Relay Switch” 无法打开，因为无法验证开发者。
 ```
 
-If this happens, the user should do this:
+或者：
 
-1. Move the app into `/Applications` if it is still inside a temporary download folder
-2. In Finder, right click `Relay Switch.app`
-3. Choose `Open`
-4. In the system confirmation dialog, choose `Open` again
+```text
+“Relay Switch” 无法打开，因为 Apple 无法检查其是否包含恶意软件。
+```
 
-If the `Open` action still does not appear, use:
+如果遇到这种情况，用户可以这样操作：
 
-1. `System Settings`
-2. `Privacy & Security`
-3. Scroll to the security warning area for Relay Switch
-4. Click `Open Anyway`
+1. 如果应用还在下载目录或临时目录中，先移动到 `/Applications`
+2. 在 Finder 中右键 `Relay Switch.app`
+3. 选择 `打开`
+4. 在系统确认框里再次选择 `打开`
 
-If you are comfortable with the command line and have confirmed the app came from the official release page, you can also remove the macOS quarantine attribute with `xattr`:
+如果右键打开后仍然没有成功，可以继续：
+
+1. 打开 `系统设置`
+2. 进入 `隐私与安全性`
+3. 找到 Relay Switch 的安全拦截提示
+4. 点击 `仍要打开`
+
+如果你熟悉命令行，也可以在确认应用来自官方发布页面后，使用 `xattr` 移除 macOS 给应用添加的隔离标记：
 
 ```bash
 sudo xattr -rd com.apple.quarantine "/Applications/Relay Switch.app"
 ```
 
-After that, launch `Relay Switch.app` from Finder or Launchpad.
+执行完成后，再从 Finder 或 Launchpad 启动 `Relay Switch.app`。
 
-After the first successful open, later launches normally stop showing the same warning.
+通常第一次成功打开之后，后续再启动就不会反复出现相同的拦截提示。
 
-If a `.pkg` installer is attached to the release, prefer the `.pkg` build over dragging a raw `.app` bundle manually.
+如果某个 release 同时提供了 `.pkg` 安装包，优先使用 `.pkg` 安装，通常体验会比手动拖拽裸 `.app` 更稳定。
 
 </details>
 
-## Local Development
+## 本地开发
 
-Requirements:
+要求：
 
 1. Node.js
 2. pnpm
-3. Go toolchain, if you want the core service to build locally
+3. 如果要本地构建核心服务，还需要 Go toolchain
 
-Install dependencies:
+安装依赖：
 
 ```bash
 pnpm install
 ```
 
-Run the desktop app in development mode:
+启动桌面应用开发模式：
 
 ```bash
 pnpm dev
 ```
 
-Run the Web UI development mode:
+启动 Web 端本地联调模式：
 
 ```bash
 pnpm dev:web
 ```
 
-`pnpm dev:web` starts both the core service and the Web dev server. It is intended for local Web UI debugging. The default ports are:
+`pnpm dev:web` 会同时启动 core 服务和 Web dev server，适合只调试 Web 管理界面时使用。默认端口为：
 
-1. core API: `3456`
-2. local gateway runtime: `3457`
+1. core API：`3456`
+2. local gateway runtime：`3457`
 
-If those ports conflict with other local programs, or if you want to use a locally built `ai-mini-gateway`, override them in the repository root `.env.local`:
+如果本机端口被其他程序占用，或需要接入本地开发版 `ai-mini-gateway`，可以在仓库根目录的 `.env.local` 中覆盖：
 
 ```bash
 HTTP_PORT=3456
@@ -653,15 +700,15 @@ LOCAL_GATEWAY_RUNTIME_PORT=3457
 LOCAL_GATEWAY_RUNTIME_EXECUTABLE=/path/to/ai-mini-gateway/bin/ai-mini-gateway
 ```
 
-These values are only local development helpers. If they are omitted, the default ports are used. Before starting, `pnpm dev:web` releases old listeners on those ports so core and local gateway restart with the latest local code.
+这些配置都是本地联调辅助配置；不配置时会使用默认端口。`pnpm dev:web` 启动前会释放上述端口上的旧监听进程，确保 core 和 local gateway 使用最新代码重新启动。
 
-Build the desktop app:
+构建桌面应用：
 
 ```bash
 pnpm build
 ```
 
-Build packaged desktop releases:
+构建各平台安装包：
 
 ```bash
 pnpm --filter desktop build:mac
@@ -669,7 +716,7 @@ pnpm --filter desktop build:win
 pnpm --filter desktop build:linux
 ```
 
-Sync the bundled `ai-mini-gateway` runtime version before packaging when a new upstream release is available:
+如果 `ai-mini-gateway` 上游发布了新版本，打包前可以先同步内嵌运行时版本：
 
 ```bash
 pnpm --filter desktop update:ai-mini-gateway-runtime
@@ -677,37 +724,33 @@ pnpm --filter desktop update:ai-mini-gateway-runtime v0.1.1
 pnpm --filter desktop update:ai-mini-gateway-runtime v0.1.1 --prepare
 ```
 
-Use the default command to track the latest release, or pass an explicit version to pin a specific tag. Add `--prepare` to also refresh the local bundled runtime binary and version metadata.
+默认命令会跟到 latest release，也可以传具体版本号固定到指定 tag。加上 `--prepare` 会顺手刷新本地内嵌的运行时二进制和版本元数据。
 
-## Project Structure
+## 项目结构
 
 ```text
-apps/desktop   Electron desktop application
-core/          Go local gateway and provider management backend
-docs/          Public user-facing documentation
+apps/desktop   Electron 桌面应用
+core/          Go 本地网关与 Provider 管理后端
+docs/          面向用户的公开文档
 ```
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 only.
+本项目使用 GNU Affero General Public License v3.0 only。
 
-See:
+详见：
 
 - [LICENSE](./LICENSE)
 
 ## Brand Notice
 
-The source code in this repository is licensed under AGPL-3.0-only.
+本仓库源码采用 AGPL-3.0-only 授权，但以下内容并不默认随源码授权一起开放使用：
 
-However:
+1. 项目名称 `Relay Switch`
+2. Logo
+3. Icon
+4. 其他品牌资产
 
-1. The project name `Relay Switch`
-2. Logos
-3. Icons
-4. Other brand assets
+## 状态
 
-are not granted for unrestricted use by this source license unless explicitly stated otherwise.
-
-## Status
-
-This project is under active development. Interfaces, packaging flow, and update behavior may still change.
+项目仍在持续开发中，接口、打包流程和更新行为后续仍可能调整。

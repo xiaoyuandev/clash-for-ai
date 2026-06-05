@@ -1,41 +1,47 @@
 # 在 Codex 里使用第三方大模型
 
-本文档说明如何通过 Relay Switch 在 Codex CLI 里使用第三方大模型，并让这些模型显示在 Codex 的 `/model` 菜单里。
+本文档说明如何通过 Relay Switch 在 Codex CLI 里使用 DeepSeek、Qwen、GLM、MiniMax 等第三方大模型，并解释这些模型如何出现在 Codex 的 `/model` 菜单里。
 
-适用场景：
+先说结论：
 
-1. 你希望在 Codex 里使用 DeepSeek、Qwen、GLM、MiniMax 等第三方模型。
-2. 你希望 Codex 请求统一走 Relay Switch 本地网关。
-3. 你希望自定义模型可以出现在 Codex 的 `/model` 菜单中，而不是每次手动输入模型名。
+1. Relay Switch 一开始其实就可以支持 Codex 使用第三方大模型。
+2. 只要上游兼容 OpenAI 接口，或者能通过 Local Gateway 适配成 OpenAI-compatible 接口，Codex 就可以把请求发给 Relay Switch，再由 Relay Switch 转发到上游。
+3. 之前的限制不是“第三方模型不能用”，而是这些模型不会自然出现在 Codex 的 `/model` 菜单里。
+4. 现在 Relay Switch 补齐了 Codex 模型目录配置，可以把你配置的第三方模型显示到 `/model` 菜单中。
 
-## 1. 基本概念
+也就是说，这里要分清两件事：
 
-Relay Switch 是一个本地 AI API 网关。
+1. **能不能使用第三方模型**：由 Codex 是否连到 Relay Switch，以及 Relay Switch 后面的 Provider / Local Gateway 是否能转发决定。
+2. **能不能在 `/model` 菜单里看到第三方模型**：由 Relay Switch 的 Codex 模型列表和模型目录开关决定。
 
-Codex 连接 Relay Switch 后，请求会先进入本地地址：
+## 1. 工作原理
+
+Relay Switch 是一个运行在本地的 AI API 网关。Codex 不需要直接连接每一个模型服务商，而是统一连接本地地址：
 
 ```text
 http://127.0.0.1:3456/v1
 ```
 
-然后 Relay Switch 再根据当前启用的 Provider 或 Local Gateway，把请求转发到实际上游。
+之后请求流向是：
 
-所以在 Codex 中使用第三方模型分为两件事：
+```text
+Codex CLI -> Relay Switch 本地网关 -> 当前启用的 Provider 或 Local Gateway -> 实际大模型上游
+```
 
-1. 让请求能正常转发到第三方模型。
-2. 让第三方模型显示在 Codex 的 `/model` 菜单里。
+这个结构带来两个好处：
 
-第一件事由 Relay Switch 的 Provider / Local Gateway 负责。
+1. Codex 侧可以一直使用同一个 OpenAI-compatible endpoint。
+2. 切换中转站、官方模型服务或本地 Local Gateway 时，只需要在 Relay Switch 里切换，不需要反复修改 Codex 配置。
 
-第二件事由 Relay Switch 生成 Codex profile 和 model catalog 负责。
+如果 `/model` 菜单里没有 DeepSeek、Qwen 或 MiniMax，不代表它们不能用。它只说明 Codex 当前的模型菜单目录不知道 Relay Switch 里有哪些自定义模型。
 
-## 2. 选择接入方式
+## 2. 配置模型来源
 
-你可以按自己的模型来源选择一种方式。
+先在 Relay Switch 里准备一个能响应请求的模型来源。你可以选择 Provider 或 Local Gateway。
 
 ### 方式一：使用中转 API Provider
 
-如果你已经有一个 OpenAI-compatible 中转 API，例如基于 new-api、one-api、sub2api 或其他 relay 服务，可以直接在 Provider 页面添加它。
+如果你已经有 OpenAI-compatible 中转 API，例如基于 `new-api`、`one-api`、`sub2api` 或其他 relay 服务，可以直接在 `Providers` 页面添加。
 
 需要填写：
 
@@ -45,110 +51,181 @@ Base URL
 API Key
 ```
 
-然后在 Provider 页面启用这个 Provider。
+建议：
+
+1. `Base URL` 通常填写到 `/v1`，例如 `https://example.com/v1`。
+2. 保存后先执行模型检测或健康检查，确认 Relay Switch 能访问上游。
+3. 在 `Providers` 页面启用这个 Provider。
 
 这种方式适合：
 
 1. 你的上游已经聚合了多个模型。
-2. 上游本身已经兼容 OpenAI API。
-3. 你只是希望 Codex 统一走 Relay Switch。
+2. 上游本身兼容 OpenAI API。
+3. 你只是希望 Codex 固定连接 Relay Switch，由 Relay Switch 负责切换上游。
 
 ### 方式二：使用 Local Gateway 接入原生模型
 
-如果你想直接接入 DeepSeek、MiniMax、Qwen、GLM 等原生模型服务，建议使用 Models 页面。
+如果你想直接接入 DeepSeek、MiniMax、Qwen、GLM 等模型厂商官方 API，建议走 `Models` 页面和 Local Gateway。
 
 操作路径：
 
-1. 打开 Models 页面。
+1. 打开 `Models` 页面。
 2. 新增模型来源。
-3. 选择 Provider Type，例如 `openai-compatible`。
-4. 填写 Base URL、API Key、模型 ID。
+3. 选择 `Provider Type`，例如 `openai-compatible`。
+4. 填写 `Base URL`、`API Key` 和模型 ID。
 5. 启用该模型来源。
 6. 同步到 Local Gateway。
-7. 回到 Provider 页面，启用 Local Gateway。
+7. 回到 `Providers` 页面，启用 `Local Gateway`。
 
 这种方式适合：
 
 1. 你想直接接入模型厂商官方 API。
-2. 不同模型来源的协议或能力不完全一致。
-3. 你希望 Relay Switch 在本地统一管理这些模型来源。
+2. 不同模型来源的协议、模型列表或能力不完全一致。
+3. 你希望 Relay Switch 在本地把这些模型统一整理成一个 OpenAI-compatible 入口。
 
-## 3. 配置 Codex 模型列表
+## 3. 配置 Codex 连接 Relay Switch
 
-接下来需要告诉 Relay Switch：
+模型来源准备好之后，需要让 Codex CLI 指向 Relay Switch 的本地入口。
+
+### 推荐方式：在 Tools 页面一键配置
+
+打开 Relay Switch 的 `Tools` 页面，找到 `Codex CLI`，执行一键配置。
+
+Relay Switch 会更新 Codex 的本地配置：
 
 ```text
-哪些模型应该显示在 Codex 的 /model 菜单里？
+~/.codex/config.toml
+~/.codex/auth.json
 ```
 
-打开 Provider 页面，选择当前要用于 Codex 的 Provider。
+核心效果是让 Codex 使用本地 OpenAI-compatible endpoint：
 
-在该 Provider 的 Codex 模型列表中添加模型名。
+```toml
+model_provider = "OpenAI"
+experimental_bearer_token = "dummy"
 
-例如：
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "http://127.0.0.1:3456/v1"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+这里的 `dummy` 只是 Codex 到 Relay Switch 本地网关之间的占位 token。真正的上游 API Key 仍然保存在 Relay Switch 的 Provider 或 Models 配置里。
+
+### 临时方式：使用当前 shell 环境变量
+
+如果你只想临时测试，也可以在当前终端里设置 OpenAI-compatible 环境变量，然后从同一个终端启动 Codex：
+
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
+export OPENAI_API_KEY="dummy"
+codex
+```
+
+这种方式只影响当前 shell 会话。关闭终端后，环境变量不会自动保留。
+
+## 4. 不进入 `/model` 菜单也可以使用
+
+这是最容易误解的地方。
+
+Relay Switch 早期已经能支持第三方模型，因为 Codex 可以直接把某个模型名作为请求里的 `model` 发给 Relay Switch。只要 Relay Switch 当前启用的 Provider 或 Local Gateway 能识别这个模型 ID，请求就可以正常转发。
+
+例如你已经在 Relay Switch 后面配置好了 `deepseek-chat`，可以直接启动：
+
+```bash
+codex -m deepseek-chat
+```
+
+也可以在 `~/.codex/config.toml` 顶层设置默认模型：
+
+```toml
+model = "deepseek-chat"
+```
+
+然后直接启动：
+
+```bash
+codex
+```
+
+这种方式的特点是：
+
+1. 可以使用第三方模型。
+2. 不依赖 Codex 的 `/model` 菜单。
+3. 需要你自己记住准确的模型 ID。
+4. 如果要切换模型，需要重新指定 `-m` 或修改配置里的 `model`。
+
+所以，之前第三方模型并不是不能用，只是体验不完整：用户需要手动输入模型名，而不是在 `/model` 菜单里直接选择。
+
+## 5. 让第三方模型出现在 `/model` 菜单里
+
+如果你希望 Codex 的 `/model` 菜单显示第三方模型，需要在 Relay Switch 里启用 Codex 模型目录功能。
+
+操作流程：
+
+1. 打开 `Providers` 页面。
+2. 选择当前要给 Codex 使用的 Provider。
+3. 进入 `模型映射` 区域。
+4. 切换到 `Codex 模型列表`。
+5. 打开 `启用第三方模型`。
+6. 按需打开 `隐藏官方大模型`。
+7. 添加你希望显示到 `/model` 菜单里的模型名。
+
+示例模型名：
 
 ```text
 deepseek-chat
 deepseek-reasoner
 qwen3-coder
+glm-4.5
 MiniMax-M2.7
 ```
 
 这里填写的模型名应该和上游实际支持的模型 ID 一致。
 
-如果你启用的是 Local Gateway，也要确保这些模型已经在 Models 页面对应 source 中配置并同步。
+如果你启用的是普通中转 API Provider，这些模型名应该存在于该中转 API 的模型列表里。
 
-## 4. 同步 Codex 配置
+如果你启用的是 `Local Gateway`，这些模型名应该已经在 `Models` 页面对应 source 中配置并同步。
 
-打开 Tools 页面，找到 Codex CLI。
-
-执行 Codex 配置或同步操作。
-
-Relay Switch 会生成以下内容：
+启用后，Relay Switch 会维护这些文件：
 
 ```text
-~/.codex/relay-switch.config.toml
+~/.codex/relay-switch-models.json
 ~/.codex/relay-switch-model-catalog.json
 ```
 
-其中：
+同时会在 `~/.codex/config.toml` 中写入模型目录配置：
 
-1. `relay-switch.config.toml` 是 Relay Switch 专用的 Codex profile。
-2. `relay-switch-model-catalog.json` 是 Codex 的模型目录文件。
-
-这份模型目录会让 Codex 的 `/model` 菜单显示你在 Relay Switch 中配置的第三方模型。
-
-## 5. 启动 Codex
-
-配置完成后，使用 Relay Switch profile 启动 Codex：
-
-```bash
-codex -p relay-switch
+```toml
+model_catalog_json = "/path/to/.codex/relay-switch-model-catalog.json"
 ```
 
-如果你在 Tools 页面安装了快捷命令，也可以使用：
+如果当前 Provider 的 Codex 模型列表里有启用的模型，Relay Switch 还会把第一个启用模型同步为 Codex 的默认 `model`。
+
+## 6. 启动并切换模型
+
+完成配置后，启动 Codex：
 
 ```bash
-codex-rs
+codex
 ```
 
-进入 Codex 后，输入：
+进入 Codex 后输入：
 
 ```text
 /model
 ```
 
-你应该可以在模型菜单中看到 Relay Switch 注入的第三方模型。
+你应该可以在菜单里看到 Relay Switch 注入的第三方模型。选择模型后，Codex 会继续请求 Relay Switch 本地网关，Relay Switch 再转发到当前启用的 Provider 或 Local Gateway。
 
-选择模型后，Codex 的请求会进入 Relay Switch 本地网关，再转发到当前启用的 Provider 或 Local Gateway。
+如果你刚刚修改过 Codex 模型列表，建议重启 Codex。Codex 通常不会在运行中自动刷新模型目录。
 
-## 6. DeepSeek 使用建议
+## 7. DeepSeek 配置建议
 
-如果你要使用 DeepSeek，推荐走 Local Gateway。
+如果你要使用 DeepSeek，推荐优先走 Local Gateway。
 
-原因是 Codex 当前主要使用 OpenAI Responses API 风格请求，而 DeepSeek 官方 OpenAI-compatible 接口主要是 Chat Completions 风格。
-
-Local Gateway 会负责做必要的协议适配。
+原因是 Codex 当前更适合连接 OpenAI Responses API 风格的入口，而 DeepSeek 官方 OpenAI-compatible 接口主要是 Chat Completions 风格。Local Gateway 可以在本地负责必要的协议适配。
 
 推荐配置：
 
@@ -158,89 +235,88 @@ Models 页面:
   Base URL: https://api.deepseek.com
   Model IDs: deepseek-chat, deepseek-reasoner
 
-Provider 页面:
+Providers 页面:
   启用 Local Gateway
   Codex 模型列表添加 deepseek-chat / deepseek-reasoner
+  打开启用第三方模型
 ```
 
-配置后同步 Codex，再使用：
+配置后重启 Codex，在 `/model` 菜单里选择 DeepSeek 模型即可。
+
+如果只是临时测试，也可以跳过菜单配置，直接运行：
 
 ```bash
-codex -p relay-switch
+codex -m deepseek-chat
 ```
 
-然后通过 `/model` 选择 DeepSeek 模型。
+## 8. 常见问题
 
-## 7. 常见问题
-
-### 模型没有出现在 /model 菜单里
+### `/model` 菜单里没有第三方模型
 
 先检查：
 
-1. Provider 页面是否已经添加 Codex 模型列表。
-2. 是否执行过 Codex 配置或同步。
-3. 是否用 `codex -p relay-switch` 或 `codex-rs` 启动。
-4. 修改模型列表后是否重启了 Codex。
+1. `Providers` 页面当前启用的 Provider 是否正确。
+2. 该 Provider 的 `Codex 模型列表` 是否添加了模型名。
+3. `启用第三方模型` 是否已经打开。
+4. 模型名是否处于启用状态，且不是空值。
+5. 修改模型列表后是否重启了 Codex。
 
-Codex 通常不会在运行中自动刷新模型目录。新增或删除模型后，建议重启 Codex。
+模型列表更新后，需要重启 Codex 才能刷新菜单。
 
-### 模型出现在菜单里，但请求失败
+### 菜单里有模型，但请求失败
 
 先检查：
 
-1. 当前启用的 Provider 是否支持该模型。
+1. 当前启用的 Provider 或 Local Gateway 是否真的支持该模型 ID。
 2. API Key 是否正确。
 3. Base URL 是否正确。
-4. 如果走 Local Gateway，Models 页面是否已经同步。
-5. Logs 页面里上游返回的错误是什么。
+4. 如果走 Local Gateway，`Models` 页面是否已经同步。
+5. Relay Switch 的 `Logs` 页面里上游返回了什么错误。
 
 模型出现在 `/model` 菜单里，只代表 Codex 能选择它，不代表上游一定能成功响应。
 
-### 使用 DeepSeek 时没有响应或返回协议错误
+### 直接 `codex -m xxx` 能用，但 `/model` 菜单看不到
 
-优先确认：
+这说明请求转发链路是通的，问题只在模型目录配置。
 
-1. Relay Switch 是否已集成支持 DeepSeek 的 ai-mini-gateway runtime 版本。
-2. Local Gateway 是否运行正常。
-3. DeepSeek source 是否已启用并同步。
-4. Provider 页面当前是否启用了 Local Gateway。
-5. Codex 模型列表里的模型名是否和 DeepSeek source 暴露的模型 ID 一致。
+重点检查：
+
+1. `启用第三方模型` 是否打开。
+2. `Codex 模型列表` 是否添加了同一个模型名。
+3. `~/.codex/config.toml` 里是否存在 `model_catalog_json`。
+4. 修改后是否重启 Codex。
+
+### `/model` 菜单里只想显示第三方模型
+
+在 `Providers` 页面进入当前 Provider 的 `Codex 模型列表`，打开 `隐藏官方大模型`。
+
+这样 Relay Switch 会保留模型目录文件，但把官方模型条目标记为隐藏，只把你配置的第三方模型展示出来。
 
 ### 不想影响原来的 Codex 配置怎么办
 
-Relay Switch 使用独立 profile。
+Relay Switch 一键配置会修改 `~/.codex/config.toml` 和 `~/.codex/auth.json`，并在操作前创建备份。
 
-默认 Codex 配置不会被直接替换。
-
-你可以继续使用：
+如果你只是临时测试，可以优先使用环境变量方式：
 
 ```bash
-codex
+export OPENAI_BASE_URL="http://127.0.0.1:3456/v1"
+export OPENAI_API_KEY="dummy"
+codex -m deepseek-chat
 ```
 
-也可以在需要 Relay Switch 第三方模型环境时使用：
+如果已经使用了一键配置，也可以在 `Tools` 页面恢复最近一次备份。
 
-```bash
-codex -p relay-switch
-```
-
-或者：
-
-```bash
-codex-rs
-```
-
-## 8. 推荐使用流程
+## 9. 推荐流程
 
 最常见的完整流程是：
 
-1. 在 Provider 页面添加中转 API，或在 Models 页面添加原生模型来源。
-2. 启用对应 Provider，或启用 Local Gateway。
-3. 在 Provider 页面添加 Codex 模型列表。
-4. 在 Tools 页面同步 Codex 配置。
-5. 使用 `codex -p relay-switch` 或 `codex-rs` 启动 Codex。
-6. 在 Codex 中输入 `/model` 选择第三方模型。
-7. 在 Relay Switch Logs 页面查看请求和错误。
+1. 在 `Providers` 页面添加中转 API，或在 `Models` 页面添加原生模型来源。
+2. 启用对应 Provider，或启用 `Local Gateway`。
+3. 在 `Tools` 页面把 Codex CLI 配置到 Relay Switch 本地入口。
+4. 先用 `codex -m 模型名` 验证第三方模型能否正常响应。
+5. 在当前 Provider 的 `Codex 模型列表` 添加这些模型名。
+6. 打开 `启用第三方模型`，按需打开 `隐藏官方大模型`。
+7. 重启 Codex，输入 `/model`，从菜单中选择第三方模型。
+8. 如果请求失败，到 Relay Switch 的 `Logs` 页面查看上游错误。
 
-这样你可以把模型和 Provider 管理留在 Relay Switch 里，把 Codex 当成稳定的编码入口使用。
-
+这样可以把模型来源、Provider 切换和错误排查都留在 Relay Switch 里，让 Codex 只负责作为稳定的编码入口。
