@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const codexExperimentalBearerTokenKey = "experimental_bearer_token"
+
 func codexConfigPath() string {
 	return filepath.Join(currentRuntime().HomeDir, ".codex", "config.toml")
 }
@@ -136,11 +138,14 @@ func isCodexConfigured(apiPort int) (bool, error) {
 	if err := json.Unmarshal([]byte(authContent), &auth); err != nil {
 		auth = map[string]any{}
 	}
+	openAIAPIKey, hasOpenAIAPIKey := auth["OPENAI_API_KEY"]
 
 	return topLevelProvider == "OpenAI" &&
+		readTopLevelTomlValue(content, codexExperimentalBearerTokenKey) == "dummy" &&
 		strings.Contains(content, "[model_providers.OpenAI]") &&
 		strings.Contains(content, `base_url = "http://127.0.0.1:`+intToString(apiPort)+`/v1"`) &&
-		auth["OPENAI_API_KEY"] == "dummy", nil
+		hasOpenAIAPIKey &&
+		openAIAPIKey == nil, nil
 }
 
 func buildCodexConfig(existingContent string, apiPort int) string {
@@ -241,7 +246,8 @@ func buildCodexConfig(existingContent string, apiPort int) string {
 		}
 	}
 
-	return strings.TrimRight(strings.Join(nextLines, "\n"), "\n\r\t ") + "\n"
+	nextContent := strings.TrimRight(strings.Join(nextLines, "\n"), "\n\r\t ") + "\n"
+	return setTopLevelTomlString(nextContent, codexExperimentalBearerTokenKey, "dummy")
 }
 
 func buildCodexAuth(existingContent string) string {
@@ -249,7 +255,7 @@ func buildCodexAuth(existingContent string) string {
 	if strings.TrimSpace(existingContent) != "" {
 		_ = json.Unmarshal([]byte(existingContent), &auth)
 	}
-	auth["OPENAI_API_KEY"] = "dummy"
+	auth["OPENAI_API_KEY"] = nil
 	content, _ := json.MarshalIndent(auth, "", "  ")
 	return string(content) + "\n"
 }
