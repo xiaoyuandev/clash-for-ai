@@ -239,6 +239,80 @@ ON local_gateway_selected_models (position ASC, model_id ASC);`
 		return fmt.Errorf("migrate local_gateway_selected_models index: %w", err)
 	}
 
+	const pluginsTable = `
+CREATE TABLE IF NOT EXISTS plugins (
+	id TEXT PRIMARY KEY,
+	version TEXT NOT NULL,
+	manifest_path TEXT NOT NULL,
+	scope TEXT NOT NULL,
+	enabled INTEGER NOT NULL DEFAULT 0,
+	status TEXT NOT NULL DEFAULT 'installed',
+	last_error TEXT,
+	manifest_json TEXT NOT NULL,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);`
+
+	if _, err := s.DB.Exec(pluginsTable); err != nil {
+		return fmt.Errorf("migrate plugins table: %w", err)
+	}
+
+	const pluginSettingsTable = `
+CREATE TABLE IF NOT EXISTS plugin_settings (
+	plugin_id TEXT NOT NULL,
+	key TEXT NOT NULL,
+	value_json TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	PRIMARY KEY (plugin_id, key)
+);`
+
+	if _, err := s.DB.Exec(pluginSettingsTable); err != nil {
+		return fmt.Errorf("migrate plugin_settings table: %w", err)
+	}
+
+	const pluginGrantsTable = `
+CREATE TABLE IF NOT EXISTS plugin_grants (
+	plugin_id TEXT NOT NULL,
+	capability TEXT NOT NULL,
+	approval_mode TEXT NOT NULL,
+	scope_json TEXT NOT NULL DEFAULT '{}',
+	updated_at TEXT NOT NULL,
+	PRIMARY KEY (plugin_id, capability)
+);`
+
+	if _, err := s.DB.Exec(pluginGrantsTable); err != nil {
+		return fmt.Errorf("migrate plugin_grants table: %w", err)
+	}
+
+	const pluginAuditLogsTable = `
+CREATE TABLE IF NOT EXISTS plugin_audit_logs (
+	id TEXT PRIMARY KEY,
+	timestamp TEXT NOT NULL,
+	plugin_id TEXT NOT NULL,
+	plugin_version TEXT NOT NULL,
+	capability TEXT NOT NULL,
+	action TEXT NOT NULL,
+	resource_type TEXT,
+	resource_id TEXT,
+	status TEXT NOT NULL,
+	latency_ms INTEGER,
+	approval_source TEXT,
+	error_message TEXT,
+	metadata_json TEXT
+);`
+
+	if _, err := s.DB.Exec(pluginAuditLogsTable); err != nil {
+		return fmt.Errorf("migrate plugin_audit_logs table: %w", err)
+	}
+
+	const pluginAuditLogsIndex = `
+CREATE INDEX IF NOT EXISTS idx_plugin_audit_logs_timestamp
+ON plugin_audit_logs (timestamp DESC);`
+
+	if _, err := s.DB.Exec(pluginAuditLogsIndex); err != nil {
+		return fmt.Errorf("migrate plugin_audit_logs timestamp index: %w", err)
+	}
+
 	return nil
 }
 

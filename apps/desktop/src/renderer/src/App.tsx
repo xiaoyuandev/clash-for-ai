@@ -9,6 +9,7 @@ import {
 import { getModelPresets } from "./services/model-presets";
 import { LogsPage } from "./pages/logs-page";
 import { ModelsPage } from "./pages/models-page";
+import { PluginsPage } from "./pages/plugins-page";
 import { ProvidersPage } from "./pages/providers-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
@@ -225,7 +226,7 @@ export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [view, setView] = useState<"providers" | "tools" | "models" | "logs" | "settings">(
+  const [view, setView] = useState<"providers" | "tools" | "models" | "plugins" | "logs" | "settings">(
     "providers"
   );
   const [bootError, setBootError] = useState<string | null>(null);
@@ -268,6 +269,15 @@ export default function App() {
       icon: (
         <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+        </svg>
+      )
+    },
+    {
+      id: "plugins",
+      label: t("app.nav.plugins"),
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 3h8v5h5v8h-5v5H8v-5H3V8h5zm2 2v5H5v4h5v5h4v-5h5v-4h-5V5z" />
         </svg>
       )
     },
@@ -885,6 +895,8 @@ export default function App() {
                 await window.desktopBridge.copyText(text);
               }}
             />
+          ) : view === "plugins" ? (
+            <PluginsPage apiBase={desktopState?.apiBase} />
           ) : view === "logs" ? (
             <LogsPage apiBase={desktopState?.apiBase} />
           ) : (

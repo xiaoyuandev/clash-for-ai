@@ -11,6 +11,7 @@ import (
 	"github.com/xiaoyuandev/relay-switch/core/internal/api"
 	"github.com/xiaoyuandev/relay-switch/core/internal/config"
 	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/extension"
 	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
@@ -39,10 +40,17 @@ func Run() error {
 	}
 
 	providerRepository := provider.NewSQLiteRepository(sqliteStore.DB)
+	extensionRepository := extension.NewSQLiteRepository(sqliteStore.DB)
 	localGatewayRepository := localgateway.NewSQLiteRepository(sqliteStore.DB)
 	logRepository := logging.NewSQLiteRepository(sqliteStore.DB)
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
+	extensionService := extension.NewService(extensionRepository, []extension.ScanSource{
+		{
+			Scope: extension.PluginScopeUser,
+			Dir:   filepath.Join(cfg.DataDir, "extensions"),
+		},
+	})
 	localGatewayService := localgateway.NewService(localGatewayRepository, credentialStore)
 	localGatewayAdapter := localgateway.NewAdapter(cfg.LocalGatewayRuntimeKind, nil)
 	localGatewayManager := localgateway.NewManager(localGatewayService, localGatewayAdapter, localgateway.RuntimeConfig{
@@ -83,6 +91,9 @@ func Run() error {
 	}
 
 	toolingService.BootstrapCodexModelCatalog(context.Background())
+	if _, err := extensionService.Scan(context.Background()); err != nil {
+		log.Printf("[extensions] bootstrap scan failed: %v", err)
+	}
 
 	handler := api.NewRouter(
 		providerService,
@@ -90,6 +101,7 @@ func Run() error {
 		logService,
 		localGatewayManager,
 		toolingService,
+		extensionService,
 		cfg.HTTPPort,
 		cfg.WebAssetsDir,
 		gatewayHandler,

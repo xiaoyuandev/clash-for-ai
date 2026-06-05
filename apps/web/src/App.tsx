@@ -7,6 +7,7 @@ import { ModelsPage } from "./pages/models-page";
 import { LogsPage } from "./pages/logs-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
+import { PluginsPage } from "./pages/plugins-page";
 import { ToastRegion, type ToastItem } from "./components/toast-region";
 import {
   getHealth,
@@ -76,6 +77,7 @@ export default function App() {
       { id: "providers", path: "/providers", label: t("app.nav.providers") },
       { id: "models", path: "/models", label: t("app.nav.models") },
       { id: "tools", path: "/tools", label: t("app.nav.tools") },
+      { id: "plugins", path: "/plugins", label: t("app.nav.plugins") },
       { id: "logs", path: "/logs", label: t("app.nav.logs") },
       { id: "settings", path: "/settings", label: t("app.nav.settings") },
     ],
@@ -336,6 +338,7 @@ export default function App() {
                 }
               />
               <Route path="/models" element={<ModelsPage />} />
+              <Route path="/plugins" element={<PluginsPage />} />
               <Route path="/logs" element={<LogsPage />} />
               <Route
                 path="/settings"

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/xiaoyuandev/relay-switch/core/internal/extension"
 	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
@@ -22,14 +23,15 @@ import (
 )
 
 type Router struct {
-	providers *provider.Service
-	health    *health.Service
-	logs      *logging.Service
-	local     *localgateway.Manager
-	tools     *tooling.Service
-	httpPort  int
-	webDir    string
-	gateway   http.Handler
+	providers  *provider.Service
+	health     *health.Service
+	logs       *logging.Service
+	local      *localgateway.Manager
+	tools      *tooling.Service
+	extensions *extension.Service
+	httpPort   int
+	webDir     string
+	gateway    http.Handler
 }
 
 func NewRouter(
@@ -38,19 +40,21 @@ func NewRouter(
 	loggingService *logging.Service,
 	localGatewayManager *localgateway.Manager,
 	toolingService *tooling.Service,
+	extensionService *extension.Service,
 	httpPort int,
 	webAssetsDir string,
 	gatewayHandler *gateway.Handler,
 ) http.Handler {
 	router := &Router{
-		providers: providers,
-		health:    healthService,
-		logs:      loggingService,
-		local:     localGatewayManager,
-		tools:     toolingService,
-		httpPort:  httpPort,
-		webDir:    webAssetsDir,
-		gateway:   gatewayHandler,
+		providers:  providers,
+		health:     healthService,
+		logs:       loggingService,
+		local:      localGatewayManager,
+		tools:      toolingService,
+		extensions: extensionService,
+		httpPort:   httpPort,
+		webDir:     webAssetsDir,
+		gateway:    gatewayHandler,
 	}
 
 	mux := http.NewServeMux()
@@ -61,6 +65,9 @@ func NewRouter(
 	mux.HandleFunc("/api/tools", router.handleTools)
 	mux.HandleFunc("/api/tools/codex-model-catalog", router.handleCodexModelCatalog)
 	mux.HandleFunc("/api/tools/", router.handleToolActions)
+	mux.HandleFunc("/api/extensions", router.handleExtensions)
+	mux.HandleFunc("/api/extensions/rescan", router.handleExtensionRescan)
+	mux.HandleFunc("/api/extensions/", router.handleExtensionActions)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
 	mux.HandleFunc("/api/local-gateway/capabilities", router.handleLocalGatewayCapabilities)
 	mux.HandleFunc("/api/local-gateway/source-capabilities", router.handleLocalGatewaySourceCapabilities)
@@ -340,6 +347,86 @@ func (r *Router) handleToolActions(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, state)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleExtensions(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.Plugin{})
+		return
+	}
+
+	items, err := r.extensions.List(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list extensions", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionRescan(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	items, err := r.extensions.Scan(req.Context())
+	if err != nil {
+		http.Error(w, "failed to rescan extensions", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionActions(w http.ResponseWriter, req *http.Request) {
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	path := strings.TrimPrefix(req.URL.Path, "/api/extensions/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		http.Error(w, "extension id is required", http.StatusNotFound)
+		return
+	}
+
+	switch {
+	case len(parts) == 1 && req.Method == http.MethodGet:
+		item, err := r.extensions.GetByID(req.Context(), parts[0])
+		if err != nil {
+			if errors.Is(err, extension.ErrPluginNotFound) {
+				http.Error(w, "extension not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "failed to get extension", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "enable" && req.Method == http.MethodPost:
+		item, err := r.extensions.Enable(req.Context(), parts[0])
+		if err != nil {
+			writeExtensionActionError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case len(parts) == 2 && parts[1] == "disable" && req.Method == http.MethodPost:
+		item, err := r.extensions.Disable(req.Context(), parts[0])
+		if err != nil {
+			writeExtensionActionError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -787,6 +874,14 @@ func writeLocalGatewayError(w http.ResponseWriter, statusCode int, message strin
 		"error":   "local_gateway_error",
 		"message": message,
 	})
+}
+
+func writeExtensionActionError(w http.ResponseWriter, err error) {
+	if errors.Is(err, extension.ErrPluginNotFound) {
+		http.Error(w, "extension not found", http.StatusNotFound)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusConflict)
 }
 
 func writeLocalGatewayManagerError(w http.ResponseWriter, err error) {

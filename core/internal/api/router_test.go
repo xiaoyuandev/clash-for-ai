@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
+	"github.com/xiaoyuandev/relay-switch/core/internal/extension"
 	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
@@ -136,6 +137,91 @@ func TestLogsEndpointCanClearLocalLogs(t *testing.T) {
 	}
 	if len(after) != 0 {
 		t.Fatalf("expected no logs after clear, got %d", len(after))
+	}
+}
+
+func TestExtensionEndpointsScanListGetAndToggle(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(t.TempDir(), "extensions")
+	writeRouterExtensionManifest(t, root, "relay-switch.api-test", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.api-test",
+		"name": "API Test Extension",
+		"version": "0.1.0",
+		"description": "Exercises extension API endpoints.",
+		"publisher": "relay-switch",
+		"entry": {"type": "none"},
+		"contributes": {"settings": [{"id": "apiTest.enabled"}]},
+		"permissions": []
+	}`)
+	handler := newTestRouterWithExtensionRoot(t, root)
+
+	rescanReq := httptest.NewRequest(http.MethodPost, "/api/extensions/rescan", nil)
+	rescanRec := httptest.NewRecorder()
+	handler.ServeHTTP(rescanRec, rescanReq)
+	if rescanRec.Code != http.StatusOK {
+		t.Fatalf("unexpected rescan status: %d body=%s", rescanRec.Code, rescanRec.Body.String())
+	}
+
+	var rescanned []extension.Plugin
+	if err := json.Unmarshal(rescanRec.Body.Bytes(), &rescanned); err != nil {
+		t.Fatalf("decode rescan payload: %v", err)
+	}
+	if len(rescanned) != 1 || rescanned[0].ID != "relay-switch.api-test" {
+		t.Fatalf("unexpected rescan payload: %+v", rescanned)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/extensions", nil)
+	listRec := httptest.NewRecorder()
+	handler.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("unexpected list status: %d body=%s", listRec.Code, listRec.Body.String())
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/extensions/relay-switch.api-test", nil)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("unexpected get status: %d body=%s", getRec.Code, getRec.Body.String())
+	}
+	var detail extension.Plugin
+	if err := json.Unmarshal(getRec.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("decode detail payload: %v", err)
+	}
+	if detail.Name != "API Test Extension" || detail.Contributes["settings"] != 1 {
+		t.Fatalf("unexpected detail payload: %+v", detail)
+	}
+	if detail.Permissions == nil {
+		t.Fatalf("expected permissions to decode from an empty JSON array")
+	}
+
+	enableReq := httptest.NewRequest(http.MethodPost, "/api/extensions/relay-switch.api-test/enable", nil)
+	enableRec := httptest.NewRecorder()
+	handler.ServeHTTP(enableRec, enableReq)
+	if enableRec.Code != http.StatusOK {
+		t.Fatalf("unexpected enable status: %d body=%s", enableRec.Code, enableRec.Body.String())
+	}
+	var enabled extension.Plugin
+	if err := json.Unmarshal(enableRec.Body.Bytes(), &enabled); err != nil {
+		t.Fatalf("decode enabled payload: %v", err)
+	}
+	if !enabled.Enabled || enabled.Status != extension.PluginStatusEnabled {
+		t.Fatalf("unexpected enabled payload: %+v", enabled)
+	}
+
+	disableReq := httptest.NewRequest(http.MethodPost, "/api/extensions/relay-switch.api-test/disable", nil)
+	disableRec := httptest.NewRecorder()
+	handler.ServeHTTP(disableRec, disableReq)
+	if disableRec.Code != http.StatusOK {
+		t.Fatalf("unexpected disable status: %d body=%s", disableRec.Code, disableRec.Body.String())
+	}
+	var disabled extension.Plugin
+	if err := json.Unmarshal(disableRec.Body.Bytes(), &disabled); err != nil {
+		t.Fatalf("decode disabled payload: %v", err)
+	}
+	if disabled.Enabled || disabled.Status != extension.PluginStatusDisabled {
+		t.Fatalf("unexpected disabled payload: %+v", disabled)
 	}
 }
 
@@ -566,7 +652,8 @@ func TestManagedLocalGatewayProviderActivationRequiresHealthyRuntime(t *testing.
 		t.Fatalf("ensure managed local gateway: %v", err)
 	}
 
-	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService, t.TempDir()), 3456, "", gatewayHandler)
+	extensionService := extension.NewService(extension.NewSQLiteRepository(sqliteStore.DB), []extension.ScanSource{})
+	handler := NewRouter(providerService, healthService, nil, manager, tooling.NewService(providerService, t.TempDir()), extensionService, 3456, "", gatewayHandler)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/providers/provider-local-gateway/activate", nil)
 	rec := httptest.NewRecorder()
@@ -701,7 +788,52 @@ func newTestRouterWithLogs(t *testing.T, adapter localgateway.GatewayAdapter, ru
 	}
 	manager := localgateway.NewManager(localService, adapter, runtime)
 
-	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService, t.TempDir()), 3456, "", gatewayHandler), loggingService
+	extensionService := extension.NewService(extension.NewSQLiteRepository(sqliteStore.DB), []extension.ScanSource{})
+	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService, t.TempDir()), extensionService, 3456, "", gatewayHandler), loggingService
+}
+
+func newTestRouterWithExtensionRoot(t *testing.T, root string) http.Handler {
+	t.Helper()
+
+	sqliteStore, err := storage.NewSQLite(filepath.Join(t.TempDir(), "router.db"))
+	if err != nil {
+		t.Fatalf("create sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = sqliteStore.Close() })
+
+	credentialStore := credential.NewInMemoryStore()
+	providerService := provider.NewService(provider.NewInMemoryRepository(), credentialStore)
+	healthService := health.NewService(providerService, credentialStore)
+	loggingService := logging.NewService(logging.NewSQLiteRepository(sqliteStore.DB), 7, 1000)
+	gatewayHandler := gateway.NewHandler(providerService, credentialStore, loggingService)
+	localService := localgateway.NewService(localgateway.NewSQLiteRepository(sqliteStore.DB), credentialStore)
+	manager := localgateway.NewManager(localService, &localgatewaySpyAdapter{
+		mockGatewayAdapter: mockGatewayAdapter{},
+	}, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+	extensionService := extension.NewService(extension.NewSQLiteRepository(sqliteStore.DB), []extension.ScanSource{
+		{
+			Scope: extension.PluginScopeUser,
+			Dir:   root,
+		},
+	})
+
+	return NewRouter(providerService, healthService, loggingService, manager, tooling.NewService(providerService, t.TempDir()), extensionService, 3456, "", gatewayHandler)
+}
+
+func writeRouterExtensionManifest(t *testing.T, root string, pluginDir string, content string) {
+	t.Helper()
+
+	dir := filepath.Join(root, pluginDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create extension dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, extension.ManifestFileName), []byte(content), 0o644); err != nil {
+		t.Fatalf("write extension manifest: %v", err)
+	}
 }
 
 type localgatewaySpyAdapter struct {
