@@ -266,6 +266,7 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 		t.Fatalf("enable should write relay catalog: %s", codexRelaySwitchCatalogPath())
 	}
 
+	writeTestText(t, codexConfigPath(), setTopLevelTomlString(readTestText(t, codexConfigPath()), codexDefaultModelKey, "qwen-plus"))
 	state, err = service.SetCodexModelCatalogEnabled(context.Background(), false)
 	if err != nil {
 		t.Fatalf("disable catalog: %v", err)
@@ -276,11 +277,67 @@ func TestCodexModelCatalogStateFollowsConfig(t *testing.T) {
 	if strings.Contains(readTestText(t, codexConfigPath()), `model_catalog_json = `) {
 		t.Fatalf("config should remove model_catalog_json:\n%s", readTestText(t, codexConfigPath()))
 	}
+	if readTopLevelTomlValue(readTestText(t, codexConfigPath()), codexDefaultModelKey) != "" {
+		t.Fatalf("config should remove default model:\n%s", readTestText(t, codexConfigPath()))
+	}
 	if !fileExists(codexRelaySwitchModelsPath()) {
 		t.Fatalf("disable should keep relay models: %s", codexRelaySwitchModelsPath())
 	}
 	if !fileExists(codexRelaySwitchCatalogPath()) {
 		t.Fatalf("disable should keep relay catalog: %s", codexRelaySwitchCatalogPath())
+	}
+}
+
+func TestCodexModelCatalogDefaultModelFollowsActiveProviderSlots(t *testing.T) {
+	service, providerService := newCodexCatalogTestService(t)
+	ctx := context.Background()
+
+	item, err := providerService.Create(ctx, provider.CreateInput{
+		Name:    "Third Party",
+		BaseURL: "https://api.example.com/v1",
+		APIKey:  "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if _, err := providerService.Activate(ctx, item.ID); err != nil {
+		t.Fatalf("activate provider: %v", err)
+	}
+	if _, err := providerService.ReplaceCodexModels(ctx, item.ID, []provider.CodexModel{
+		{ModelID: "qwen-plus", DisplayName: "Qwen Plus", Enabled: true},
+		{ModelID: "deepseek-chat", DisplayName: "DeepSeek Chat", Enabled: true},
+	}); err != nil {
+		t.Fatalf("replace initial codex models: %v", err)
+	}
+
+	if _, err := service.SetCodexModelCatalogEnabled(ctx, true); err != nil {
+		t.Fatalf("enable codex catalog: %v", err)
+	}
+	if model := readTopLevelTomlValue(readTestText(t, codexConfigPath()), codexDefaultModelKey); model != "qwen-plus" {
+		t.Fatalf("expected first slot as default model, got %q:\n%s", model, readTestText(t, codexConfigPath()))
+	}
+
+	if _, err := providerService.ReplaceCodexModels(ctx, item.ID, []provider.CodexModel{
+		{ModelID: "deepseek-reasoner", DisplayName: "DeepSeek Reasoner", Enabled: true},
+		{ModelID: "qwen-plus", DisplayName: "Qwen Plus", Enabled: true},
+	}); err != nil {
+		t.Fatalf("replace reordered codex models: %v", err)
+	}
+	if err := service.SyncCodexModelCatalog(ctx); err != nil {
+		t.Fatalf("sync codex catalog after reorder: %v", err)
+	}
+	if model := readTopLevelTomlValue(readTestText(t, codexConfigPath()), codexDefaultModelKey); model != "deepseek-reasoner" {
+		t.Fatalf("expected updated first slot as default model, got %q:\n%s", model, readTestText(t, codexConfigPath()))
+	}
+
+	if _, err := providerService.ReplaceCodexModels(ctx, item.ID, []provider.CodexModel{}); err != nil {
+		t.Fatalf("clear codex models: %v", err)
+	}
+	if err := service.SyncCodexModelCatalog(ctx); err != nil {
+		t.Fatalf("sync codex catalog after clear: %v", err)
+	}
+	if model := readTopLevelTomlValue(readTestText(t, codexConfigPath()), codexDefaultModelKey); model != "" {
+		t.Fatalf("expected empty slots to remove default model, got %q:\n%s", model, readTestText(t, codexConfigPath()))
 	}
 }
 

@@ -22,6 +22,8 @@ const (
 	codexDefaultModelsCacheFilename = "codex-models.json"
 	codexRelaySwitchModelsFilename  = "relay-switch-models.json"
 	codexRelaySwitchCatalogFilename = "relay-switch-model-catalog.json"
+	codexModelCatalogKey            = "model_catalog_json"
+	codexDefaultModelKey            = "model"
 	codexHideOfficialModelsKey      = "relay_switch_hide_official_models"
 	defaultCodexContextWindow       = 128000
 )
@@ -111,7 +113,10 @@ func (s *Service) SyncCodexModelCatalog(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.syncCodexModelCatalog(ctx, hideOfficialModels)
+	if err := s.syncCodexModelCatalog(ctx, hideOfficialModels); err != nil {
+		return err
+	}
+	return s.syncCodexDefaultModel(ctx)
 }
 
 func (s *Service) syncCodexModelCatalog(ctx context.Context, hideOfficialModels bool) error {
@@ -156,7 +161,7 @@ func (s *Service) GetCodexModelCatalogState() (CodexModelCatalogState, error) {
 
 	catalogPath := codexRelaySwitchCatalogPath()
 	return CodexModelCatalogState{
-		Enabled:            readTopLevelTomlValue(content, "model_catalog_json") == catalogPath,
+		Enabled:            readTopLevelTomlValue(content, codexModelCatalogKey) == catalogPath,
 		CatalogPath:        catalogPath,
 		HideOfficialModels: readTopLevelTomlBool(content, codexHideOfficialModelsKey),
 	}, nil
@@ -191,9 +196,22 @@ func (s *Service) UpdateCodexModelCatalogState(ctx context.Context, enabled *boo
 	}
 
 	if enabled != nil {
-		nextContent = removeTopLevelTomlKey(nextContent, "model_catalog_json")
+		nextContent = removeTopLevelTomlKey(nextContent, codexModelCatalogKey)
 		if *enabled {
-			nextContent = setTopLevelTomlString(nextContent, "model_catalog_json", codexRelaySwitchCatalogPath())
+			nextContent = setTopLevelTomlString(nextContent, codexModelCatalogKey, codexRelaySwitchCatalogPath())
+			var syncErr error
+			nextContent, syncErr = s.codexContentWithDefaultModel(ctx, nextContent)
+			if syncErr != nil {
+				return CodexModelCatalogState{}, syncErr
+			}
+		} else {
+			nextContent = removeTopLevelTomlKey(nextContent, codexDefaultModelKey)
+		}
+	} else if readTopLevelTomlValue(nextContent, codexModelCatalogKey) == codexRelaySwitchCatalogPath() {
+		var syncErr error
+		nextContent, syncErr = s.codexContentWithDefaultModel(ctx, nextContent)
+		if syncErr != nil {
+			return CodexModelCatalogState{}, syncErr
 		}
 	}
 
@@ -207,6 +225,43 @@ func (s *Service) UpdateCodexModelCatalogState(ctx context.Context, enabled *boo
 	}
 
 	return s.GetCodexModelCatalogState()
+}
+
+func (s *Service) syncCodexDefaultModel(ctx context.Context) error {
+	content, err := readOptionalText(codexConfigPath())
+	if err != nil {
+		return err
+	}
+	if readTopLevelTomlValue(content, codexModelCatalogKey) != codexRelaySwitchCatalogPath() {
+		return nil
+	}
+
+	nextContent, err := s.codexContentWithDefaultModel(ctx, content)
+	if err != nil {
+		return err
+	}
+	if nextContent == content {
+		return nil
+	}
+
+	if err := ensureDir(codexConfigPath()); err != nil {
+		return err
+	}
+	if err := os.WriteFile(codexConfigPath(), []byte(nextContent), 0o644); err != nil {
+		return fmt.Errorf("write codex config default model: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) codexContentWithDefaultModel(ctx context.Context, content string) (string, error) {
+	modelID, err := s.firstActiveCodexModelID(ctx)
+	if err != nil {
+		return "", err
+	}
+	if modelID == "" {
+		return removeTopLevelTomlKey(content, codexDefaultModelKey), nil
+	}
+	return setTopLevelTomlString(content, codexDefaultModelKey, modelID), nil
 }
 
 func (s *Service) codexHideOfficialModels() (bool, error) {
@@ -226,6 +281,20 @@ func (s *Service) activeCodexModels(ctx context.Context) ([]provider.CodexModel,
 		return []provider.CodexModel{}, err
 	}
 	return s.providers.ListCodexModels(ctx, active.ID)
+}
+
+func (s *Service) firstActiveCodexModelID(ctx context.Context) (string, error) {
+	activeModels, err := s.activeCodexModels(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, item := range activeModels {
+		modelID := strings.TrimSpace(item.ModelID)
+		if item.Enabled && modelID != "" {
+			return modelID, nil
+		}
+	}
+	return "", nil
 }
 
 func (s *Service) loadCodexDefaultModelsCatalog() (codexModelsCatalog, error) {
