@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -426,6 +427,129 @@ func TestServiceDeclaredProcessesRequireDeclaredExecPermission(t *testing.T) {
 	}
 }
 
+func TestServiceBundledMarkdownArchiveRegistersContributions(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
+
+	items, err := service.Scan(context.Background())
+	if err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != MarkdownArchivePluginID || items[0].Scope != PluginScopeBundled {
+		t.Fatalf("unexpected bundled plugin: %+v", items)
+	}
+	if items[0].Contributes["transcriptSources"] != 2 || items[0].Contributes["backgroundTasks"] != 1 {
+		t.Fatalf("unexpected bundled contributions: %+v", items[0].Contributes)
+	}
+
+	tasks, err := service.ListBackgroundTasks(context.Background())
+	if err != nil {
+		t.Fatalf("list background tasks: %v", err)
+	}
+	if len(tasks) != 1 || tasks[0].ID != "markdownArchive.autoSync" {
+		t.Fatalf("unexpected background tasks: %+v", tasks)
+	}
+}
+
+func TestServiceTranscriptArchiveSyncExportsMarkdownAndSkipsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
+	homeDir := t.TempDir()
+	service.homeDir = homeDir
+	outputDir := filepath.Join(t.TempDir(), "archive")
+
+	claudePath := filepath.Join(homeDir, ".claude", "projects", "relay-switch", "claude-session.jsonl")
+	writeTextFile(t, claudePath, strings.Join([]string{
+		`{"sessionId":"claude-session","type":"user","cwd":"/workspace/relay-switch","timestamp":"2026-06-05T06:32:10Z","message":{"role":"user","content":"hello sk-abcdefghijklmnop"}}`,
+		`{"sessionId":"claude-session","type":"assistant","timestamp":"2026-06-05T06:33:10Z","message":{"role":"assistant","content":"done"}}`,
+	}, "\n")+"\n")
+
+	codexPath := filepath.Join(homeDir, ".codex", "sessions", "2026", "codex-session.jsonl")
+	writeTextFile(t, codexPath, strings.Join([]string{
+		`{"session_id":"codex-session","role":"user","cwd":"/workspace/relay-switch","timestamp":"2026-06-05T07:32:10Z","content":"codex hello"}`,
+		`{"session_id":"codex-session","role":"assistant","timestamp":"2026-06-05T07:33:10Z","content":"codex done"}`,
+	}, "\n")+"\n")
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if _, err := service.Enable(context.Background(), MarkdownArchivePluginID); err != nil {
+		t.Fatalf("enable markdown archive: %v", err)
+	}
+
+	sources, err := service.ListTranscriptSources(context.Background())
+	if err != nil {
+		t.Fatalf("list transcript sources: %v", err)
+	}
+	if len(sources) != 2 || sources[0].SessionCount+sources[1].SessionCount != 2 {
+		t.Fatalf("unexpected transcript sources: %+v", sources)
+	}
+
+	result, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{
+		OutputDirectory: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("sync transcript archive: %v", err)
+	}
+	if result.ExportedCount != 2 || result.SkippedCount != 0 || result.FailedCount != 0 || result.AuditLogID == "" {
+		t.Fatalf("unexpected sync result: %+v", result)
+	}
+
+	markdownFiles := listMarkdownFiles(t, outputDir)
+	if len(markdownFiles) != 2 {
+		t.Fatalf("expected two markdown files, got %+v", markdownFiles)
+	}
+	claudeMarkdown := readTextFile(t, markdownFiles[0]) + readTextFile(t, markdownFiles[1])
+	if !strings.Contains(claudeMarkdown, "[redacted]") || strings.Contains(claudeMarkdown, "sk-abcdefghijklmnop") {
+		t.Fatalf("expected redacted Claude secret, got %s", claudeMarkdown)
+	}
+
+	second, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{
+		OutputDirectory: outputDir,
+	})
+	if err != nil {
+		t.Fatalf("sync transcript archive second run: %v", err)
+	}
+	if second.ExportedCount != 0 || second.SkippedCount != 2 {
+		t.Fatalf("expected unchanged sessions to be skipped, got %+v", second)
+	}
+
+	audit, err := service.ListAudit(context.Background(), MarkdownArchivePluginID, 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	if len(audit) != 2 || audit[0].Capability != "tool.transcripts.read" {
+		t.Fatalf("unexpected transcript audit entries: %+v", audit)
+	}
+}
+
+func TestServiceTranscriptArchiveSyncRequiresOutputDirectory(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
+	service.homeDir = t.TempDir()
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if _, err := service.Enable(context.Background(), MarkdownArchivePluginID); err != nil {
+		t.Fatalf("enable markdown archive: %v", err)
+	}
+
+	result, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{})
+	if !errors.Is(err, ErrTranscriptOutputDirectoryRequired) {
+		t.Fatalf("expected output directory error, got %v", err)
+	}
+	if result.Status != "failed" || result.AuditLogID == "" {
+		t.Fatalf("expected failed sync audit result, got %+v", result)
+	}
+}
+
 func newTestExtensionService(t *testing.T) *Service {
 	t.Helper()
 
@@ -454,4 +578,41 @@ func writeTestManifest(t *testing.T, root string, pluginDir string, content stri
 	if err := os.WriteFile(filepath.Join(dir, ManifestFileName), []byte(content), 0o644); err != nil {
 		t.Fatalf("write plugin manifest: %v", err)
 	}
+}
+
+func writeTextFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create file dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+}
+
+func readTextFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	return string(content)
+}
+
+func listMarkdownFiles(t *testing.T, root string) []string {
+	t.Helper()
+	paths := []string{}
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walk markdown files: %v", err)
+	}
+	sort.Strings(paths)
+	return paths
 }

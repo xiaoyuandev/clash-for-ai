@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -71,6 +72,9 @@ func NewRouter(
 	mux.HandleFunc("/api/extensions/tool-integrations", router.handleExtensionToolIntegrations)
 	mux.HandleFunc("/api/extensions/tool-integrations/", router.handleExtensionToolIntegrationActions)
 	mux.HandleFunc("/api/extensions/declared-processes", router.handleExtensionDeclaredProcesses)
+	mux.HandleFunc("/api/extensions/background-tasks", router.handleExtensionBackgroundTasks)
+	mux.HandleFunc("/api/extensions/transcripts/sources", router.handleExtensionTranscriptSources)
+	mux.HandleFunc("/api/extensions/transcripts/sync", router.handleExtensionTranscriptSync)
 	mux.HandleFunc("/api/extensions/audit-logs", router.handleExtensionAuditLogs)
 	mux.HandleFunc("/api/extensions/rescan", router.handleExtensionRescan)
 	mux.HandleFunc("/api/extensions/", router.handleExtensionActions)
@@ -504,6 +508,70 @@ func (r *Router) handleExtensionDeclaredProcesses(w http.ResponseWriter, req *ht
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionBackgroundTasks(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.BackgroundTaskContribution{})
+		return
+	}
+
+	items, err := r.extensions.ListBackgroundTasks(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list extension background tasks", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionTranscriptSources(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.TranscriptSource{})
+		return
+	}
+
+	items, err := r.extensions.ListTranscriptSources(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list transcript sources", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionTranscriptSync(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var input extension.TranscriptSyncInput
+	if req.Body != nil {
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			if !errors.Is(err, io.EOF) {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
+	result, err := r.extensions.SyncTranscriptArchive(req.Context(), input)
+	if err != nil {
+		writeExtensionTranscriptSyncError(w, result, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (r *Router) handleExtensionAuditLogs(w http.ResponseWriter, req *http.Request) {
@@ -1061,6 +1129,19 @@ func writeExtensionSettingsError(w http.ResponseWriter, err error, invalidSettin
 		http.Error(w, err.Error(), invalidSettingsStatus)
 	default:
 		http.Error(w, "extension settings request failed", http.StatusInternalServerError)
+	}
+}
+
+func writeExtensionTranscriptSyncError(w http.ResponseWriter, result extension.TranscriptSyncResult, err error) {
+	switch {
+	case errors.Is(err, extension.ErrPluginNotFound):
+		http.Error(w, "extension not found", http.StatusNotFound)
+	case errors.Is(err, extension.ErrPluginNotEnabled):
+		writeJSON(w, http.StatusConflict, result)
+	case errors.Is(err, extension.ErrTranscriptOutputDirectoryRequired):
+		writeJSON(w, http.StatusBadRequest, result)
+	default:
+		http.Error(w, "failed to sync transcripts", http.StatusInternalServerError)
 	}
 }
 

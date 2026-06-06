@@ -50,7 +50,7 @@ func Run() error {
 			Scope: extension.PluginScopeUser,
 			Dir:   filepath.Join(cfg.DataDir, "extensions"),
 		},
-	})
+	}, extension.MarkdownArchiveBundledPlugin())
 	localGatewayService := localgateway.NewService(localGatewayRepository, credentialStore)
 	localGatewayAdapter := localgateway.NewAdapter(cfg.LocalGatewayRuntimeKind, nil)
 	localGatewayManager := localgateway.NewManager(localGatewayService, localGatewayAdapter, localgateway.RuntimeConfig{

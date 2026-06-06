@@ -36,6 +36,7 @@ var knownPermissions = map[string]struct{}{
 	"process.readVersion":                    {},
 	"provider.request.declared":              {},
 	"provider.request.proxy.streaming":       {},
+	"background.task":                        {},
 	"runtime.lifecycle":                      {},
 	"runtime.modelSources.read":              {},
 	"runtime.modelSources.write":             {},

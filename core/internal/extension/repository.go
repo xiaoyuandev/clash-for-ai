@@ -15,4 +15,6 @@ type Repository interface {
 	ReplaceSettings(ctx context.Context, pluginID string, values map[string]json.RawMessage) (string, error)
 	RecordAudit(ctx context.Context, entry AuditLogEntry) (AuditLogEntry, error)
 	ListAudit(ctx context.Context, pluginID string, limit int) ([]AuditLogEntry, error)
+	GetTranscriptExport(ctx context.Context, source string, sessionID string) (*TranscriptExportState, error)
+	UpsertTranscriptExport(ctx context.Context, state TranscriptExportState) error
 }

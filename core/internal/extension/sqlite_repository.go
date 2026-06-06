@@ -343,6 +343,49 @@ LIMIT ?`, pluginID, limit)
 	return items, nil
 }
 
+func (r *SQLiteRepository) GetTranscriptExport(ctx context.Context, source string, sessionID string) (*TranscriptExportState, error) {
+	row := r.db.QueryRowContext(ctx, `
+SELECT source, session_id, raw_path, raw_mtime, raw_size, output_path, exported_at, content_hash
+FROM transcript_exports
+WHERE source = ? AND session_id = ?`, source, sessionID)
+
+	item, err := scanTranscriptExport(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *SQLiteRepository) UpsertTranscriptExport(ctx context.Context, state TranscriptExportState) error {
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO transcript_exports (
+	source, session_id, raw_path, raw_mtime, raw_size, output_path, exported_at, content_hash
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(source, session_id) DO UPDATE SET
+	raw_path = excluded.raw_path,
+	raw_mtime = excluded.raw_mtime,
+	raw_size = excluded.raw_size,
+	output_path = excluded.output_path,
+	exported_at = excluded.exported_at,
+	content_hash = excluded.content_hash`,
+		state.Source,
+		state.SessionID,
+		state.RawPath,
+		state.RawMTime,
+		state.RawSize,
+		state.OutputPath,
+		state.ExportedAt,
+		state.ContentHash,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert transcript export: %w", err)
+	}
+	return nil
+}
+
 type pluginScanner interface {
 	Scan(dest ...any) error
 }
@@ -454,5 +497,22 @@ func scanAuditLog(scanner pluginScanner) (AuditLogEntry, error) {
 		item.Metadata = map[string]any{}
 	}
 
+	return item, nil
+}
+
+func scanTranscriptExport(scanner pluginScanner) (TranscriptExportState, error) {
+	var item TranscriptExportState
+	if err := scanner.Scan(
+		&item.Source,
+		&item.SessionID,
+		&item.RawPath,
+		&item.RawMTime,
+		&item.RawSize,
+		&item.OutputPath,
+		&item.ExportedAt,
+		&item.ContentHash,
+	); err != nil {
+		return TranscriptExportState{}, err
+	}
 	return item, nil
 }

@@ -313,6 +313,23 @@ ON plugin_audit_logs (timestamp DESC);`
 		return fmt.Errorf("migrate plugin_audit_logs timestamp index: %w", err)
 	}
 
+	const transcriptExportsTable = `
+CREATE TABLE IF NOT EXISTS transcript_exports (
+	source TEXT NOT NULL,
+	session_id TEXT NOT NULL,
+	raw_path TEXT NOT NULL,
+	raw_mtime INTEGER NOT NULL,
+	raw_size INTEGER NOT NULL,
+	output_path TEXT NOT NULL,
+	exported_at TEXT NOT NULL,
+	content_hash TEXT NOT NULL,
+	PRIMARY KEY (source, session_id)
+);`
+
+	if _, err := s.DB.Exec(transcriptExportsTable); err != nil {
+		return fmt.Errorf("migrate transcript_exports table: %w", err)
+	}
+
 	return nil
 }
 

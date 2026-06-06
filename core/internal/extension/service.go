@@ -14,12 +14,17 @@ import (
 type Service struct {
 	repository Repository
 	sources    []ScanSource
+	bundled    []BundledPlugin
+	homeDir    string
 }
 
-func NewService(repository Repository, sources []ScanSource) *Service {
+func NewService(repository Repository, sources []ScanSource, bundled ...BundledPlugin) *Service {
+	homeDir, _ := os.UserHomeDir()
 	return &Service{
 		repository: repository,
 		sources:    append([]ScanSource(nil), sources...),
+		bundled:    append([]BundledPlugin(nil), bundled...),
+		homeDir:    homeDir,
 	}
 }
 
@@ -45,7 +50,46 @@ func (s *Service) Scan(ctx context.Context) ([]Plugin, error) {
 			return nil, err
 		}
 	}
+	if err := s.scanBundled(ctx); err != nil {
+		return nil, err
+	}
 	return s.repository.List(ctx)
+}
+
+func (s *Service) scanBundled(ctx context.Context) error {
+	if len(s.bundled) == 0 {
+		return nil
+	}
+
+	seenIDs := make([]string, 0, len(s.bundled))
+	for _, bundled := range s.bundled {
+		manifest := bundled.Manifest
+		warnings, err := ValidateManifest(manifest)
+		item := manifestToPlugin(manifest, PluginScopeBundled, bundled.ManifestPath, warnings)
+		if err != nil {
+			item = invalidPluginFromManifest(manifest, PluginScopeBundled, bundled.ManifestPath, err)
+		}
+
+		if existing, err := s.repository.GetByID(ctx, item.ID); err == nil {
+			item.CreatedAt = existing.CreatedAt
+			if item.Status == PluginStatusInvalid {
+				item.Enabled = false
+			} else {
+				item.Enabled = existing.Enabled
+				item.Status = pluginStatusForEnabled(existing.Enabled, existing.Status)
+			}
+		} else if !errors.Is(err, ErrPluginNotFound) {
+			return err
+		}
+
+		if _, err := s.repository.Upsert(ctx, item); err != nil {
+			return err
+		}
+		seenIDs = append(seenIDs, item.ID)
+	}
+
+	sort.Strings(seenIDs)
+	return s.repository.MarkMissing(ctx, PluginScopeBundled, seenIDs)
 }
 
 func (s *Service) scanSource(ctx context.Context, source ScanSource) error {

@@ -125,6 +125,60 @@ export interface ExtensionDeclaredProcess {
   status: PluginStatus;
 }
 
+export interface ExtensionBackgroundTask {
+  id: string;
+  title: string;
+  minimum_interval_seconds: number;
+  plugin_id: string;
+  plugin_name: string;
+  enabled: boolean;
+  status: PluginStatus;
+}
+
+export interface ExtensionTranscriptSource {
+  id: string;
+  title: string;
+  kind: string;
+  enabled: boolean;
+  session_count: number;
+  paths: string[];
+}
+
+export interface ExtensionTranscriptSyncInput {
+  plugin_id?: string;
+  output_directory?: string;
+  include_claude_code?: boolean;
+  include_codex_cli?: boolean;
+  include_system_events?: boolean;
+  redact_secrets?: boolean;
+  overwrite_existing?: boolean;
+}
+
+export interface ExtensionTranscriptSyncResult {
+  plugin_id: string;
+  status: "success" | "partial" | "failed" | string;
+  output_directory: string;
+  exported_count: number;
+  skipped_count: number;
+  failed_count: number;
+  started_at: string;
+  finished_at: string;
+  audit_log_id: string;
+  sources: Array<{
+    source_id: string;
+    discovered: number;
+    exported_count: number;
+    skipped_count: number;
+    failed_count: number;
+  }>;
+  failures: Array<{
+    source_id: string;
+    session_id?: string;
+    path?: string;
+    error: string;
+  }>;
+}
+
 export interface ExtensionAuditLog {
   id: string;
   timestamp: string;

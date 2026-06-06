@@ -1,10 +1,14 @@
 import type {
   ExtensionAuditLog,
+  ExtensionBackgroundTask,
   ExtensionCommand,
   ExtensionCommandResult,
   ExtensionDeclaredProcess,
   ExtensionPlugin,
   ExtensionSettings,
+  ExtensionTranscriptSource,
+  ExtensionTranscriptSyncInput,
+  ExtensionTranscriptSyncResult,
   ExtensionToolIntegration,
   ExtensionToolIntegrationAction,
   ExtensionToolIntegrationResult
@@ -137,6 +141,39 @@ export async function getExtensionDeclaredProcesses(
     `${getApiBase(apiBase)}/api/extensions/declared-processes`,
     {},
     "Extension declared processes request failed"
+  );
+}
+
+export async function getExtensionBackgroundTasks(apiBase?: string): Promise<ExtensionBackgroundTask[]> {
+  return fetchJson<ExtensionBackgroundTask[]>(
+    `${getApiBase(apiBase)}/api/extensions/background-tasks`,
+    {},
+    "Extension background tasks request failed"
+  );
+}
+
+export async function getExtensionTranscriptSources(apiBase?: string): Promise<ExtensionTranscriptSource[]> {
+  return fetchJson<ExtensionTranscriptSource[]>(
+    `${getApiBase(apiBase)}/api/extensions/transcripts/sources`,
+    {},
+    "Extension transcript sources request failed"
+  );
+}
+
+export async function syncExtensionTranscripts(
+  input: ExtensionTranscriptSyncInput,
+  apiBase?: string
+): Promise<ExtensionTranscriptSyncResult> {
+  return fetchJson<ExtensionTranscriptSyncResult>(
+    `${getApiBase(apiBase)}/api/extensions/transcripts/sync`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Extension transcript sync failed"
   );
 }
 

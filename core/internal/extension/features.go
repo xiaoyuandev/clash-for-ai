@@ -33,6 +33,12 @@ type manifestDeclaredProcessContribution struct {
 	TimeoutMs int      `json:"timeoutMs"`
 }
 
+type manifestBackgroundTaskContribution struct {
+	ID                     string `json:"id"`
+	Title                  string `json:"title"`
+	MinimumIntervalSeconds int    `json:"minimumIntervalSeconds"`
+}
+
 type manifestSettingContribution struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`
@@ -284,6 +290,31 @@ func (s *Service) ListDeclaredProcesses(ctx context.Context) ([]DeclaredProcessC
 	return items, nil
 }
 
+func (s *Service) ListBackgroundTasks(ctx context.Context) ([]BackgroundTaskContribution, error) {
+	plugins, err := s.repository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []BackgroundTaskContribution{}
+	for _, plugin := range plugins {
+		if plugin.Status == PluginStatusInvalid || plugin.Status == PluginStatusIncompatible {
+			continue
+		}
+		for _, task := range backgroundTasksFromPlugin(plugin) {
+			items = append(items, task)
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].PluginID == items[j].PluginID {
+			return items[i].ID < items[j].ID
+		}
+		return items[i].PluginID < items[j].PluginID
+	})
+	return items, nil
+}
+
 func (s *Service) ExecuteToolIntegrationAction(ctx context.Context, integrationID string, action string) (ToolIntegrationActionResult, error) {
 	integration, plugin, err := s.findToolIntegration(ctx, integrationID)
 	if err != nil {
@@ -471,6 +502,37 @@ func declaredProcessesFromPlugin(plugin Plugin) []DeclaredProcessContribution {
 			PluginName: plugin.Name,
 			Enabled:    plugin.Enabled,
 			Status:     plugin.Status,
+		})
+	}
+	return items
+}
+
+func backgroundTasksFromPlugin(plugin Plugin) []BackgroundTaskContribution {
+	raw, ok := plugin.Manifest.Contributes["backgroundTasks"]
+	if !ok || len(raw) == 0 || string(raw) == "null" {
+		return []BackgroundTaskContribution{}
+	}
+
+	var manifests []manifestBackgroundTaskContribution
+	if err := json.Unmarshal(raw, &manifests); err != nil {
+		return []BackgroundTaskContribution{}
+	}
+
+	items := make([]BackgroundTaskContribution, 0, len(manifests))
+	for _, manifest := range manifests {
+		id := strings.TrimSpace(manifest.ID)
+		title := strings.TrimSpace(manifest.Title)
+		if id == "" || title == "" {
+			continue
+		}
+		items = append(items, BackgroundTaskContribution{
+			ID:                     id,
+			Title:                  title,
+			MinimumIntervalSeconds: manifest.MinimumIntervalSeconds,
+			PluginID:               plugin.ID,
+			PluginName:             plugin.Name,
+			Enabled:                plugin.Enabled,
+			Status:                 plugin.Status,
 		})
 	}
 	return items

@@ -12,6 +12,7 @@ var ErrToolIntegrationActionUnsupported = errors.New("extension tool integration
 var ErrPluginNotEnabled = errors.New("plugin is not enabled")
 var ErrPluginInvalid = errors.New("plugin is invalid")
 var ErrInvalidSettings = errors.New("invalid plugin settings")
+var ErrTranscriptOutputDirectoryRequired = errors.New("transcript output directory is required")
 
 type PluginScope string
 
@@ -131,6 +132,75 @@ type DeclaredProcessContribution struct {
 	PluginName string       `json:"plugin_name"`
 	Enabled    bool         `json:"enabled"`
 	Status     PluginStatus `json:"status"`
+}
+
+type BackgroundTaskContribution struct {
+	ID                     string       `json:"id"`
+	Title                  string       `json:"title"`
+	MinimumIntervalSeconds int          `json:"minimum_interval_seconds"`
+	PluginID               string       `json:"plugin_id"`
+	PluginName             string       `json:"plugin_name"`
+	Enabled                bool         `json:"enabled"`
+	Status                 PluginStatus `json:"status"`
+}
+
+type TranscriptSource struct {
+	ID           string   `json:"id"`
+	Title        string   `json:"title"`
+	Kind         string   `json:"kind"`
+	Enabled      bool     `json:"enabled"`
+	SessionCount int      `json:"session_count"`
+	Paths        []string `json:"paths"`
+}
+
+type TranscriptSyncInput struct {
+	PluginID            string `json:"plugin_id,omitempty"`
+	OutputDirectory     string `json:"output_directory,omitempty"`
+	IncludeClaudeCode   *bool  `json:"include_claude_code,omitempty"`
+	IncludeCodexCLI     *bool  `json:"include_codex_cli,omitempty"`
+	IncludeSystemEvents *bool  `json:"include_system_events,omitempty"`
+	RedactSecrets       *bool  `json:"redact_secrets,omitempty"`
+	OverwriteExisting   *bool  `json:"overwrite_existing,omitempty"`
+}
+
+type TranscriptSyncResult struct {
+	PluginID        string                       `json:"plugin_id"`
+	Status          string                       `json:"status"`
+	OutputDirectory string                       `json:"output_directory"`
+	ExportedCount   int                          `json:"exported_count"`
+	SkippedCount    int                          `json:"skipped_count"`
+	FailedCount     int                          `json:"failed_count"`
+	StartedAt       string                       `json:"started_at"`
+	FinishedAt      string                       `json:"finished_at"`
+	AuditLogID      string                       `json:"audit_log_id"`
+	Sources         []TranscriptSourceSyncResult `json:"sources"`
+	Failures        []TranscriptSyncFailure      `json:"failures"`
+}
+
+type TranscriptSourceSyncResult struct {
+	SourceID      string `json:"source_id"`
+	Discovered    int    `json:"discovered"`
+	ExportedCount int    `json:"exported_count"`
+	SkippedCount  int    `json:"skipped_count"`
+	FailedCount   int    `json:"failed_count"`
+}
+
+type TranscriptSyncFailure struct {
+	SourceID  string `json:"source_id"`
+	SessionID string `json:"session_id,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Error     string `json:"error"`
+}
+
+type TranscriptExportState struct {
+	Source      string `json:"source"`
+	SessionID   string `json:"session_id"`
+	RawPath     string `json:"raw_path"`
+	RawMTime    int64  `json:"raw_mtime"`
+	RawSize     int64  `json:"raw_size"`
+	OutputPath  string `json:"output_path"`
+	ExportedAt  string `json:"exported_at"`
+	ContentHash string `json:"content_hash"`
 }
 
 type SettingsSchema struct {
