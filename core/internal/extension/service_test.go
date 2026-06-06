@@ -324,6 +324,108 @@ func TestServiceCommandExecutionDisabledPluginAuditsFailure(t *testing.T) {
 	}
 }
 
+func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.rtk", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.rtk",
+		"name": "RTK",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"toolIntegrations": [
+				{
+					"id": "rtk",
+					"title": "RTK",
+					"supportsDetect": true,
+					"supportsConfigure": true,
+					"supportsRestore": false
+				}
+			],
+			"declaredProcesses": [
+				{"id": "rtk.version", "command": "rtk", "args": ["--version"], "timeoutMs": 3000},
+				{"id": "rtk.init.global.codex", "command": "rtk", "args": ["init", "-g", "--codex"], "timeoutMs": 15000}
+			]
+		},
+		"permissions": ["process.exec.declared", "tool.detect", "tool.config.write"]
+	}`)
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if _, err := service.Enable(context.Background(), "relay-switch.rtk"); err != nil {
+		t.Fatalf("enable plugin: %v", err)
+	}
+
+	integrations, err := service.ListToolIntegrations(context.Background())
+	if err != nil {
+		t.Fatalf("list tool integrations: %v", err)
+	}
+	if len(integrations) != 1 || integrations[0].ID != "rtk" || !integrations[0].SupportsConfigure {
+		t.Fatalf("unexpected tool integrations: %+v", integrations)
+	}
+
+	processes, err := service.ListDeclaredProcesses(context.Background())
+	if err != nil {
+		t.Fatalf("list declared processes: %v", err)
+	}
+	if len(processes) != 2 || processes[0].ID != "rtk.init.global.codex" || len(processes[0].Args) != 3 {
+		t.Fatalf("unexpected declared processes: %+v", processes)
+	}
+
+	result, err := service.ExecuteToolIntegrationAction(context.Background(), "rtk", "configure")
+	if err != nil {
+		t.Fatalf("execute tool integration action: %v", err)
+	}
+	if result.Status != "skipped" || result.AuditLogID == "" {
+		t.Fatalf("unexpected tool integration result: %+v", result)
+	}
+
+	if _, err := service.ExecuteToolIntegrationAction(context.Background(), "rtk", "restore"); !errors.Is(err, ErrToolIntegrationActionUnsupported) {
+		t.Fatalf("expected unsupported action error, got %v", err)
+	}
+
+	audit, err := service.ListAudit(context.Background(), "relay-switch.rtk", 10)
+	if err != nil {
+		t.Fatalf("list audit: %v", err)
+	}
+	if len(audit) != 1 || audit[0].Capability != "tool.integration.configure" || audit[0].Status != "skipped" {
+		t.Fatalf("unexpected tool integration audit entries: %+v", audit)
+	}
+}
+
+func TestServiceDeclaredProcessesRequireDeclaredExecPermission(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.missing-declared-permission", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.missing-declared-permission",
+		"name": "Missing Declared Permission",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"declaredProcesses": [
+				{"id": "rtk.version", "command": "rtk", "args": ["--version"], "timeoutMs": 3000}
+			]
+		},
+		"permissions": []
+	}`)
+
+	items, err := service.Scan(context.Background())
+	if err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	if len(items) != 1 || items[0].Status != PluginStatusInvalid {
+		t.Fatalf("expected invalid declared process plugin, got %+v", items)
+	}
+	if !strings.Contains(items[0].LastError, "process.exec.declared") {
+		t.Fatalf("expected declared permission error, got %+v", items[0])
+	}
+}
+
 func newTestExtensionService(t *testing.T) *Service {
 	t.Helper()
 

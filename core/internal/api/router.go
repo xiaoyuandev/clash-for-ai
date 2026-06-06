@@ -68,6 +68,9 @@ func NewRouter(
 	mux.HandleFunc("/api/extensions", router.handleExtensions)
 	mux.HandleFunc("/api/extensions/commands", router.handleExtensionCommands)
 	mux.HandleFunc("/api/extensions/commands/", router.handleExtensionCommandActions)
+	mux.HandleFunc("/api/extensions/tool-integrations", router.handleExtensionToolIntegrations)
+	mux.HandleFunc("/api/extensions/tool-integrations/", router.handleExtensionToolIntegrationActions)
+	mux.HandleFunc("/api/extensions/declared-processes", router.handleExtensionDeclaredProcesses)
 	mux.HandleFunc("/api/extensions/audit-logs", router.handleExtensionAuditLogs)
 	mux.HandleFunc("/api/extensions/rescan", router.handleExtensionRescan)
 	mux.HandleFunc("/api/extensions/", router.handleExtensionActions)
@@ -435,6 +438,72 @@ func (r *Router) handleExtensionCommandActions(w http.ResponseWriter, req *http.
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleExtensionToolIntegrations(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.ToolIntegrationContribution{})
+		return
+	}
+
+	items, err := r.extensions.ListToolIntegrations(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list extension tool integrations", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleExtensionToolIntegrationActions(w http.ResponseWriter, req *http.Request) {
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	path := strings.TrimPrefix(req.URL.Path, "/api/extensions/tool-integrations/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 2 || req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	result, err := r.extensions.ExecuteToolIntegrationAction(req.Context(), parts[0], parts[1])
+	if err != nil {
+		switch {
+		case errors.Is(err, extension.ErrToolIntegrationNotFound):
+			http.Error(w, "extension tool integration not found", http.StatusNotFound)
+		case errors.Is(err, extension.ErrToolIntegrationActionUnsupported):
+			http.Error(w, "extension tool integration action is not supported", http.StatusBadRequest)
+		case errors.Is(err, extension.ErrPluginNotEnabled):
+			writeJSON(w, http.StatusConflict, result)
+		default:
+			http.Error(w, "failed to execute extension tool integration action", http.StatusInternalServerError)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleExtensionDeclaredProcesses(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		writeJSON(w, http.StatusOK, []extension.DeclaredProcessContribution{})
+		return
+	}
+
+	items, err := r.extensions.ListDeclaredProcesses(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list extension declared processes", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (r *Router) handleExtensionAuditLogs(w http.ResponseWriter, req *http.Request) {

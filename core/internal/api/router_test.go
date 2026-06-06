@@ -241,6 +241,23 @@ func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
 			"commands": [
 				{"id": "milestoneTwo.sync", "title": "Sync Now", "category": "Archive"}
 			],
+			"toolIntegrations": [
+				{
+					"id": "milestoneTwo.tool",
+					"title": "Milestone Tool",
+					"supportsDetect": true,
+					"supportsConfigure": true,
+					"supportsRestore": true
+				}
+			],
+			"declaredProcesses": [
+				{
+					"id": "milestoneTwo.version",
+					"command": "milestone-tool",
+					"args": ["--version"],
+					"timeoutMs": 3000
+				}
+			],
 			"settings": {
 				"type": "object",
 				"properties": {
@@ -257,7 +274,7 @@ func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
 				"required": ["outputDirectory"]
 			}
 		},
-		"permissions": []
+		"permissions": ["process.exec.declared", "tool.detect", "tool.config.write", "tool.config.backup"]
 	}`)
 	handler := newTestRouterWithExtensionRoot(t, root)
 
@@ -303,6 +320,48 @@ func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
 		t.Fatalf("unexpected execute result: %+v", executeResult)
 	}
 
+	toolIntegrationsReq := httptest.NewRequest(http.MethodGet, "/api/extensions/tool-integrations", nil)
+	toolIntegrationsRec := httptest.NewRecorder()
+	handler.ServeHTTP(toolIntegrationsRec, toolIntegrationsReq)
+	if toolIntegrationsRec.Code != http.StatusOK {
+		t.Fatalf("unexpected tool integrations status: %d body=%s", toolIntegrationsRec.Code, toolIntegrationsRec.Body.String())
+	}
+	var toolIntegrations []extension.ToolIntegrationContribution
+	if err := json.Unmarshal(toolIntegrationsRec.Body.Bytes(), &toolIntegrations); err != nil {
+		t.Fatalf("decode tool integrations: %v", err)
+	}
+	if len(toolIntegrations) != 1 || toolIntegrations[0].ID != "milestoneTwo.tool" || !toolIntegrations[0].Enabled {
+		t.Fatalf("unexpected tool integrations payload: %+v", toolIntegrations)
+	}
+
+	toolActionReq := httptest.NewRequest(http.MethodPost, "/api/extensions/tool-integrations/milestoneTwo.tool/detect", nil)
+	toolActionRec := httptest.NewRecorder()
+	handler.ServeHTTP(toolActionRec, toolActionReq)
+	if toolActionRec.Code != http.StatusOK {
+		t.Fatalf("unexpected tool action status: %d body=%s", toolActionRec.Code, toolActionRec.Body.String())
+	}
+	var toolActionResult extension.ToolIntegrationActionResult
+	if err := json.Unmarshal(toolActionRec.Body.Bytes(), &toolActionResult); err != nil {
+		t.Fatalf("decode tool action result: %v", err)
+	}
+	if toolActionResult.Status != "skipped" || toolActionResult.AuditLogID == "" {
+		t.Fatalf("unexpected tool action result: %+v", toolActionResult)
+	}
+
+	declaredProcessesReq := httptest.NewRequest(http.MethodGet, "/api/extensions/declared-processes", nil)
+	declaredProcessesRec := httptest.NewRecorder()
+	handler.ServeHTTP(declaredProcessesRec, declaredProcessesReq)
+	if declaredProcessesRec.Code != http.StatusOK {
+		t.Fatalf("unexpected declared processes status: %d body=%s", declaredProcessesRec.Code, declaredProcessesRec.Body.String())
+	}
+	var declaredProcesses []extension.DeclaredProcessContribution
+	if err := json.Unmarshal(declaredProcessesRec.Body.Bytes(), &declaredProcesses); err != nil {
+		t.Fatalf("decode declared processes: %v", err)
+	}
+	if len(declaredProcesses) != 1 || declaredProcesses[0].ID != "milestoneTwo.version" {
+		t.Fatalf("unexpected declared processes payload: %+v", declaredProcesses)
+	}
+
 	settingsReq := httptest.NewRequest(http.MethodGet, "/api/extensions/relay-switch.milestone-two/settings", nil)
 	settingsRec := httptest.NewRecorder()
 	handler.ServeHTTP(settingsRec, settingsReq)
@@ -345,8 +404,8 @@ func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
 	if err := json.Unmarshal(auditRec.Body.Bytes(), &audit); err != nil {
 		t.Fatalf("decode audit: %v", err)
 	}
-	if len(audit) != 2 {
-		t.Fatalf("expected command and settings audit entries, got %+v", audit)
+	if len(audit) != 3 {
+		t.Fatalf("expected command, tool integration, and settings audit entries, got %+v", audit)
 	}
 
 	globalAuditReq := httptest.NewRequest(http.MethodGet, "/api/extensions/audit-logs?limit=10", nil)

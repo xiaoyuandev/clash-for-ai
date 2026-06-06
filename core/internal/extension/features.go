@@ -18,6 +18,21 @@ type manifestCommandContribution struct {
 	Category string `json:"category"`
 }
 
+type manifestToolIntegrationContribution struct {
+	ID                string `json:"id"`
+	Title             string `json:"title"`
+	SupportsDetect    bool   `json:"supportsDetect"`
+	SupportsConfigure bool   `json:"supportsConfigure"`
+	SupportsRestore   bool   `json:"supportsRestore"`
+}
+
+type manifestDeclaredProcessContribution struct {
+	ID        string   `json:"id"`
+	Command   string   `json:"command"`
+	Args      []string `json:"args"`
+	TimeoutMs int      `json:"timeoutMs"`
+}
+
 type manifestSettingContribution struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`
@@ -219,6 +234,125 @@ func (s *Service) findCommand(ctx context.Context, commandID string) (CommandCon
 	return CommandContribution{}, Plugin{}, ErrCommandNotFound
 }
 
+func (s *Service) ListToolIntegrations(ctx context.Context) ([]ToolIntegrationContribution, error) {
+	plugins, err := s.repository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []ToolIntegrationContribution{}
+	for _, plugin := range plugins {
+		if plugin.Status == PluginStatusInvalid || plugin.Status == PluginStatusIncompatible {
+			continue
+		}
+		for _, integration := range toolIntegrationsFromPlugin(plugin) {
+			items = append(items, integration)
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].PluginID == items[j].PluginID {
+			return items[i].ID < items[j].ID
+		}
+		return items[i].PluginID < items[j].PluginID
+	})
+	return items, nil
+}
+
+func (s *Service) ListDeclaredProcesses(ctx context.Context) ([]DeclaredProcessContribution, error) {
+	plugins, err := s.repository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []DeclaredProcessContribution{}
+	for _, plugin := range plugins {
+		if plugin.Status == PluginStatusInvalid || plugin.Status == PluginStatusIncompatible {
+			continue
+		}
+		for _, process := range declaredProcessesFromPlugin(plugin) {
+			items = append(items, process)
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].PluginID == items[j].PluginID {
+			return items[i].ID < items[j].ID
+		}
+		return items[i].PluginID < items[j].PluginID
+	})
+	return items, nil
+}
+
+func (s *Service) ExecuteToolIntegrationAction(ctx context.Context, integrationID string, action string) (ToolIntegrationActionResult, error) {
+	integration, plugin, err := s.findToolIntegration(ctx, integrationID)
+	if err != nil {
+		return ToolIntegrationActionResult{}, err
+	}
+	if !toolIntegrationSupportsAction(integration, action) {
+		return ToolIntegrationActionResult{}, ErrToolIntegrationActionUnsupported
+	}
+
+	executedAt := time.Now().UTC().Format(time.RFC3339)
+	metadata := map[string]any{
+		"mode":               "noop",
+		"declared_processes": declaredProcessIDs(declaredProcessesFromPlugin(plugin)),
+	}
+	capability := "tool.integration." + action
+
+	if !plugin.Enabled || plugin.Status != PluginStatusEnabled {
+		entry, auditErr := s.repository.RecordAudit(ctx, AuditLogEntry{
+			PluginID:      plugin.ID,
+			PluginVersion: plugin.Version,
+			Capability:    capability,
+			Action:        action,
+			ResourceType:  "toolIntegration",
+			ResourceID:    integration.ID,
+			Status:        "failed",
+			ErrorMessage:  ErrPluginNotEnabled.Error(),
+			Metadata:      metadata,
+		})
+		if auditErr != nil {
+			return ToolIntegrationActionResult{}, auditErr
+		}
+		return ToolIntegrationActionResult{
+			IntegrationID: integration.ID,
+			PluginID:      plugin.ID,
+			Action:        action,
+			Status:        "failed",
+			Message:       ErrPluginNotEnabled.Error(),
+			AuditLogID:    entry.ID,
+			ExecutedAt:    executedAt,
+		}, ErrPluginNotEnabled
+	}
+
+	entry, err := s.repository.RecordAudit(ctx, AuditLogEntry{
+		PluginID:      plugin.ID,
+		PluginVersion: plugin.Version,
+		Capability:    capability,
+		Action:        action,
+		ResourceType:  "toolIntegration",
+		ResourceID:    integration.ID,
+		Status:        "skipped",
+		Metadata: mergeMetadata(metadata, map[string]any{
+			"reason": "process broker is not available in milestone 3",
+		}),
+	})
+	if err != nil {
+		return ToolIntegrationActionResult{}, err
+	}
+
+	return ToolIntegrationActionResult{
+		IntegrationID: integration.ID,
+		PluginID:      plugin.ID,
+		Action:        action,
+		Status:        "skipped",
+		Message:       "Process broker is not available; tool integration action was recorded as a no-op.",
+		AuditLogID:    entry.ID,
+		ExecutedAt:    executedAt,
+	}, nil
+}
+
 func commandsFromPlugin(plugin Plugin) []CommandContribution {
 	raw, ok := plugin.Manifest.Contributes["commands"]
 	if !ok || len(raw) == 0 || string(raw) == "null" {
@@ -248,6 +382,131 @@ func commandsFromPlugin(plugin Plugin) []CommandContribution {
 		})
 	}
 	return commands
+}
+
+func (s *Service) findToolIntegration(ctx context.Context, integrationID string) (ToolIntegrationContribution, Plugin, error) {
+	plugins, err := s.repository.List(ctx)
+	if err != nil {
+		return ToolIntegrationContribution{}, Plugin{}, err
+	}
+
+	sort.Slice(plugins, func(i, j int) bool {
+		return plugins[i].ID < plugins[j].ID
+	})
+	for _, plugin := range plugins {
+		if plugin.Status == PluginStatusInvalid || plugin.Status == PluginStatusIncompatible {
+			continue
+		}
+		for _, integration := range toolIntegrationsFromPlugin(plugin) {
+			if integration.ID == integrationID {
+				return integration, plugin, nil
+			}
+		}
+	}
+
+	return ToolIntegrationContribution{}, Plugin{}, ErrToolIntegrationNotFound
+}
+
+func toolIntegrationsFromPlugin(plugin Plugin) []ToolIntegrationContribution {
+	raw, ok := plugin.Manifest.Contributes["toolIntegrations"]
+	if !ok || len(raw) == 0 || string(raw) == "null" {
+		return []ToolIntegrationContribution{}
+	}
+
+	var manifests []manifestToolIntegrationContribution
+	if err := json.Unmarshal(raw, &manifests); err != nil {
+		return []ToolIntegrationContribution{}
+	}
+
+	items := make([]ToolIntegrationContribution, 0, len(manifests))
+	for _, manifest := range manifests {
+		id := strings.TrimSpace(manifest.ID)
+		title := strings.TrimSpace(manifest.Title)
+		if id == "" || title == "" {
+			continue
+		}
+		items = append(items, ToolIntegrationContribution{
+			ID:                id,
+			Title:             title,
+			PluginID:          plugin.ID,
+			PluginName:        plugin.Name,
+			Enabled:           plugin.Enabled,
+			Status:            plugin.Status,
+			SupportsDetect:    manifest.SupportsDetect,
+			SupportsConfigure: manifest.SupportsConfigure,
+			SupportsRestore:   manifest.SupportsRestore,
+		})
+	}
+	return items
+}
+
+func declaredProcessesFromPlugin(plugin Plugin) []DeclaredProcessContribution {
+	raw, ok := plugin.Manifest.Contributes["declaredProcesses"]
+	if !ok || len(raw) == 0 || string(raw) == "null" {
+		return []DeclaredProcessContribution{}
+	}
+
+	var manifests []manifestDeclaredProcessContribution
+	if err := json.Unmarshal(raw, &manifests); err != nil {
+		return []DeclaredProcessContribution{}
+	}
+
+	items := make([]DeclaredProcessContribution, 0, len(manifests))
+	for _, manifest := range manifests {
+		id := strings.TrimSpace(manifest.ID)
+		command := strings.TrimSpace(manifest.Command)
+		if id == "" || command == "" {
+			continue
+		}
+		args := append([]string(nil), manifest.Args...)
+		if args == nil {
+			args = []string{}
+		}
+		items = append(items, DeclaredProcessContribution{
+			ID:         id,
+			Command:    command,
+			Args:       args,
+			TimeoutMs:  manifest.TimeoutMs,
+			PluginID:   plugin.ID,
+			PluginName: plugin.Name,
+			Enabled:    plugin.Enabled,
+			Status:     plugin.Status,
+		})
+	}
+	return items
+}
+
+func toolIntegrationSupportsAction(integration ToolIntegrationContribution, action string) bool {
+	switch action {
+	case "detect":
+		return integration.SupportsDetect
+	case "configure":
+		return integration.SupportsConfigure
+	case "restore":
+		return integration.SupportsRestore
+	default:
+		return false
+	}
+}
+
+func declaredProcessIDs(processes []DeclaredProcessContribution) []string {
+	ids := make([]string, 0, len(processes))
+	for _, process := range processes {
+		ids = append(ids, process.ID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func mergeMetadata(base map[string]any, extra map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range extra {
+		merged[key] = value
+	}
+	return merged
 }
 
 func settingsSchemaFromPlugin(plugin Plugin) (SettingsSchema, error) {

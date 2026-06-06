@@ -7,6 +7,8 @@ import (
 
 var ErrPluginNotFound = errors.New("plugin not found")
 var ErrCommandNotFound = errors.New("extension command not found")
+var ErrToolIntegrationNotFound = errors.New("extension tool integration not found")
+var ErrToolIntegrationActionUnsupported = errors.New("extension tool integration action is not supported")
 var ErrPluginNotEnabled = errors.New("plugin is not enabled")
 var ErrPluginInvalid = errors.New("plugin is invalid")
 var ErrInvalidSettings = errors.New("invalid plugin settings")
@@ -96,6 +98,39 @@ type CommandExecutionResult struct {
 	Message    string `json:"message"`
 	AuditLogID string `json:"audit_log_id"`
 	ExecutedAt string `json:"executed_at"`
+}
+
+type ToolIntegrationContribution struct {
+	ID                string       `json:"id"`
+	Title             string       `json:"title"`
+	PluginID          string       `json:"plugin_id"`
+	PluginName        string       `json:"plugin_name"`
+	Enabled           bool         `json:"enabled"`
+	Status            PluginStatus `json:"status"`
+	SupportsDetect    bool         `json:"supports_detect"`
+	SupportsConfigure bool         `json:"supports_configure"`
+	SupportsRestore   bool         `json:"supports_restore"`
+}
+
+type ToolIntegrationActionResult struct {
+	IntegrationID string `json:"integration_id"`
+	PluginID      string `json:"plugin_id"`
+	Action        string `json:"action"`
+	Status        string `json:"status"`
+	Message       string `json:"message"`
+	AuditLogID    string `json:"audit_log_id"`
+	ExecutedAt    string `json:"executed_at"`
+}
+
+type DeclaredProcessContribution struct {
+	ID         string       `json:"id"`
+	Command    string       `json:"command"`
+	Args       []string     `json:"args"`
+	TimeoutMs  int          `json:"timeout_ms"`
+	PluginID   string       `json:"plugin_id"`
+	PluginName string       `json:"plugin_name"`
+	Enabled    bool         `json:"enabled"`
+	Status     PluginStatus `json:"status"`
 }
 
 type SettingsSchema struct {

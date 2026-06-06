@@ -2,8 +2,12 @@ import type {
   ExtensionAuditLog,
   ExtensionCommand,
   ExtensionCommandResult,
+  ExtensionDeclaredProcess,
   ExtensionPlugin,
-  ExtensionSettings
+  ExtensionSettings,
+  ExtensionToolIntegration,
+  ExtensionToolIntegrationAction,
+  ExtensionToolIntegrationResult
 } from "../types/extension";
 
 function getApiBase(apiBase?: string) {
@@ -101,6 +105,38 @@ export async function executeExtensionCommand(
     `${getApiBase(apiBase)}/api/extensions/commands/${encodeURIComponent(id)}/execute`,
     { method: "POST" },
     "Extension command execution failed"
+  );
+}
+
+export async function getExtensionToolIntegrations(
+  apiBase?: string
+): Promise<ExtensionToolIntegration[]> {
+  return fetchJson<ExtensionToolIntegration[]>(
+    `${getApiBase(apiBase)}/api/extensions/tool-integrations`,
+    {},
+    "Extension tool integrations request failed"
+  );
+}
+
+export async function executeExtensionToolIntegrationAction(
+  id: string,
+  action: ExtensionToolIntegrationAction,
+  apiBase?: string
+): Promise<ExtensionToolIntegrationResult> {
+  return fetchJson<ExtensionToolIntegrationResult>(
+    `${getApiBase(apiBase)}/api/extensions/tool-integrations/${encodeURIComponent(id)}/${action}`,
+    { method: "POST" },
+    "Extension tool integration action failed"
+  );
+}
+
+export async function getExtensionDeclaredProcesses(
+  apiBase?: string
+): Promise<ExtensionDeclaredProcess[]> {
+  return fetchJson<ExtensionDeclaredProcess[]>(
+    `${getApiBase(apiBase)}/api/extensions/declared-processes`,
+    {},
+    "Extension declared processes request failed"
   );
 }
 

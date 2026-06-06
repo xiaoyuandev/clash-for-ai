@@ -90,6 +90,41 @@ export interface ExtensionCommandResult {
   executed_at: string;
 }
 
+export interface ExtensionToolIntegration {
+  id: string;
+  title: string;
+  plugin_id: string;
+  plugin_name: string;
+  enabled: boolean;
+  status: PluginStatus;
+  supports_detect: boolean;
+  supports_configure: boolean;
+  supports_restore: boolean;
+}
+
+export type ExtensionToolIntegrationAction = "detect" | "configure" | "restore";
+
+export interface ExtensionToolIntegrationResult {
+  integration_id: string;
+  plugin_id: string;
+  action: ExtensionToolIntegrationAction | string;
+  status: "skipped" | "failed" | string;
+  message: string;
+  audit_log_id: string;
+  executed_at: string;
+}
+
+export interface ExtensionDeclaredProcess {
+  id: string;
+  command: string;
+  args: string[];
+  timeout_ms: number;
+  plugin_id: string;
+  plugin_name: string;
+  enabled: boolean;
+  status: PluginStatus;
+}
+
 export interface ExtensionAuditLog {
   id: string;
   timestamp: string;

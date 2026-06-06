@@ -1,0 +1,130 @@
+{
+  "manifestVersion": 1,
+  "id": "relay-switch.rtk",
+  "name": "RTK Integration",
+  "version": "0.1.0",
+  "description": "Demo manifest for registering RTK as a Relay Switch tool integration.",
+  "publisher": "relay-switch",
+  "engines": {
+    "relaySwitch": ">=1.0.0"
+  },
+  "entry": {
+    "type": "none"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "id": "rtk.detect",
+        "title": "Detect RTK",
+        "category": "RTK"
+      },
+      {
+        "id": "rtk.configureCodex",
+        "title": "Configure Codex with RTK",
+        "category": "RTK"
+      },
+      {
+        "id": "rtk.configureClaudeCode",
+        "title": "Configure Claude Code with RTK",
+        "category": "RTK"
+      },
+      {
+        "id": "rtk.restore",
+        "title": "Restore RTK Configuration",
+        "category": "RTK"
+      },
+      {
+        "id": "rtk.gain",
+        "title": "Show RTK Gain",
+        "category": "RTK"
+      }
+    ],
+    "toolIntegrations": [
+      {
+        "id": "rtk",
+        "title": "RTK",
+        "supportsDetect": true,
+        "supportsConfigure": true,
+        "supportsRestore": true
+      }
+    ],
+    "managedToolBinaries": [
+      {
+        "id": "rtk",
+        "title": "RTK",
+        "executableNames": ["rtk"],
+        "supportsVersion": true,
+        "supportsInstall": false,
+        "supportsUpdate": false
+      }
+    ],
+    "declaredProcesses": [
+      {
+        "id": "rtk.version",
+        "command": "rtk",
+        "args": ["--version"],
+        "timeoutMs": 3000
+      },
+      {
+        "id": "rtk.init.global.codex",
+        "command": "rtk",
+        "args": ["init", "-g", "--codex"],
+        "timeoutMs": 15000
+      },
+      {
+        "id": "rtk.init.global.default",
+        "command": "rtk",
+        "args": ["init", "-g"],
+        "timeoutMs": 15000
+      },
+      {
+        "id": "rtk.gain",
+        "command": "rtk",
+        "args": ["gain"],
+        "timeoutMs": 10000
+      }
+    ],
+    "settings": {
+      "type": "object",
+      "properties": {
+        "executablePath": {
+          "type": "string",
+          "title": "Executable Path",
+          "default": ""
+        },
+        "targetTools": {
+          "type": "array",
+          "title": "Target Tools",
+          "items": {
+            "type": "string"
+          },
+          "default": ["codex", "claude-code"]
+        },
+        "managedBinary": {
+          "type": "boolean",
+          "title": "Use Managed Binary",
+          "default": false
+        }
+      }
+    },
+    "pages": [
+      {
+        "id": "rtk",
+        "title": "RTK",
+        "route": "/plugins/rtk",
+        "kind": "settings-form"
+      }
+    ]
+  },
+  "permissions": [
+    "tool.detect",
+    "tool.config.read",
+    "tool.config.write",
+    "tool.config.backup",
+    "process.exec.declared",
+    "process.readVersion",
+    "filesystem.pluginData",
+    "ui.page",
+    "ui.toast"
+  ]
+}

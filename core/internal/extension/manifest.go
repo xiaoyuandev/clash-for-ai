@@ -22,26 +22,38 @@ var knownPermissions = map[string]struct{}{
 	"filesystem.homeConfig":                  {},
 	"filesystem.pluginData":                  {},
 	"filesystem.toolTranscriptStore":         {},
+	"filesystem.userSelectedDirectory.read":  {},
 	"filesystem.userSelectedDirectory.write": {},
 	"gateway.request.body.read":              {},
 	"gateway.request.body.write":             {},
 	"gateway.response.body.read":             {},
 	"gateway.response.body.write":            {},
+	"network.localhost":                      {},
 	"network.external":                       {},
+	"process.spawnManagedBinary":             {},
 	"process.exec":                           {},
 	"process.exec.declared":                  {},
 	"process.readVersion":                    {},
+	"provider.request.declared":              {},
 	"provider.request.proxy.streaming":       {},
+	"runtime.lifecycle":                      {},
+	"runtime.modelSources.read":              {},
+	"runtime.modelSources.write":             {},
+	"runtime.status.read":                    {},
+	"tool.detect":                            {},
 	"tool.config.backup":                     {},
 	"tool.config.read":                       {},
 	"tool.config.write":                      {},
 	"tool.transcripts.read":                  {},
+	"ui.page":                                {},
+	"ui.toast":                               {},
 }
 
 var knownContributionPoints = map[string]struct{}{
 	"backgroundTasks":          {},
 	"commands":                 {},
 	"conversationExporters":    {},
+	"declaredProcesses":        {},
 	"gatewayHooks":             {},
 	"gatewayProtocolBridges":   {},
 	"managedToolBinaries":      {},
@@ -111,6 +123,10 @@ func ValidateManifest(manifest Manifest) ([]string, error) {
 		}
 	}
 
+	if err := validateDeclaredProcesses(manifest); err != nil {
+		problems = append(problems, err.Error())
+	}
+
 	if len(problems) > 0 {
 		return ManifestWarnings(manifest), errors.New(strings.Join(problems, "; "))
 	}
@@ -127,6 +143,60 @@ func ManifestWarnings(manifest Manifest) []string {
 	}
 	sort.Strings(warnings)
 	return warnings
+}
+
+func validateDeclaredProcesses(manifest Manifest) error {
+	raw, ok := manifest.Contributes["declaredProcesses"]
+	if !ok || len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+
+	if !hasManifestPermission(manifest, "process.exec.declared") {
+		return errors.New("declaredProcesses requires process.exec.declared permission")
+	}
+
+	var declarations []struct {
+		ID        string   `json:"id"`
+		Command   string   `json:"command"`
+		Args      []string `json:"args"`
+		TimeoutMs int      `json:"timeoutMs"`
+	}
+	if err := json.Unmarshal(raw, &declarations); err != nil {
+		return errors.New("declaredProcesses must be an array")
+	}
+
+	seen := map[string]struct{}{}
+	for _, declaration := range declarations {
+		id := strings.TrimSpace(declaration.ID)
+		command := strings.TrimSpace(declaration.Command)
+		if id == "" {
+			return errors.New("declaredProcesses.id is required")
+		}
+		if _, exists := seen[id]; exists {
+			return fmt.Errorf("duplicate declared process id: %s", id)
+		}
+		seen[id] = struct{}{}
+		if command == "" {
+			return fmt.Errorf("declared process %q command is required", id)
+		}
+		if isDangerousEntryCommand(command) {
+			return fmt.Errorf("declared process %q command points to a disallowed executable", id)
+		}
+		if declaration.TimeoutMs < 0 {
+			return fmt.Errorf("declared process %q timeoutMs must be positive", id)
+		}
+	}
+
+	return nil
+}
+
+func hasManifestPermission(manifest Manifest, permission string) bool {
+	for _, item := range manifest.Permissions {
+		if item == permission {
+			return true
+		}
+	}
+	return false
 }
 
 func ContributionSummary(contributes ManifestContributes) map[string]int {

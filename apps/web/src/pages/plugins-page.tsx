@@ -4,10 +4,12 @@ import {
   disableExtension,
   enableExtension,
   executeExtensionCommand,
+  executeExtensionToolIntegrationAction,
   getExtensionAuditLogs,
   getExtensionCommands,
   getExtensions,
   getExtensionSettings,
+  getExtensionToolIntegrations,
   rescanExtensions,
   updateExtensionSettings
 } from "../services/extensions";
@@ -17,6 +19,8 @@ import type {
   ExtensionPlugin,
   ExtensionSettings,
   ExtensionSettingsProperty,
+  ExtensionToolIntegration,
+  ExtensionToolIntegrationAction,
   PluginStatus
 } from "../types/extension";
 import {
@@ -116,6 +120,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   const [items, setItems] = useState<ExtensionPlugin[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [commands, setCommands] = useState<ExtensionCommand[]>([]);
+  const [toolIntegrations, setToolIntegrations] = useState<ExtensionToolIntegration[]>([]);
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
   const [settingsValues, setSettingsValues] = useState<Record<string, unknown>>({});
   const [auditLogs, setAuditLogs] = useState<ExtensionAuditLog[]>([]);
@@ -124,6 +129,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   const [busyAction, setBusyAction] = useState<"rescan" | "enable" | "disable" | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [commandBusy, setCommandBusy] = useState<string | null>(null);
+  const [toolActionBusy, setToolActionBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,6 +152,11 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     [commands, selected?.id]
   );
 
+  const selectedToolIntegrations = useMemo(
+    () => toolIntegrations.filter((integration) => integration.plugin_id === selected?.id),
+    [toolIntegrations, selected?.id]
+  );
+
   const settingsEntries = useMemo(
     () => Object.entries(settings?.schema.properties ?? {}),
     [settings]
@@ -160,6 +171,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     async (pluginId: string | null) => {
       if (!pluginId) {
         setCommands([]);
+        setToolIntegrations([]);
         setSettings(null);
         setSettingsValues({});
         setAuditLogs([]);
@@ -168,12 +180,14 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
 
       setDetailLoading(true);
       try {
-        const [nextCommands, nextSettings, nextAuditLogs] = await Promise.all([
+        const [nextCommands, nextToolIntegrations, nextSettings, nextAuditLogs] = await Promise.all([
           getExtensionCommands(apiBase),
+          getExtensionToolIntegrations(apiBase),
           getExtensionSettings(pluginId, apiBase),
           getExtensionAuditLogs(pluginId, 20, apiBase)
         ]);
         setCommands(nextCommands);
+        setToolIntegrations(nextToolIntegrations);
         setSettings(nextSettings);
         setSettingsValues(nextSettings.effective_values ?? {});
         setAuditLogs(nextAuditLogs);
@@ -285,6 +299,30 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
       setCommandBusy(null);
+    }
+  }
+
+  async function handleToolIntegrationAction(
+    integration: ExtensionToolIntegration,
+    action: ExtensionToolIntegrationAction
+  ) {
+    if (!selected) {
+      return;
+    }
+
+    const busyKey = `${integration.id}:${action}`;
+    setToolActionBusy(busyKey);
+    setError(null);
+    setFeedback(null);
+    try {
+      const result = await executeExtensionToolIntegrationAction(integration.id, action, apiBase);
+      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase));
+      setFeedback(t("plugins.feedback.toolActionRecorded", { status: result.status }));
+    } catch (nextError) {
+      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase).catch(() => auditLogs));
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    } finally {
+      setToolActionBusy(null);
     }
   }
 
@@ -585,6 +623,85 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                         {property.description ? <span className={hintClass}>{property.description}</span> : null}
                       </label>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border-t pt-5 [border-color:var(--border-soft)]">
+                <div className={sectionHeadClass}>
+                  <div className="space-y-1">
+                    <h3 className={sectionTitleClass}>{t("plugins.toolIntegrations.title")}</h3>
+                    <p className={sectionMetaClass}>{t("plugins.toolIntegrations.subtitle")}</p>
+                  </div>
+                </div>
+                {selectedToolIntegrations.length === 0 ? (
+                  <div className={emptyStateClass}>{t("plugins.toolIntegrations.empty")}</div>
+                ) : (
+                  <div className="grid gap-2">
+                    {selectedToolIntegrations.map((integration) => {
+                      const actions = ([
+                        {
+                          action: "detect",
+                          label: t("plugins.toolIntegrations.detect"),
+                          supported: integration.supports_detect
+                        },
+                        {
+                          action: "configure",
+                          label: t("plugins.toolIntegrations.configure"),
+                          supported: integration.supports_configure
+                        },
+                        {
+                          action: "restore",
+                          label: t("plugins.toolIntegrations.restore"),
+                          supported: integration.supports_restore
+                        }
+                      ] as Array<{
+                        action: ExtensionToolIntegrationAction;
+                        label: string;
+                        supported: boolean;
+                      }>).filter((item) => item.supported);
+
+                      return (
+                        <div
+                          key={integration.id}
+                          className="flex flex-col gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-[color:var(--color-heading)]">
+                                {integration.title}
+                              </p>
+                              <p className={`${monoClass} mt-1 text-[11px]`}>{integration.id}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {actions.map((item) => (
+                                <span key={item.action} className={statusPillClass()}>
+                                  {item.action}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className={actionRowClass}>
+                            {actions.map((item) => {
+                              const busyKey = `${integration.id}:${item.action}`;
+                              return (
+                                <button
+                                  key={item.action}
+                                  type="button"
+                                  className={buttonClass("secondary")}
+                                  disabled={!integration.enabled || toolActionBusy === busyKey}
+                                  onClick={() => void handleToolIntegrationAction(integration, item.action)}
+                                >
+                                  {toolActionBusy === busyKey
+                                    ? t("plugins.toolIntegrations.running")
+                                    : item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
