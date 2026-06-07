@@ -102,7 +102,7 @@ func RuntimePlanForPlugin(plugin Plugin) (PluginRuntimePlan, error) {
 	}
 }
 
-func (h *RuntimeHost) Start(ctx context.Context, plugin Plugin) error {
+func (h *RuntimeHost) Start(ctx context.Context, plugin Plugin, initialSettings map[string]any) error {
 	if h == nil {
 		return nil
 	}
@@ -130,14 +130,18 @@ func (h *RuntimeHost) Start(ctx context.Context, plugin Plugin) error {
 	}
 	initCtx, cancel := context.WithTimeout(ctx, runtimeRequestTimeout)
 	defer cancel()
-	if _, err := process.call(initCtx, "initialize", map[string]any{
+	initializeParams := map[string]any{
 		"plugin": map[string]any{
 			"id":      plugin.ID,
 			"name":    plugin.Name,
 			"version": plugin.Version,
 		},
 		"manifest": plugin.Manifest,
-	}); err != nil {
+	}
+	if initialSettings != nil {
+		initializeParams["settings"] = initialSettings
+	}
+	if _, err := process.call(initCtx, "initialize", initializeParams); err != nil {
 		process.setState(PluginRuntimeStateDegraded, err.Error())
 		return err
 	}
@@ -159,11 +163,11 @@ func (h *RuntimeHost) Stop(ctx context.Context, pluginID string) error {
 	return process.stop(ctx)
 }
 
-func (h *RuntimeHost) Call(ctx context.Context, plugin Plugin, method string, params any) (json.RawMessage, error) {
+func (h *RuntimeHost) Call(ctx context.Context, plugin Plugin, method string, params any, initialSettings map[string]any) (json.RawMessage, error) {
 	if h == nil {
 		return nil, errors.New("runtime host unavailable")
 	}
-	if err := h.Start(ctx, plugin); err != nil {
+	if err := h.Start(ctx, plugin, initialSettings); err != nil {
 		return nil, err
 	}
 	h.mu.Lock()
@@ -177,11 +181,11 @@ func (h *RuntimeHost) Call(ctx context.Context, plugin Plugin, method string, pa
 	return process.call(callCtx, method, params)
 }
 
-func (h *RuntimeHost) Notify(ctx context.Context, plugin Plugin, method string, params any) error {
+func (h *RuntimeHost) Notify(ctx context.Context, plugin Plugin, method string, params any, initialSettings map[string]any) error {
 	if h == nil {
 		return nil
 	}
-	if err := h.Start(ctx, plugin); err != nil {
+	if err := h.Start(ctx, plugin, initialSettings); err != nil {
 		return err
 	}
 	h.mu.Lock()
@@ -497,7 +501,7 @@ func (s *Service) startRuntime(ctx context.Context, plugin Plugin) {
 	if s.runtimeHost == nil {
 		return
 	}
-	if err := s.runtimeHost.Start(ctx, plugin); err != nil {
+	if err := s.runtimeHost.Start(ctx, plugin, s.effectiveSettingsForRuntime(ctx, plugin.ID)); err != nil {
 		_, _ = s.repository.RecordAudit(ctx, AuditLogEntry{
 			PluginID:      plugin.ID,
 			PluginVersion: plugin.Version,
@@ -509,4 +513,12 @@ func (s *Service) startRuntime(ctx context.Context, plugin Plugin) {
 			ErrorMessage:  err.Error(),
 		})
 	}
+}
+
+func (s *Service) effectiveSettingsForRuntime(ctx context.Context, pluginID string) map[string]any {
+	settings, err := s.GetSettings(ctx, pluginID)
+	if err != nil {
+		return nil
+	}
+	return settings.EffectiveValues
 }

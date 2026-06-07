@@ -285,6 +285,104 @@ func TestServiceCommandExecutionNoopAndAudit(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeInitializesWithPersistedSettings(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	pluginDir := filepath.Join(service.sources[0].Dir, "relay-switch.runtime-settings")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("create plugin dir: %v", err)
+	}
+
+	capturePath := filepath.Join(pluginDir, "initialize.jsonl")
+	runtimeScript := "#!/bin/sh\n" +
+		"capture=" + shellQuote(capturePath) + "\n" +
+		"while IFS= read -r line; do\n" +
+		"  id=$(printf '%s\\n' \"$line\" | sed -n 's/.*\"id\":\\([0-9][0-9]*\\).*/\\1/p')\n" +
+		"  [ -n \"$id\" ] || continue\n" +
+		"  case \"$line\" in\n" +
+		"    *'\"method\":\"initialize\"'*)\n" +
+		"      printf '%s\\n' \"$line\" >> \"$capture\"\n" +
+		"      printf '{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{\"status\":\"ok\"}}\\n' \"$id\"\n" +
+		"      ;;\n" +
+		"    *'\"method\":\"executeCommand\"'*)\n" +
+		"      printf '{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{\"status\":\"success\",\"message\":\"runtime command ok\"}}\\n' \"$id\"\n" +
+		"      ;;\n" +
+		"    *'\"method\":\"shutdown\"'*)\n" +
+		"      printf '{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{\"status\":\"success\"}}\\n' \"$id\"\n" +
+		"      exit 0\n" +
+		"      ;;\n" +
+		"    *)\n" +
+		"      printf '{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{}}\\n' \"$id\"\n" +
+		"      ;;\n" +
+		"  esac\n" +
+		"done\n"
+	if err := os.WriteFile(filepath.Join(pluginDir, "runtime-fixture"), []byte(runtimeScript), 0o755); err != nil {
+		t.Fatalf("write runtime fixture: %v", err)
+	}
+
+	writeTestManifest(t, service.sources[0].Dir, "relay-switch.runtime-settings", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.runtime-settings",
+		"name": "Runtime Settings",
+		"version": "0.1.0",
+		"entry": {"type": "process", "command": "runtime-fixture"},
+		"contributes": {
+			"commands": [
+				{"id": "runtime-settings.sync", "title": "Sync Now"}
+			],
+			"settings": {
+				"type": "object",
+				"properties": {
+					"outputDirectory": {"type": "string", "default": ""},
+					"archiveEnabled": {"type": "boolean", "default": false}
+				}
+			}
+		},
+		"permissions": []
+	}`)
+
+	if _, err := service.Scan(context.Background()); err != nil {
+		t.Fatalf("scan extensions: %v", err)
+	}
+	outputDirectory := filepath.Join(t.TempDir(), "archive")
+	if _, err := service.UpdateSettings(context.Background(), "relay-switch.runtime-settings", UpdateSettingsInput{
+		Values: map[string]json.RawMessage{
+			"outputDirectory": mustRawJSONString(outputDirectory),
+			"archiveEnabled":  json.RawMessage(`true`),
+		},
+	}); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+
+	if _, err := service.Enable(context.Background(), "relay-switch.runtime-settings"); err != nil {
+		t.Fatalf("enable plugin: %v", err)
+	}
+	settings := readCapturedInitializeSettings(t, capturePath)
+	if settings["outputDirectory"] != outputDirectory || settings["archiveEnabled"] != true {
+		t.Fatalf("runtime initialized with unexpected settings on enable: %+v", settings)
+	}
+
+	if err := service.runtimeHost.Stop(context.Background(), "relay-switch.runtime-settings"); err != nil {
+		t.Fatalf("stop runtime: %v", err)
+	}
+	if err := os.Remove(capturePath); err != nil {
+		t.Fatalf("reset capture file: %v", err)
+	}
+
+	result, err := service.ExecuteCommand(context.Background(), "runtime-settings.sync")
+	if err != nil {
+		t.Fatalf("execute runtime command: %v", err)
+	}
+	if result.Status != "success" || result.Message != "runtime command ok" {
+		t.Fatalf("unexpected runtime command result: %+v", result)
+	}
+	settings = readCapturedInitializeSettings(t, capturePath)
+	if settings["outputDirectory"] != outputDirectory || settings["archiveEnabled"] != true {
+		t.Fatalf("runtime initialized with unexpected settings on command restart: %+v", settings)
+	}
+}
+
 func TestServiceCommandExecutionDisabledPluginAuditsFailure(t *testing.T) {
 	t.Parallel()
 
@@ -625,4 +723,35 @@ func writeFakeGit(t *testing.T, fixtureDir string) string {
 
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func mustRawJSONString(value string) json.RawMessage {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return encoded
+}
+
+func readCapturedInitializeSettings(t *testing.T, capturePath string) map[string]any {
+	t.Helper()
+
+	content, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("read runtime initialize capture: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) == "" {
+		t.Fatalf("runtime initialize capture is empty")
+	}
+
+	var request struct {
+		Params struct {
+			Settings map[string]any `json:"settings"`
+		} `json:"params"`
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &request); err != nil {
+		t.Fatalf("decode runtime initialize capture: %v", err)
+	}
+	return request.Params.Settings
 }

@@ -148,9 +148,10 @@ func (s *Service) executeCommandThroughRuntime(ctx context.Context, plugin Plugi
 		Message string `json:"message"`
 	}
 
+	initialSettings := s.effectiveSettingsForRuntime(ctx, plugin.ID)
 	payload, err := s.runtimeHost.Call(ctx, plugin, "executeCommand", map[string]any{
 		"commandId": command.ID,
-	})
+	}, initialSettings)
 	if err != nil {
 		entry, auditErr := s.repository.RecordAudit(ctx, AuditLogEntry{
 			PluginID:      plugin.ID,
@@ -294,7 +295,7 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID string, input Upd
 		if plan, planErr := RuntimePlanForPlugin(*plugin); planErr == nil && plan.EntryType != "none" {
 			_ = s.runtimeHost.Notify(ctx, *plugin, "settingsChanged", map[string]any{
 				"values": settings.EffectiveValues,
-			})
+			}, settings.EffectiveValues)
 		}
 	}
 	return settings, nil
