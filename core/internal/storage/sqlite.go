@@ -313,21 +313,39 @@ ON plugin_audit_logs (timestamp DESC);`
 		return fmt.Errorf("migrate plugin_audit_logs timestamp index: %w", err)
 	}
 
-	const transcriptExportsTable = `
-CREATE TABLE IF NOT EXISTS transcript_exports (
-	source TEXT NOT NULL,
-	session_id TEXT NOT NULL,
-	raw_path TEXT NOT NULL,
-	raw_mtime INTEGER NOT NULL,
-	raw_size INTEGER NOT NULL,
-	output_path TEXT NOT NULL,
-	exported_at TEXT NOT NULL,
-	content_hash TEXT NOT NULL,
-	PRIMARY KEY (source, session_id)
+	const pluginInstallsTable = `
+CREATE TABLE IF NOT EXISTS plugin_installs (
+	plugin_id TEXT PRIMARY KEY,
+	source_type TEXT NOT NULL,
+	source_url TEXT NOT NULL,
+	install_dir TEXT NOT NULL,
+	git_commit TEXT NOT NULL DEFAULT '',
+	installed_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
 );`
 
-	if _, err := s.DB.Exec(transcriptExportsTable); err != nil {
-		return fmt.Errorf("migrate transcript_exports table: %w", err)
+	if _, err := s.DB.Exec(pluginInstallsTable); err != nil {
+		return fmt.Errorf("migrate plugin_installs table: %w", err)
+	}
+
+	const pluginInstallsSourceIndex = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_installs_source
+ON plugin_installs (source_type, source_url);`
+
+	if _, err := s.DB.Exec(pluginInstallsSourceIndex); err != nil {
+		return fmt.Errorf("migrate plugin_installs source index: %w", err)
+	}
+
+	for _, statement := range []string{
+		`DELETE FROM plugin_settings WHERE plugin_id IN (SELECT id FROM plugins WHERE scope = 'bundled')`,
+		`DELETE FROM plugin_grants WHERE plugin_id IN (SELECT id FROM plugins WHERE scope = 'bundled')`,
+		`DELETE FROM plugin_audit_logs WHERE plugin_id IN (SELECT id FROM plugins WHERE scope = 'bundled')`,
+		`DELETE FROM plugin_installs WHERE plugin_id IN (SELECT id FROM plugins WHERE scope = 'bundled')`,
+		`DELETE FROM plugins WHERE scope = 'bundled'`,
+	} {
+		if _, err := s.DB.Exec(statement); err != nil {
+			return fmt.Errorf("remove legacy bundled plugins: %w", err)
+		}
 	}
 
 	return nil

@@ -14,8 +14,9 @@ import (
 const ManifestFileName = "relay-switch-plugin.json"
 
 var (
-	pluginIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)*$`)
-	semverPattern   = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+	pluginIDPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)*$`)
+	semverPattern     = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+	npmPackagePattern = regexp.MustCompile(`^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*$`)
 )
 
 var knownPermissions = map[string]struct{}{
@@ -111,11 +112,15 @@ func ValidateManifest(manifest Manifest) ([]string, error) {
 	case "process":
 		if strings.TrimSpace(manifest.Entry.Command) == "" {
 			problems = append(problems, "entry.command is required for process entries")
-		} else if isDangerousEntryCommand(manifest.Entry.Command) {
-			problems = append(problems, "entry.command points to a disallowed executable")
+		} else if err := validateProcessEntryCommand(manifest.Entry.Command); err != nil {
+			problems = append(problems, err.Error())
+		}
+	case "nodePackage":
+		if err := validateNodePackageEntry(manifest.Entry); err != nil {
+			problems = append(problems, err.Error())
 		}
 	default:
-		problems = append(problems, "entry.type must be process or none")
+		problems = append(problems, "entry.type must be process, nodePackage, or none")
 	}
 
 	for _, permission := range manifest.Permissions {
@@ -257,6 +262,51 @@ func cloneStringSlice(values []string) []string {
 	return append([]string(nil), values...)
 }
 
+func validateProcessEntryCommand(command string) error {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return errors.New("entry.command is required for process entries")
+	}
+	if filepath.IsAbs(trimmed) {
+		return errors.New("entry.command must be relative to the plugin repository")
+	}
+	if strings.Contains(trimmed, "\x00") {
+		return errors.New("entry.command contains an invalid character")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || cleaned == ".." {
+		return errors.New("entry.command must stay inside the plugin repository")
+	}
+	if isDangerousExecutableName(trimmed) {
+		return errors.New("entry.command points to a disallowed executable")
+	}
+	return nil
+}
+
+func validateNodePackageEntry(entry ManifestEntry) error {
+	packageName := strings.TrimSpace(entry.Package)
+	if packageName == "" {
+		return errors.New("entry.package is required for nodePackage entries")
+	}
+	if !npmPackagePattern.MatchString(packageName) {
+		return errors.New("entry.package must be a public npm package name")
+	}
+	version := strings.TrimSpace(entry.Version)
+	if version == "" {
+		return errors.New("entry.version is required for nodePackage entries")
+	}
+	if !semverPattern.MatchString(version) {
+		return errors.New("entry.version must be an exact semver version")
+	}
+	if strings.TrimSpace(entry.Bin) == "" {
+		return errors.New("entry.bin is required for nodePackage entries")
+	}
+	if strings.ContainsAny(entry.Bin, `/\`) || strings.Contains(entry.Bin, "\x00") {
+		return errors.New("entry.bin must be an npm binary name")
+	}
+	return nil
+}
+
 func isDangerousEntryCommand(command string) bool {
 	trimmed := strings.TrimSpace(command)
 	if trimmed == "" {
@@ -284,6 +334,25 @@ func isDangerousEntryCommand(command string) bool {
 		return false
 	}
 
+	_, dangerous := dangerousNames[base]
+	return dangerous
+}
+
+func isDangerousExecutableName(command string) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(command)))
+	if strings.HasSuffix(base, ".exe") {
+		base = strings.TrimSuffix(base, ".exe")
+	}
+	dangerousNames := map[string]struct{}{
+		"bash":       {},
+		"cmd":        {},
+		"powershell": {},
+		"pwsh":       {},
+		"sh":         {},
+		"su":         {},
+		"sudo":       {},
+		"zsh":        {},
+	}
 	_, dangerous := dangerousNames[base]
 	return dangerous
 }

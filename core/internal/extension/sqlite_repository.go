@@ -19,9 +19,12 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 
 func (r *SQLiteRepository) List(ctx context.Context) ([]Plugin, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, version, manifest_path, scope, enabled, status, last_error, manifest_json, created_at, updated_at
-FROM plugins
-ORDER BY id ASC`)
+SELECT p.id, p.version, p.manifest_path, p.scope, p.enabled, p.status, p.last_error, p.manifest_json,
+       p.created_at, p.updated_at, i.source_type, i.source_url, i.install_dir, i.git_commit,
+       i.installed_at, i.updated_at
+FROM plugins p
+LEFT JOIN plugin_installs i ON i.plugin_id = p.id
+ORDER BY p.id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("list plugins: %w", err)
 	}
@@ -45,9 +48,12 @@ ORDER BY id ASC`)
 
 func (r *SQLiteRepository) GetByID(ctx context.Context, id string) (*Plugin, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, version, manifest_path, scope, enabled, status, last_error, manifest_json, created_at, updated_at
-FROM plugins
-WHERE id = ?`, id)
+SELECT p.id, p.version, p.manifest_path, p.scope, p.enabled, p.status, p.last_error, p.manifest_json,
+       p.created_at, p.updated_at, i.source_type, i.source_url, i.install_dir, i.git_commit,
+       i.installed_at, i.updated_at
+FROM plugins p
+LEFT JOIN plugin_installs i ON i.plugin_id = p.id
+WHERE p.id = ?`, id)
 
 	item, err := scanPlugin(row)
 	if err != nil {
@@ -179,6 +185,80 @@ WHERE scope = ? AND id NOT IN (`+strings.Join(placeholders, ",")+`)`,
 	)
 	if err != nil {
 		return fmt.Errorf("mark missing plugins: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) UpsertInstall(ctx context.Context, install PluginInstall) (PluginInstall, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	if install.InstalledAt == "" {
+		install.InstalledAt = now
+	}
+	install.UpdatedAt = now
+
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO plugin_installs (
+	plugin_id, source_type, source_url, install_dir, git_commit, installed_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(plugin_id) DO UPDATE SET
+	source_type = excluded.source_type,
+	source_url = excluded.source_url,
+	install_dir = excluded.install_dir,
+	git_commit = excluded.git_commit,
+	updated_at = excluded.updated_at`,
+		install.PluginID,
+		install.SourceType,
+		install.SourceURL,
+		install.InstallDir,
+		install.GitCommit,
+		install.InstalledAt,
+		install.UpdatedAt,
+	)
+	if err != nil {
+		return PluginInstall{}, fmt.Errorf("upsert plugin install: %w", err)
+	}
+	return install, nil
+}
+
+func (r *SQLiteRepository) GetInstallByPluginID(ctx context.Context, pluginID string) (*PluginInstall, error) {
+	row := r.db.QueryRowContext(ctx, `
+SELECT plugin_id, source_type, source_url, install_dir, git_commit, installed_at, updated_at
+FROM plugin_installs
+WHERE plugin_id = ?`, pluginID)
+	return scanPluginInstall(row)
+}
+
+func (r *SQLiteRepository) GetInstallBySource(ctx context.Context, sourceType string, sourceURL string) (*PluginInstall, error) {
+	row := r.db.QueryRowContext(ctx, `
+SELECT plugin_id, source_type, source_url, install_dir, git_commit, installed_at, updated_at
+FROM plugin_installs
+WHERE source_type = ? AND source_url = ?`, sourceType, sourceURL)
+	return scanPluginInstall(row)
+}
+
+func (r *SQLiteRepository) DeletePlugin(ctx context.Context, pluginID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete plugin tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	for _, statement := range []string{
+		`DELETE FROM plugin_settings WHERE plugin_id = ?`,
+		`DELETE FROM plugin_grants WHERE plugin_id = ?`,
+		`DELETE FROM plugin_audit_logs WHERE plugin_id = ?`,
+		`DELETE FROM plugin_installs WHERE plugin_id = ?`,
+		`DELETE FROM plugins WHERE id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement, pluginID); err != nil {
+			return fmt.Errorf("delete plugin rows: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete plugin tx: %w", err)
 	}
 	return nil
 }
@@ -343,61 +423,24 @@ LIMIT ?`, pluginID, limit)
 	return items, nil
 }
 
-func (r *SQLiteRepository) GetTranscriptExport(ctx context.Context, source string, sessionID string) (*TranscriptExportState, error) {
-	row := r.db.QueryRowContext(ctx, `
-SELECT source, session_id, raw_path, raw_mtime, raw_size, output_path, exported_at, content_hash
-FROM transcript_exports
-WHERE source = ? AND session_id = ?`, source, sessionID)
-
-	item, err := scanTranscriptExport(row)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &item, nil
-}
-
-func (r *SQLiteRepository) UpsertTranscriptExport(ctx context.Context, state TranscriptExportState) error {
-	_, err := r.db.ExecContext(ctx, `
-INSERT INTO transcript_exports (
-	source, session_id, raw_path, raw_mtime, raw_size, output_path, exported_at, content_hash
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(source, session_id) DO UPDATE SET
-	raw_path = excluded.raw_path,
-	raw_mtime = excluded.raw_mtime,
-	raw_size = excluded.raw_size,
-	output_path = excluded.output_path,
-	exported_at = excluded.exported_at,
-	content_hash = excluded.content_hash`,
-		state.Source,
-		state.SessionID,
-		state.RawPath,
-		state.RawMTime,
-		state.RawSize,
-		state.OutputPath,
-		state.ExportedAt,
-		state.ContentHash,
-	)
-	if err != nil {
-		return fmt.Errorf("upsert transcript export: %w", err)
-	}
-	return nil
-}
-
 type pluginScanner interface {
 	Scan(dest ...any) error
 }
 
 func scanPlugin(scanner pluginScanner) (Plugin, error) {
 	var (
-		item         Plugin
-		scope        string
-		status       string
-		enabled      int
-		lastError    sql.NullString
-		manifestJSON string
+		item             Plugin
+		scope            string
+		status           string
+		enabled          int
+		lastError        sql.NullString
+		manifestJSON     string
+		sourceType       sql.NullString
+		sourceURL        sql.NullString
+		installDir       sql.NullString
+		gitCommit        sql.NullString
+		installedAt      sql.NullString
+		installUpdatedAt sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -411,6 +454,12 @@ func scanPlugin(scanner pluginScanner) (Plugin, error) {
 		&manifestJSON,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+		&sourceType,
+		&sourceURL,
+		&installDir,
+		&gitCommit,
+		&installedAt,
+		&installUpdatedAt,
 	); err != nil {
 		return Plugin{}, err
 	}
@@ -424,6 +473,17 @@ func scanPlugin(scanner pluginScanner) (Plugin, error) {
 	item.Status = PluginStatus(status)
 	if lastError.Valid {
 		item.LastError = lastError.String
+	}
+	if sourceType.Valid {
+		item.Install = &PluginInstall{
+			PluginID:    item.ID,
+			SourceType:  sourceType.String,
+			SourceURL:   nullStringValue(sourceURL),
+			InstallDir:  nullStringValue(installDir),
+			GitCommit:   nullStringValue(gitCommit),
+			InstalledAt: nullStringValue(installedAt),
+			UpdatedAt:   nullStringValue(installUpdatedAt),
+		}
 	}
 
 	return normalizePluginFromManifest(item), nil
@@ -441,6 +501,32 @@ func nullString(value string) sql.NullString {
 		String: value,
 		Valid:  value != "",
 	}
+}
+
+func nullStringValue(value sql.NullString) string {
+	if value.Valid {
+		return value.String
+	}
+	return ""
+}
+
+func scanPluginInstall(scanner pluginScanner) (*PluginInstall, error) {
+	var item PluginInstall
+	if err := scanner.Scan(
+		&item.PluginID,
+		&item.SourceType,
+		&item.SourceURL,
+		&item.InstallDir,
+		&item.GitCommit,
+		&item.InstalledAt,
+		&item.UpdatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrPluginNotFound
+		}
+		return nil, fmt.Errorf("scan plugin install: %w", err)
+	}
+	return &item, nil
 }
 
 func scanAuditLog(scanner pluginScanner) (AuditLogEntry, error) {
@@ -497,22 +583,5 @@ func scanAuditLog(scanner pluginScanner) (AuditLogEntry, error) {
 		item.Metadata = map[string]any{}
 	}
 
-	return item, nil
-}
-
-func scanTranscriptExport(scanner pluginScanner) (TranscriptExportState, error) {
-	var item TranscriptExportState
-	if err := scanner.Scan(
-		&item.Source,
-		&item.SessionID,
-		&item.RawPath,
-		&item.RawMTime,
-		&item.RawSize,
-		&item.OutputPath,
-		&item.ExportedAt,
-		&item.ContentHash,
-	); err != nil {
-		return TranscriptExportState{}, err
-	}
 	return item, nil
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
   disableExtension,
@@ -10,7 +10,10 @@ import {
   getExtensions,
   getExtensionSettings,
   getExtensionToolIntegrations,
+  installExtension,
   rescanExtensions,
+  uninstallExtension,
+  updateExtension,
   updateExtensionSettings
 } from "../services/extensions";
 import type {
@@ -115,6 +118,21 @@ function settingInputType(property: ExtensionSettingsProperty) {
   return property.type === "integer" || property.type === "number" ? "number" : "text";
 }
 
+function formatEntry(item: ExtensionPlugin) {
+  const entry = item.manifest.entry;
+  if (entry.type === "nodePackage") {
+    return `${entry.package ?? ""}@${entry.version ?? ""} (${entry.bin ?? "bin"})`;
+  }
+  if (entry.type === "process") {
+    return entry.command ?? "process";
+  }
+  return entry.type;
+}
+
+function shortCommit(value?: string) {
+  return value ? value.slice(0, 12) : "";
+}
+
 export function PluginsPage({ apiBase }: PluginsPageProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<ExtensionPlugin[]>([]);
@@ -126,10 +144,13 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   const [auditLogs, setAuditLogs] = useState<ExtensionAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [busyAction, setBusyAction] = useState<"rescan" | "enable" | "disable" | null>(null);
+  const [busyAction, setBusyAction] = useState<
+    "rescan" | "install" | "enable" | "disable" | "update" | "uninstall" | null
+  >(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [commandBusy, setCommandBusy] = useState<string | null>(null);
   const [toolActionBusy, setToolActionBusy] = useState<string | null>(null);
+  const [installUrl, setInstallUrl] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -250,6 +271,71 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
       await syncDetail(updated.id);
       setFeedback(item.enabled ? t("plugins.feedback.disabled") : t("plugins.feedback.enabled"));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleInstall(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const url = installUrl.trim();
+    if (!url) {
+      return;
+    }
+
+    setBusyAction("install");
+    setError(null);
+    setFeedback(null);
+    try {
+      const installed = await installExtension({ source: "github", url }, apiBase);
+      setItems((current) =>
+        [...current.filter((entry) => entry.id !== installed.id), installed].sort((left, right) =>
+          left.id.localeCompare(right.id)
+        )
+      );
+      setSelectedId(installed.id);
+      setInstallUrl("");
+      await syncDetail(installed.id);
+      setFeedback(t("plugins.feedback.installed"));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleUpdate(item: ExtensionPlugin) {
+    setBusyAction("update");
+    setError(null);
+    setFeedback(null);
+    try {
+      const updated = await updateExtension(item.id, apiBase);
+      setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+      await syncDetail(updated.id);
+      setFeedback(t("plugins.feedback.updated"));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleUninstall(item: ExtensionPlugin) {
+    if (!window.confirm(t("plugins.uninstall.confirm", { name: item.name }))) {
+      return;
+    }
+
+    setBusyAction("uninstall");
+    setError(null);
+    setFeedback(null);
+    try {
+      await uninstallExtension(item.id, apiBase);
+      const nextItems = items.filter((entry) => entry.id !== item.id);
+      setItems(nextItems);
+      setSelectedId(nextItems[0]?.id ?? null);
+      setFeedback(t("plugins.feedback.uninstalled"));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
@@ -445,6 +531,26 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
             </button>
           </div>
 
+          <form className="mt-4 grid gap-2 border-t pt-4 [border-color:var(--border-soft)]" onSubmit={handleInstall}>
+            <label className="grid gap-2">
+              <span className={fieldLabelClass}>{t("plugins.install.githubUrl")}</span>
+              <input
+                className={inputClass}
+                type="url"
+                value={installUrl}
+                placeholder="https://github.com/owner/repo"
+                onChange={(event) => setInstallUrl(event.target.value)}
+              />
+            </label>
+            <button
+              type="submit"
+              className={buttonClass("primary")}
+              disabled={busyAction === "install" || installUrl.trim() === ""}
+            >
+              {busyAction === "install" ? t("plugins.install.installing") : t("plugins.install.button")}
+            </button>
+          </form>
+
           <div className="mt-4 grid gap-3">
             {loading ? (
               <div className={emptyStateClass}>{t("common.loading")}</div>
@@ -489,7 +595,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                   </span>
                   <button
                     type="button"
-                    className={buttonClass(selected.enabled ? "danger" : "primary")}
+                    className={buttonClass(selected.enabled ? "secondary" : "primary")}
                     disabled={
                       selected.status === "invalid" ||
                       selected.status === "incompatible" ||
@@ -504,6 +610,26 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                         ? t("plugins.button.disable")
                         : t("plugins.button.enable")}
                   </button>
+                  {selected.install ? (
+                    <>
+                      <button
+                        type="button"
+                        className={buttonClass("secondary")}
+                        disabled={busyAction === "update"}
+                        onClick={() => void handleUpdate(selected)}
+                      >
+                        {busyAction === "update" ? t("common.saving") : t("plugins.button.update")}
+                      </button>
+                      <button
+                        type="button"
+                        className={buttonClass("danger")}
+                        disabled={busyAction === "uninstall"}
+                        onClick={() => void handleUninstall(selected)}
+                      >
+                        {busyAction === "uninstall" ? t("common.saving") : t("plugins.button.uninstall")}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </div>
 
@@ -525,10 +651,31 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                 <div>
                   <p className={fieldLabelClass}>{t("plugins.detail.entry")}</p>
                   <p className="mt-1 text-sm font-medium text-[color:var(--color-heading)]">
-                    {selected.manifest.entry.type}
+                    {formatEntry(selected)}
+                  </p>
+                </div>
+                <div>
+                  <p className={fieldLabelClass}>{t("plugins.detail.runtime")}</p>
+                  <p className="mt-1 text-sm font-medium text-[color:var(--color-heading)]">
+                    {selected.runtime.state}
                   </p>
                 </div>
               </div>
+
+              {selected.install ? (
+                <div className="grid gap-3 border-t pt-5 [border-color:var(--border-soft)] sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <p className={fieldLabelClass}>{t("plugins.detail.source")}</p>
+                    <p className={`${monoClass} mt-1 truncate text-[11px]`}>{selected.install.source_url}</p>
+                  </div>
+                  <div>
+                    <p className={fieldLabelClass}>{t("plugins.detail.gitCommit")}</p>
+                    <p className={`${monoClass} mt-1 text-[11px]`}>
+                      {shortCommit(selected.install.git_commit) || t("settings.value.unknown")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <p className={fieldLabelClass}>{t("plugins.detail.manifestPath")}</p>
@@ -784,7 +931,13 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                 )}
               </div>
 
-              <p className={hintClass}>{t("plugins.detail.runtimeHint")}</p>
+              {selected.runtime.command ? (
+                <p className={hintClass}>
+                  {t("plugins.detail.runtimeCommand", {
+                    command: [selected.runtime.command, ...(selected.runtime.args ?? [])].join(" ")
+                  })}
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className={emptyStateClass}>{t("plugins.empty")}</div>

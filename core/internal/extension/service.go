@@ -9,39 +9,80 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 type Service struct {
-	repository Repository
-	sources    []ScanSource
-	bundled    []BundledPlugin
-	homeDir    string
+	repository        Repository
+	sources           []ScanSource
+	managedInstallDir string
+	pluginDataDir     string
+	gitExecutable     string
+	runtimeHost       *RuntimeHost
 }
 
-func NewService(repository Repository, sources []ScanSource, bundled ...BundledPlugin) *Service {
-	homeDir, _ := os.UserHomeDir()
+type ServiceOptions struct {
+	ManagedInstallDir string
+	PluginDataDir     string
+	GitExecutable     string
+}
+
+func NewService(repository Repository, sources []ScanSource) *Service {
+	return NewServiceWithOptions(repository, sources, ServiceOptions{})
+}
+
+func NewServiceWithOptions(repository Repository, sources []ScanSource, options ServiceOptions) *Service {
+	gitExecutable := strings.TrimSpace(options.GitExecutable)
+	if gitExecutable == "" {
+		gitExecutable = "git"
+	}
 	return &Service{
-		repository: repository,
-		sources:    append([]ScanSource(nil), sources...),
-		bundled:    append([]BundledPlugin(nil), bundled...),
-		homeDir:    homeDir,
+		repository:        repository,
+		sources:           append([]ScanSource(nil), sources...),
+		managedInstallDir: options.ManagedInstallDir,
+		pluginDataDir:     options.PluginDataDir,
+		gitExecutable:     gitExecutable,
+		runtimeHost:       NewRuntimeHost(),
 	}
 }
 
 func (s *Service) List(ctx context.Context) ([]Plugin, error) {
-	return s.repository.List(ctx)
+	items, err := s.repository.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.decoratePlugins(items), nil
 }
 
 func (s *Service) GetByID(ctx context.Context, id string) (*Plugin, error) {
-	return s.repository.GetByID(ctx, id)
+	item, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	decorated := s.decoratePlugin(*item)
+	return &decorated, nil
 }
 
 func (s *Service) Enable(ctx context.Context, id string) (*Plugin, error) {
-	return s.repository.SetEnabled(ctx, id, true)
+	item, err := s.repository.SetEnabled(ctx, id, true)
+	if err != nil {
+		return nil, err
+	}
+	s.startRuntime(ctx, *item)
+	decorated := s.decoratePlugin(*item)
+	return &decorated, nil
 }
 
 func (s *Service) Disable(ctx context.Context, id string) (*Plugin, error) {
-	return s.repository.SetEnabled(ctx, id, false)
+	if s.runtimeHost != nil {
+		_ = s.runtimeHost.Stop(ctx, id)
+	}
+	item, err := s.repository.SetEnabled(ctx, id, false)
+	if err != nil {
+		return nil, err
+	}
+	decorated := s.decoratePlugin(*item)
+	return &decorated, nil
 }
 
 func (s *Service) Scan(ctx context.Context) ([]Plugin, error) {
@@ -50,46 +91,14 @@ func (s *Service) Scan(ctx context.Context) ([]Plugin, error) {
 			return nil, err
 		}
 	}
-	if err := s.scanBundled(ctx); err != nil {
+	items, err := s.repository.List(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return s.repository.List(ctx)
-}
-
-func (s *Service) scanBundled(ctx context.Context) error {
-	if len(s.bundled) == 0 {
-		return nil
+	for _, item := range items {
+		s.startRuntime(ctx, item)
 	}
-
-	seenIDs := make([]string, 0, len(s.bundled))
-	for _, bundled := range s.bundled {
-		manifest := bundled.Manifest
-		warnings, err := ValidateManifest(manifest)
-		item := manifestToPlugin(manifest, PluginScopeBundled, bundled.ManifestPath, warnings)
-		if err != nil {
-			item = invalidPluginFromManifest(manifest, PluginScopeBundled, bundled.ManifestPath, err)
-		}
-
-		if existing, err := s.repository.GetByID(ctx, item.ID); err == nil {
-			item.CreatedAt = existing.CreatedAt
-			if item.Status == PluginStatusInvalid {
-				item.Enabled = false
-			} else {
-				item.Enabled = existing.Enabled
-				item.Status = pluginStatusForEnabled(existing.Enabled, existing.Status)
-			}
-		} else if !errors.Is(err, ErrPluginNotFound) {
-			return err
-		}
-
-		if _, err := s.repository.Upsert(ctx, item); err != nil {
-			return err
-		}
-		seenIDs = append(seenIDs, item.ID)
-	}
-
-	sort.Strings(seenIDs)
-	return s.repository.MarkMissing(ctx, PluginScopeBundled, seenIDs)
+	return s.decoratePlugins(items), nil
 }
 
 func (s *Service) scanSource(ctx context.Context, source ScanSource) error {

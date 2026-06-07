@@ -107,6 +107,14 @@ func (s *Service) ExecuteCommand(ctx context.Context, commandID string) (Command
 		}, ErrPluginNotEnabled
 	}
 
+	if plan, planErr := RuntimePlanForPlugin(plugin); s.runtimeHost != nil && planErr == nil && plan.EntryType != "none" {
+		result, runtimeErr := s.executeCommandThroughRuntime(ctx, plugin, command, executedAt)
+		if runtimeErr != nil {
+			return result, runtimeErr
+		}
+		return result, nil
+	}
+
 	entry, err := s.repository.RecordAudit(ctx, AuditLogEntry{
 		PluginID:      plugin.ID,
 		PluginVersion: plugin.Version,
@@ -129,6 +137,79 @@ func (s *Service) ExecuteCommand(ctx context.Context, commandID string) (Command
 		PluginID:   plugin.ID,
 		Status:     "skipped",
 		Message:    "Extension host is not available; command execution was recorded as a no-op.",
+		AuditLogID: entry.ID,
+		ExecutedAt: executedAt,
+	}, nil
+}
+
+func (s *Service) executeCommandThroughRuntime(ctx context.Context, plugin Plugin, command CommandContribution, executedAt string) (CommandExecutionResult, error) {
+	type runtimeCommandResult struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+
+	payload, err := s.runtimeHost.Call(ctx, plugin, "executeCommand", map[string]any{
+		"commandId": command.ID,
+	})
+	if err != nil {
+		entry, auditErr := s.repository.RecordAudit(ctx, AuditLogEntry{
+			PluginID:      plugin.ID,
+			PluginVersion: plugin.Version,
+			Capability:    "commands.execute",
+			Action:        command.ID,
+			ResourceType:  "command",
+			ResourceID:    command.ID,
+			Status:        "failed",
+			ErrorMessage:  err.Error(),
+			Metadata: map[string]any{
+				"mode": "runtime",
+			},
+		})
+		if auditErr != nil {
+			return CommandExecutionResult{}, auditErr
+		}
+		return CommandExecutionResult{
+			CommandID:  command.ID,
+			PluginID:   plugin.ID,
+			Status:     "failed",
+			Message:    err.Error(),
+			AuditLogID: entry.ID,
+			ExecutedAt: executedAt,
+		}, err
+	}
+
+	runtimeResult := runtimeCommandResult{
+		Status:  "success",
+		Message: "Command executed by plugin runtime.",
+	}
+	if len(payload) > 0 && string(payload) != "null" {
+		_ = json.Unmarshal(payload, &runtimeResult)
+	}
+	if strings.TrimSpace(runtimeResult.Status) == "" {
+		runtimeResult.Status = "success"
+	}
+
+	entry, err := s.repository.RecordAudit(ctx, AuditLogEntry{
+		PluginID:      plugin.ID,
+		PluginVersion: plugin.Version,
+		Capability:    "commands.execute",
+		Action:        command.ID,
+		ResourceType:  "command",
+		ResourceID:    command.ID,
+		Status:        runtimeResult.Status,
+		Metadata: map[string]any{
+			"mode": "runtime",
+		},
+	})
+	if err != nil {
+		return CommandExecutionResult{}, err
+	}
+
+	return CommandExecutionResult{
+		CommandID:  command.ID,
+		PluginID:   plugin.ID,
+		Status:     runtimeResult.Status,
+		Message:    runtimeResult.Message,
 		AuditLogID: entry.ID,
 		ExecutedAt: executedAt,
 	}, nil
@@ -205,7 +286,18 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID string, input Upd
 		return PluginSettings{}, err
 	}
 
-	return s.GetSettings(ctx, plugin.ID)
+	settings, err := s.GetSettings(ctx, plugin.ID)
+	if err != nil {
+		return PluginSettings{}, err
+	}
+	if plugin.Enabled && plugin.Status == PluginStatusEnabled && s.runtimeHost != nil {
+		if plan, planErr := RuntimePlanForPlugin(*plugin); planErr == nil && plan.EntryType != "none" {
+			_ = s.runtimeHost.Notify(ctx, *plugin, "settingsChanged", map[string]any{
+				"values": settings.EffectiveValues,
+			})
+		}
+	}
+	return settings, nil
 }
 
 func (s *Service) ListAudit(ctx context.Context, pluginID string, limit int) ([]AuditLogEntry, error) {

@@ -4,11 +4,9 @@ import type {
   ExtensionCommand,
   ExtensionCommandResult,
   ExtensionDeclaredProcess,
+  ExtensionInstallInput,
   ExtensionPlugin,
   ExtensionSettings,
-  ExtensionTranscriptSource,
-  ExtensionTranscriptSyncInput,
-  ExtensionTranscriptSyncResult,
   ExtensionToolIntegration,
   ExtensionToolIntegrationAction,
   ExtensionToolIntegrationResult
@@ -53,6 +51,24 @@ async function fetchJson<T>(input: string, init: RequestInit, fallback: string):
   return response.json() as Promise<T>;
 }
 
+async function fetchVoid(input: string, init: RequestInit, fallback: string): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    throw new Error(
+      `${fallback} to ${new URL(input).origin}: ${
+        error instanceof Error ? error.message : "network error"
+      }`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `${fallback} with ${response.status}`));
+  }
+}
+
 export async function getExtensions(apiBase?: string): Promise<ExtensionPlugin[]> {
   return fetchJson<ExtensionPlugin[]>(
     `${getApiBase(apiBase)}/api/extensions`,
@@ -77,6 +93,23 @@ export async function rescanExtensions(apiBase?: string): Promise<ExtensionPlugi
   );
 }
 
+export async function installExtension(
+  input: ExtensionInstallInput,
+  apiBase?: string
+): Promise<ExtensionPlugin> {
+  return fetchJson<ExtensionPlugin>(
+    `${getApiBase(apiBase)}/api/extensions/install`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Extension install failed"
+  );
+}
+
 export async function enableExtension(id: string, apiBase?: string): Promise<ExtensionPlugin> {
   return fetchJson<ExtensionPlugin>(
     `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/enable`,
@@ -90,6 +123,22 @@ export async function disableExtension(id: string, apiBase?: string): Promise<Ex
     `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/disable`,
     { method: "POST" },
     "Disable extension failed"
+  );
+}
+
+export async function updateExtension(id: string, apiBase?: string): Promise<ExtensionPlugin> {
+  return fetchJson<ExtensionPlugin>(
+    `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/update`,
+    { method: "POST" },
+    "Extension update failed"
+  );
+}
+
+export async function uninstallExtension(id: string, apiBase?: string): Promise<void> {
+  await fetchVoid(
+    `${getApiBase(apiBase)}/api/extensions/${encodeURIComponent(id)}/uninstall`,
+    { method: "POST" },
+    "Extension uninstall failed"
   );
 }
 
@@ -149,31 +198,6 @@ export async function getExtensionBackgroundTasks(apiBase?: string): Promise<Ext
     `${getApiBase(apiBase)}/api/extensions/background-tasks`,
     {},
     "Extension background tasks request failed"
-  );
-}
-
-export async function getExtensionTranscriptSources(apiBase?: string): Promise<ExtensionTranscriptSource[]> {
-  return fetchJson<ExtensionTranscriptSource[]>(
-    `${getApiBase(apiBase)}/api/extensions/transcripts/sources`,
-    {},
-    "Extension transcript sources request failed"
-  );
-}
-
-export async function syncExtensionTranscripts(
-  input: ExtensionTranscriptSyncInput,
-  apiBase?: string
-): Promise<ExtensionTranscriptSyncResult> {
-  return fetchJson<ExtensionTranscriptSyncResult>(
-    `${getApiBase(apiBase)}/api/extensions/transcripts/sync`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(input)
-    },
-    "Extension transcript sync failed"
   );
 }
 

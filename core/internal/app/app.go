@@ -45,12 +45,20 @@ func Run() error {
 	logRepository := logging.NewSQLiteRepository(sqliteStore.DB)
 	logService := logging.NewService(logRepository, cfg.LogRetentionDays, cfg.LogMaxRecords)
 	providerService := provider.NewService(providerRepository, credentialStore)
-	extensionService := extension.NewService(extensionRepository, []extension.ScanSource{
+	managedPluginDir := filepath.Join(cfg.DataDir, "managed-plugins")
+	extensionService := extension.NewServiceWithOptions(extensionRepository, []extension.ScanSource{
 		{
 			Scope: extension.PluginScopeUser,
 			Dir:   filepath.Join(cfg.DataDir, "extensions"),
 		},
-	}, extension.MarkdownArchiveBundledPlugin())
+		{
+			Scope: extension.PluginScopeManaged,
+			Dir:   managedPluginDir,
+		},
+	}, extension.ServiceOptions{
+		ManagedInstallDir: managedPluginDir,
+		PluginDataDir:     filepath.Join(cfg.DataDir, "plugin-data"),
+	})
 	localGatewayService := localgateway.NewService(localGatewayRepository, credentialStore)
 	localGatewayAdapter := localgateway.NewAdapter(cfg.LocalGatewayRuntimeKind, nil)
 	localGatewayManager := localgateway.NewManager(localGatewayService, localGatewayAdapter, localgateway.RuntimeConfig{

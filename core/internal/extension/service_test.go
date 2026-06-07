@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -17,16 +16,16 @@ func TestServiceScanLoadsValidManifestAndPersistsEnableState(t *testing.T) {
 	t.Parallel()
 
 	service := newTestExtensionService(t)
-	writeTestManifest(t, service.sources[0].Dir, "relay-switch.markdown-archive", `{
+	writeTestManifest(t, service.sources[0].Dir, "acme.archive", `{
 		"manifestVersion": 1,
-		"id": "relay-switch.markdown-archive",
-		"name": "Markdown Archive",
+		"id": "acme.archive",
+		"name": "Archive",
 		"version": "0.1.0",
-		"description": "Exports local transcripts.",
-		"publisher": "relay-switch",
+		"description": "External archive plugin.",
+		"publisher": "acme",
 		"engines": {"relaySwitch": ">=1.0.0"},
 		"entry": {"type": "none"},
-		"contributes": {"commands": [{"id": "markdownArchive.syncNow", "title": "Sync"}]},
+		"contributes": {"commands": [{"id": "archive.syncNow", "title": "Sync"}]},
 		"permissions": []
 	}`)
 
@@ -47,7 +46,7 @@ func TestServiceScanLoadsValidManifestAndPersistsEnableState(t *testing.T) {
 		t.Fatalf("expected command contribution count, got %+v", items[0].Contributes)
 	}
 
-	enabled, err := service.Enable(context.Background(), "relay-switch.markdown-archive")
+	enabled, err := service.Enable(context.Background(), "acme.archive")
 	if err != nil {
 		t.Fatalf("enable plugin: %v", err)
 	}
@@ -63,7 +62,7 @@ func TestServiceScanLoadsValidManifestAndPersistsEnableState(t *testing.T) {
 		t.Fatalf("expected rescan to preserve enabled state, got %+v", items)
 	}
 
-	disabled, err := service.Disable(context.Background(), "relay-switch.markdown-archive")
+	disabled, err := service.Disable(context.Background(), "acme.archive")
 	if err != nil {
 		t.Fatalf("disable plugin: %v", err)
 	}
@@ -329,10 +328,10 @@ func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
 	t.Parallel()
 
 	service := newTestExtensionService(t)
-	writeTestManifest(t, service.sources[0].Dir, "relay-switch.rtk", `{
+	writeTestManifest(t, service.sources[0].Dir, "acme.tool", `{
 		"manifestVersion": 1,
-		"id": "relay-switch.rtk",
-		"name": "RTK",
+		"id": "acme.tool",
+		"name": "External Tool",
 		"version": "0.1.0",
 		"entry": {"type": "none"},
 		"contributes": {
@@ -346,8 +345,8 @@ func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
 				}
 			],
 			"declaredProcesses": [
-				{"id": "rtk.version", "command": "rtk", "args": ["--version"], "timeoutMs": 3000},
-				{"id": "rtk.init.global.codex", "command": "rtk", "args": ["init", "-g", "--codex"], "timeoutMs": 15000}
+				{"id": "external-tool.configure", "command": "external-tool", "args": ["configure", "--check"], "timeoutMs": 3000},
+				{"id": "external-tool.version", "command": "external-tool", "args": ["--version"], "timeoutMs": 3000}
 			]
 		},
 		"permissions": ["process.exec.declared", "tool.detect", "tool.config.write"]
@@ -356,7 +355,7 @@ func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
 	if _, err := service.Scan(context.Background()); err != nil {
 		t.Fatalf("scan extensions: %v", err)
 	}
-	if _, err := service.Enable(context.Background(), "relay-switch.rtk"); err != nil {
+	if _, err := service.Enable(context.Background(), "acme.tool"); err != nil {
 		t.Fatalf("enable plugin: %v", err)
 	}
 
@@ -372,7 +371,7 @@ func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list declared processes: %v", err)
 	}
-	if len(processes) != 2 || processes[0].ID != "rtk.init.global.codex" || len(processes[0].Args) != 3 {
+	if len(processes) != 2 || processes[0].ID != "external-tool.configure" || len(processes[0].Args) != 2 {
 		t.Fatalf("unexpected declared processes: %+v", processes)
 	}
 
@@ -388,7 +387,7 @@ func TestServiceToolIntegrationsDeclaredProcessesAndAudit(t *testing.T) {
 		t.Fatalf("expected unsupported action error, got %v", err)
 	}
 
-	audit, err := service.ListAudit(context.Background(), "relay-switch.rtk", 10)
+	audit, err := service.ListAudit(context.Background(), "acme.tool", 10)
 	if err != nil {
 		t.Fatalf("list audit: %v", err)
 	}
@@ -427,130 +426,138 @@ func TestServiceDeclaredProcessesRequireDeclaredExecPermission(t *testing.T) {
 	}
 }
 
-func TestServiceBundledMarkdownArchiveRegistersContributions(t *testing.T) {
+func TestManifestNodePackageEntryBuildsNpxRuntimePlan(t *testing.T) {
 	t.Parallel()
 
-	service := newTestExtensionService(t)
-	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
-
-	items, err := service.Scan(context.Background())
+	manifest := Manifest{
+		ManifestVersion: 1,
+		ID:              "acme.node-plugin",
+		Name:            "Node Plugin",
+		Version:         "1.0.0",
+		Entry: ManifestEntry{
+			Type:    "nodePackage",
+			Package: "@acme/relay-switch-plugin",
+			Version: "1.2.3",
+			Bin:     "relay-switch-plugin",
+			Args:    []string{"serve"},
+		},
+		Contributes: ManifestContributes{},
+		Permissions: []string{},
+	}
+	if _, err := ValidateManifest(manifest); err != nil {
+		t.Fatalf("validate manifest: %v", err)
+	}
+	plan, err := RuntimePlanForPlugin(Plugin{
+		ID:           manifest.ID,
+		ManifestPath: filepath.Join(t.TempDir(), ManifestFileName),
+		Manifest:     manifest,
+	})
 	if err != nil {
-		t.Fatalf("scan extensions: %v", err)
+		t.Fatalf("build runtime plan: %v", err)
 	}
-	if len(items) != 1 || items[0].ID != MarkdownArchivePluginID || items[0].Scope != PluginScopeBundled {
-		t.Fatalf("unexpected bundled plugin: %+v", items)
+	if plan.Command != "npx" {
+		t.Fatalf("expected npx command, got %+v", plan)
 	}
-	if items[0].Contributes["transcriptSources"] != 2 || items[0].Contributes["backgroundTasks"] != 1 {
-		t.Fatalf("unexpected bundled contributions: %+v", items[0].Contributes)
+	expected := []string{"--yes", "--package", "@acme/relay-switch-plugin@1.2.3", "relay-switch-plugin", "serve"}
+	if strings.Join(plan.Args, "\x00") != strings.Join(expected, "\x00") {
+		t.Fatalf("unexpected npx args: %+v", plan.Args)
+	}
+}
+
+func TestManifestNodePackageRejectsNonExactVersion(t *testing.T) {
+	t.Parallel()
+
+	_, err := ValidateManifest(Manifest{
+		ManifestVersion: 1,
+		ID:              "acme.node-plugin",
+		Name:            "Node Plugin",
+		Version:         "1.0.0",
+		Entry: ManifestEntry{
+			Type:    "nodePackage",
+			Package: "@acme/relay-switch-plugin",
+			Version: "^1.2.3",
+			Bin:     "relay-switch-plugin",
+		},
+		Contributes: ManifestContributes{},
+		Permissions: []string{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "exact semver") {
+		t.Fatalf("expected exact semver validation error, got %v", err)
+	}
+}
+
+func TestServiceInstallGitHubPluginAutoEnablesAndUninstalls(t *testing.T) {
+	t.Parallel()
+
+	fixture := t.TempDir()
+	writeTestManifest(t, fixture, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.external-plugin",
+		"name": "External Plugin",
+		"version": "1.0.0",
+		"entry": {"type": "none"},
+		"contributes": {
+			"backgroundTasks": [
+				{"id": "external.refresh", "title": "Refresh", "minimumIntervalSeconds": 30}
+			]
+		},
+		"permissions": []
+	}`)
+
+	managedDir := filepath.Join(t.TempDir(), "managed")
+	dataDir := filepath.Join(t.TempDir(), "plugin-data")
+	service := newTestExtensionServiceWithOptions(t, ServiceOptions{
+		ManagedInstallDir: managedDir,
+		PluginDataDir:     dataDir,
+		GitExecutable:     writeFakeGit(t, fixture),
+	})
+
+	installed, err := service.Install(context.Background(), InstallPluginInput{
+		Source: "github",
+		URL:    "https://github.com/acme/external-plugin",
+	})
+	if err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if !installed.Enabled || installed.Status != PluginStatusEnabled || installed.Scope != PluginScopeManaged {
+		t.Fatalf("expected installed plugin to auto-enable, got %+v", installed)
+	}
+	if installed.Install == nil || installed.Install.SourceURL != "https://github.com/acme/external-plugin" || installed.Install.GitCommit != "abcdef123456" {
+		t.Fatalf("unexpected install metadata: %+v", installed.Install)
 	}
 
 	tasks, err := service.ListBackgroundTasks(context.Background())
 	if err != nil {
 		t.Fatalf("list background tasks: %v", err)
 	}
-	if len(tasks) != 1 || tasks[0].ID != "markdownArchive.autoSync" {
+	if len(tasks) != 1 || tasks[0].ID != "external.refresh" || !tasks[0].Enabled {
 		t.Fatalf("unexpected background tasks: %+v", tasks)
 	}
-}
-
-func TestServiceTranscriptArchiveSyncExportsMarkdownAndSkipsUnchanged(t *testing.T) {
-	t.Parallel()
-
-	service := newTestExtensionService(t)
-	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
-	homeDir := t.TempDir()
-	service.homeDir = homeDir
-	outputDir := filepath.Join(t.TempDir(), "archive")
-
-	claudePath := filepath.Join(homeDir, ".claude", "projects", "relay-switch", "claude-session.jsonl")
-	writeTextFile(t, claudePath, strings.Join([]string{
-		`{"sessionId":"claude-session","type":"user","cwd":"/workspace/relay-switch","timestamp":"2026-06-05T06:32:10Z","message":{"role":"user","content":"hello sk-abcdefghijklmnop"}}`,
-		`{"sessionId":"claude-session","type":"assistant","timestamp":"2026-06-05T06:33:10Z","message":{"role":"assistant","content":"done"}}`,
-	}, "\n")+"\n")
-
-	codexPath := filepath.Join(homeDir, ".codex", "sessions", "2026", "codex-session.jsonl")
-	writeTextFile(t, codexPath, strings.Join([]string{
-		`{"session_id":"codex-session","role":"user","cwd":"/workspace/relay-switch","timestamp":"2026-06-05T07:32:10Z","content":"codex hello"}`,
-		`{"session_id":"codex-session","role":"assistant","timestamp":"2026-06-05T07:33:10Z","content":"codex done"}`,
-	}, "\n")+"\n")
-
-	if _, err := service.Scan(context.Background()); err != nil {
-		t.Fatalf("scan extensions: %v", err)
-	}
-	if _, err := service.Enable(context.Background(), MarkdownArchivePluginID); err != nil {
-		t.Fatalf("enable markdown archive: %v", err)
+	if _, err := service.Install(context.Background(), InstallPluginInput{
+		Source: "github",
+		URL:    "https://github.com/acme/external-plugin.git",
+	}); !errors.Is(err, ErrPluginAlreadyInstalled) {
+		t.Fatalf("expected duplicate install error, got %v", err)
 	}
 
-	sources, err := service.ListTranscriptSources(context.Background())
-	if err != nil {
-		t.Fatalf("list transcript sources: %v", err)
+	installDir := installed.Install.InstallDir
+	if err := service.Uninstall(context.Background(), installed.ID); err != nil {
+		t.Fatalf("uninstall plugin: %v", err)
 	}
-	if len(sources) != 2 || sources[0].SessionCount+sources[1].SessionCount != 2 {
-		t.Fatalf("unexpected transcript sources: %+v", sources)
+	if _, err := service.GetByID(context.Background(), installed.ID); !errors.Is(err, ErrPluginNotFound) {
+		t.Fatalf("expected uninstalled plugin to be removed, got %v", err)
 	}
-
-	result, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{
-		OutputDirectory: outputDir,
-	})
-	if err != nil {
-		t.Fatalf("sync transcript archive: %v", err)
-	}
-	if result.ExportedCount != 2 || result.SkippedCount != 0 || result.FailedCount != 0 || result.AuditLogID == "" {
-		t.Fatalf("unexpected sync result: %+v", result)
-	}
-
-	markdownFiles := listMarkdownFiles(t, outputDir)
-	if len(markdownFiles) != 2 {
-		t.Fatalf("expected two markdown files, got %+v", markdownFiles)
-	}
-	claudeMarkdown := readTextFile(t, markdownFiles[0]) + readTextFile(t, markdownFiles[1])
-	if !strings.Contains(claudeMarkdown, "[redacted]") || strings.Contains(claudeMarkdown, "sk-abcdefghijklmnop") {
-		t.Fatalf("expected redacted Claude secret, got %s", claudeMarkdown)
-	}
-
-	second, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{
-		OutputDirectory: outputDir,
-	})
-	if err != nil {
-		t.Fatalf("sync transcript archive second run: %v", err)
-	}
-	if second.ExportedCount != 0 || second.SkippedCount != 2 {
-		t.Fatalf("expected unchanged sessions to be skipped, got %+v", second)
-	}
-
-	audit, err := service.ListAudit(context.Background(), MarkdownArchivePluginID, 10)
-	if err != nil {
-		t.Fatalf("list audit: %v", err)
-	}
-	if len(audit) != 2 || audit[0].Capability != "tool.transcripts.read" {
-		t.Fatalf("unexpected transcript audit entries: %+v", audit)
-	}
-}
-
-func TestServiceTranscriptArchiveSyncRequiresOutputDirectory(t *testing.T) {
-	t.Parallel()
-
-	service := newTestExtensionService(t)
-	service.bundled = []BundledPlugin{MarkdownArchiveBundledPlugin()}
-	service.homeDir = t.TempDir()
-
-	if _, err := service.Scan(context.Background()); err != nil {
-		t.Fatalf("scan extensions: %v", err)
-	}
-	if _, err := service.Enable(context.Background(), MarkdownArchivePluginID); err != nil {
-		t.Fatalf("enable markdown archive: %v", err)
-	}
-
-	result, err := service.SyncTranscriptArchive(context.Background(), TranscriptSyncInput{})
-	if !errors.Is(err, ErrTranscriptOutputDirectoryRequired) {
-		t.Fatalf("expected output directory error, got %v", err)
-	}
-	if result.Status != "failed" || result.AuditLogID == "" {
-		t.Fatalf("expected failed sync audit result, got %+v", result)
+	if _, err := os.Stat(installDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected install directory to be removed, got %v", err)
 	}
 }
 
 func newTestExtensionService(t *testing.T) *Service {
+	t.Helper()
+	return newTestExtensionServiceWithOptions(t, ServiceOptions{})
+}
+
+func newTestExtensionServiceWithOptions(t *testing.T, options ServiceOptions) *Service {
 	t.Helper()
 
 	sqliteStore, err := storage.NewSQLite(filepath.Join(t.TempDir(), "extensions.db"))
@@ -560,12 +567,19 @@ func newTestExtensionService(t *testing.T) *Service {
 	t.Cleanup(func() { _ = sqliteStore.Close() })
 
 	root := filepath.Join(t.TempDir(), "extensions")
-	return NewService(NewSQLiteRepository(sqliteStore.DB), []ScanSource{
+	sources := []ScanSource{
 		{
 			Scope: PluginScopeUser,
 			Dir:   root,
 		},
-	})
+	}
+	if options.ManagedInstallDir != "" {
+		sources = append(sources, ScanSource{
+			Scope: PluginScopeManaged,
+			Dir:   options.ManagedInstallDir,
+		})
+	}
+	return NewServiceWithOptions(NewSQLiteRepository(sqliteStore.DB), sources, options)
 }
 
 func writeTestManifest(t *testing.T, root string, pluginDir string, content string) {
@@ -580,39 +594,35 @@ func writeTestManifest(t *testing.T, root string, pluginDir string, content stri
 	}
 }
 
-func writeTextFile(t *testing.T, path string, content string) {
+func writeFakeGit(t *testing.T, fixtureDir string) string {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("create file dir: %v", err)
+
+	path := filepath.Join(t.TempDir(), "git")
+	script := "#!/bin/sh\n" +
+		"set -eu\n" +
+		"case \"$1\" in\n" +
+		"  clone)\n" +
+		"    target=\"$5\"\n" +
+		"    mkdir -p \"$target\"\n" +
+		"    cp -R " + shellQuote(fixtureDir) + "/. \"$target\"\n" +
+		"    ;;\n" +
+		"  rev-parse)\n" +
+		"    echo abcdef123456\n" +
+		"    ;;\n" +
+		"  pull)\n" +
+		"    exit 0\n" +
+		"    ;;\n" +
+		"  *)\n" +
+		"    echo \"unexpected git args: $*\" >&2\n" +
+		"    exit 2\n" +
+		"    ;;\n" +
+		"esac\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake git: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
+	return path
 }
 
-func readTextFile(t *testing.T, path string) string {
-	t.Helper()
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read file: %v", err)
-	}
-	return string(content)
-}
-
-func listMarkdownFiles(t *testing.T, root string) []string {
-	t.Helper()
-	paths := []string{}
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
-			paths = append(paths, path)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("walk markdown files: %v", err)
-	}
-	sort.Strings(paths)
-	return paths
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }

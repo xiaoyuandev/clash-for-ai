@@ -12,13 +12,14 @@ var ErrToolIntegrationActionUnsupported = errors.New("extension tool integration
 var ErrPluginNotEnabled = errors.New("plugin is not enabled")
 var ErrPluginInvalid = errors.New("plugin is invalid")
 var ErrInvalidSettings = errors.New("invalid plugin settings")
-var ErrTranscriptOutputDirectoryRequired = errors.New("transcript output directory is required")
+var ErrPluginAlreadyInstalled = errors.New("plugin is already installed")
+var ErrPluginNotManaged = errors.New("plugin is not managed by Relay Switch")
+var ErrInvalidPluginSource = errors.New("invalid plugin source")
 
 type PluginScope string
 
 const (
 	PluginScopeUser    PluginScope = "user"
-	PluginScopeBundled PluginScope = "bundled"
 	PluginScopeProject PluginScope = "project"
 	PluginScopeManaged PluginScope = "managed"
 )
@@ -45,6 +46,8 @@ type Plugin struct {
 	Status       PluginStatus   `json:"status"`
 	LastError    string         `json:"last_error"`
 	Manifest     Manifest       `json:"manifest"`
+	Install      *PluginInstall `json:"install,omitempty"`
+	Runtime      PluginRuntime  `json:"runtime"`
 	Permissions  []string       `json:"permissions"`
 	Contributes  map[string]int `json:"contributes"`
 	Warnings     []string       `json:"warnings"`
@@ -72,6 +75,9 @@ type ManifestEngines struct {
 type ManifestEntry struct {
 	Type    string   `json:"type"`
 	Command string   `json:"command,omitempty"`
+	Package string   `json:"package,omitempty"`
+	Version string   `json:"version,omitempty"`
+	Bin     string   `json:"bin,omitempty"`
 	Args    []string `json:"args,omitempty"`
 }
 
@@ -80,6 +86,54 @@ type ManifestContributes map[string]json.RawMessage
 type ScanSource struct {
 	Scope PluginScope
 	Dir   string
+}
+
+type PluginSourceType string
+
+const (
+	PluginSourceGitHub PluginSourceType = "github"
+)
+
+type PluginInstall struct {
+	PluginID    string `json:"plugin_id"`
+	SourceType  string `json:"source_type"`
+	SourceURL   string `json:"source_url"`
+	InstallDir  string `json:"install_dir"`
+	GitCommit   string `json:"git_commit"`
+	InstalledAt string `json:"installed_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type PluginRuntimeState string
+
+const (
+	PluginRuntimeStateNone     PluginRuntimeState = "none"
+	PluginRuntimeStateStopped  PluginRuntimeState = "stopped"
+	PluginRuntimeStateStarting PluginRuntimeState = "starting"
+	PluginRuntimeStateRunning  PluginRuntimeState = "running"
+	PluginRuntimeStateDegraded PluginRuntimeState = "degraded"
+)
+
+type PluginRuntime struct {
+	State     PluginRuntimeState `json:"state"`
+	EntryType string             `json:"entry_type"`
+	Command   string             `json:"command,omitempty"`
+	Args      []string           `json:"args,omitempty"`
+	Cwd       string             `json:"cwd,omitempty"`
+	LastError string             `json:"last_error,omitempty"`
+	UpdatedAt string             `json:"updated_at,omitempty"`
+}
+
+type PluginRuntimePlan struct {
+	EntryType string
+	Command   string
+	Args      []string
+	Cwd       string
+}
+
+type InstallPluginInput struct {
+	Source string `json:"source"`
+	URL    string `json:"url"`
 }
 
 type CommandContribution struct {
@@ -142,65 +196,6 @@ type BackgroundTaskContribution struct {
 	PluginName             string       `json:"plugin_name"`
 	Enabled                bool         `json:"enabled"`
 	Status                 PluginStatus `json:"status"`
-}
-
-type TranscriptSource struct {
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Kind         string   `json:"kind"`
-	Enabled      bool     `json:"enabled"`
-	SessionCount int      `json:"session_count"`
-	Paths        []string `json:"paths"`
-}
-
-type TranscriptSyncInput struct {
-	PluginID            string `json:"plugin_id,omitempty"`
-	OutputDirectory     string `json:"output_directory,omitempty"`
-	IncludeClaudeCode   *bool  `json:"include_claude_code,omitempty"`
-	IncludeCodexCLI     *bool  `json:"include_codex_cli,omitempty"`
-	IncludeSystemEvents *bool  `json:"include_system_events,omitempty"`
-	RedactSecrets       *bool  `json:"redact_secrets,omitempty"`
-	OverwriteExisting   *bool  `json:"overwrite_existing,omitempty"`
-}
-
-type TranscriptSyncResult struct {
-	PluginID        string                       `json:"plugin_id"`
-	Status          string                       `json:"status"`
-	OutputDirectory string                       `json:"output_directory"`
-	ExportedCount   int                          `json:"exported_count"`
-	SkippedCount    int                          `json:"skipped_count"`
-	FailedCount     int                          `json:"failed_count"`
-	StartedAt       string                       `json:"started_at"`
-	FinishedAt      string                       `json:"finished_at"`
-	AuditLogID      string                       `json:"audit_log_id"`
-	Sources         []TranscriptSourceSyncResult `json:"sources"`
-	Failures        []TranscriptSyncFailure      `json:"failures"`
-}
-
-type TranscriptSourceSyncResult struct {
-	SourceID      string `json:"source_id"`
-	Discovered    int    `json:"discovered"`
-	ExportedCount int    `json:"exported_count"`
-	SkippedCount  int    `json:"skipped_count"`
-	FailedCount   int    `json:"failed_count"`
-}
-
-type TranscriptSyncFailure struct {
-	SourceID  string `json:"source_id"`
-	SessionID string `json:"session_id,omitempty"`
-	Path      string `json:"path,omitempty"`
-	Error     string `json:"error"`
-}
-
-type TranscriptExportState struct {
-	Source      string `json:"source"`
-	SessionID   string `json:"session_id"`
-	RawPath     string `json:"raw_path"`
-	RawMTime    int64  `json:"raw_mtime"`
-	RawSize     int64  `json:"raw_size"`
-	OutputPath  string `json:"output_path"`
-	ExportedAt  string `json:"exported_at"`
-	ContentHash string `json:"content_hash"`
 }
 
 type SettingsSchema struct {

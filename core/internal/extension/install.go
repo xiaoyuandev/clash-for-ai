@@ -1,0 +1,290 @@
+package extension
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+)
+
+var githubPathPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?$`)
+
+func (s *Service) Install(ctx context.Context, input InstallPluginInput) (*Plugin, error) {
+	sourceType, sourceURL, err := normalizePluginSource(input)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(s.managedInstallDir) == "" {
+		return nil, fmt.Errorf("%w: managed install directory is not configured", ErrInvalidPluginSource)
+	}
+	if _, err := s.repository.GetInstallBySource(ctx, string(sourceType), sourceURL); err == nil {
+		return nil, ErrPluginAlreadyInstalled
+	} else if !errors.Is(err, ErrPluginNotFound) {
+		return nil, err
+	}
+	if err := os.MkdirAll(s.managedInstallDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create managed plugin directory: %w", err)
+	}
+
+	tempDir := filepath.Join(
+		s.managedInstallDir,
+		fmt.Sprintf(".install-%d-%s", time.Now().UTC().UnixNano(), sourceDirectorySuffix(sourceURL)),
+	)
+	if err := s.git(ctx, "", "clone", "--depth", "1", sourceURL, tempDir); err != nil {
+		_ = os.RemoveAll(tempDir)
+		return nil, err
+	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
+	manifestPath, manifest, warnings, err := loadSingleManagedManifest(tempDir)
+	if err != nil {
+		return nil, err
+	}
+	if existing, err := s.repository.GetByID(ctx, manifest.ID); err == nil {
+		if existing.Install != nil && existing.Install.SourceURL == sourceURL {
+			return nil, ErrPluginAlreadyInstalled
+		}
+		return nil, fmt.Errorf("%w: plugin id %q is already present", ErrPluginAlreadyInstalled, manifest.ID)
+	} else if !errors.Is(err, ErrPluginNotFound) {
+		return nil, err
+	}
+
+	targetDir := filepath.Join(s.managedInstallDir, managedDirectoryName(manifest.ID, sourceURL))
+	if _, err := os.Stat(targetDir); err == nil {
+		return nil, fmt.Errorf("%w: install directory already exists", ErrPluginAlreadyInstalled)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("inspect install directory: %w", err)
+	}
+	if err := os.Rename(tempDir, targetDir); err != nil {
+		return nil, fmt.Errorf("move managed plugin into place: %w", err)
+	}
+
+	relativeManifestPath, err := filepath.Rel(tempDir, manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve manifest path: %w", err)
+	}
+	finalManifestPath := filepath.Join(targetDir, relativeManifestPath)
+	commit, err := s.gitOutput(ctx, targetDir, "rev-parse", "HEAD")
+	if err != nil {
+		commit = ""
+	}
+
+	item := manifestToPlugin(manifest, PluginScopeManaged, finalManifestPath, warnings)
+	item.Enabled = true
+	item.Status = PluginStatusEnabled
+	stored, err := s.repository.Upsert(ctx, item)
+	if err != nil {
+		_ = os.RemoveAll(targetDir)
+		return nil, err
+	}
+
+	install, err := s.repository.UpsertInstall(ctx, PluginInstall{
+		PluginID:   stored.ID,
+		SourceType: string(sourceType),
+		SourceURL:  sourceURL,
+		InstallDir: targetDir,
+		GitCommit:  strings.TrimSpace(commit),
+	})
+	if err != nil {
+		_ = s.repository.DeletePlugin(ctx, stored.ID)
+		_ = os.RemoveAll(targetDir)
+		return nil, err
+	}
+	stored.Install = &install
+	s.startRuntime(ctx, stored)
+	decorated := s.decoratePlugin(stored)
+	return &decorated, nil
+}
+
+func (s *Service) Update(ctx context.Context, pluginID string) (*Plugin, error) {
+	plugin, err := s.repository.GetByID(ctx, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	install, err := s.repository.GetInstallByPluginID(ctx, pluginID)
+	if err != nil {
+		if errors.Is(err, ErrPluginNotFound) {
+			return nil, ErrPluginNotManaged
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(install.InstallDir) == "" {
+		return nil, ErrPluginNotManaged
+	}
+	if s.runtimeHost != nil {
+		_ = s.runtimeHost.Stop(ctx, pluginID)
+	}
+
+	if err := s.git(ctx, install.InstallDir, "pull", "--ff-only"); err != nil {
+		return nil, err
+	}
+	manifestPath, manifest, warnings, err := loadSingleManagedManifest(install.InstallDir)
+	if err != nil {
+		return nil, err
+	}
+	if manifest.ID != pluginID {
+		return nil, fmt.Errorf("%w: updated manifest id changed from %q to %q", ErrInvalidPluginSource, pluginID, manifest.ID)
+	}
+	commit, err := s.gitOutput(ctx, install.InstallDir, "rev-parse", "HEAD")
+	if err != nil {
+		commit = install.GitCommit
+	}
+
+	item := manifestToPlugin(manifest, PluginScopeManaged, manifestPath, warnings)
+	item.CreatedAt = plugin.CreatedAt
+	if item.Status == PluginStatusInvalid {
+		item.Enabled = false
+	} else {
+		item.Enabled = plugin.Enabled
+		item.Status = pluginStatusForEnabled(plugin.Enabled, plugin.Status)
+	}
+	stored, err := s.repository.Upsert(ctx, item)
+	if err != nil {
+		return nil, err
+	}
+
+	install.GitCommit = strings.TrimSpace(commit)
+	updatedInstall, err := s.repository.UpsertInstall(ctx, *install)
+	if err != nil {
+		return nil, err
+	}
+	stored.Install = &updatedInstall
+	s.startRuntime(ctx, stored)
+	decorated := s.decoratePlugin(stored)
+	return &decorated, nil
+}
+
+func (s *Service) Uninstall(ctx context.Context, pluginID string) error {
+	plugin, err := s.repository.GetByID(ctx, pluginID)
+	if err != nil {
+		return err
+	}
+	install, err := s.repository.GetInstallByPluginID(ctx, plugin.ID)
+	if err != nil {
+		if errors.Is(err, ErrPluginNotFound) {
+			return ErrPluginNotManaged
+		}
+		return err
+	}
+	if s.runtimeHost != nil {
+		_ = s.runtimeHost.Stop(ctx, plugin.ID)
+	}
+
+	if err := s.repository.DeletePlugin(ctx, plugin.ID); err != nil {
+		return err
+	}
+	if strings.TrimSpace(install.InstallDir) != "" {
+		if err := os.RemoveAll(install.InstallDir); err != nil {
+			return fmt.Errorf("remove plugin install directory: %w", err)
+		}
+	}
+	if strings.TrimSpace(s.pluginDataDir) != "" {
+		if err := os.RemoveAll(filepath.Join(s.pluginDataDir, plugin.ID)); err != nil {
+			return fmt.Errorf("remove plugin data directory: %w", err)
+		}
+	}
+	return nil
+}
+
+func normalizePluginSource(input InstallPluginInput) (PluginSourceType, string, error) {
+	if strings.TrimSpace(input.Source) != string(PluginSourceGitHub) {
+		return "", "", fmt.Errorf("%w: source must be github", ErrInvalidPluginSource)
+	}
+	parsed, err := url.Parse(strings.TrimSpace(input.URL))
+	if err != nil {
+		return "", "", fmt.Errorf("%w: malformed GitHub URL", ErrInvalidPluginSource)
+	}
+	if parsed.Scheme != "https" || !strings.EqualFold(parsed.Host, "github.com") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", "", fmt.Errorf("%w: only public https://github.com/{owner}/{repo} URLs are supported", ErrInvalidPluginSource)
+	}
+	path := strings.Trim(parsed.EscapedPath(), "/")
+	unescaped, err := url.PathUnescape(path)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: malformed GitHub path", ErrInvalidPluginSource)
+	}
+	if !githubPathPattern.MatchString(unescaped) {
+		return "", "", fmt.Errorf("%w: GitHub URL must be https://github.com/{owner}/{repo}", ErrInvalidPluginSource)
+	}
+	unescaped = strings.TrimSuffix(unescaped, ".git")
+	parts := strings.Split(unescaped, "/")
+	return PluginSourceGitHub, fmt.Sprintf("https://github.com/%s/%s", parts[0], parts[1]), nil
+}
+
+func loadSingleManagedManifest(root string) (string, Manifest, []string, error) {
+	paths, err := manifestPaths(root)
+	if err != nil {
+		return "", Manifest{}, nil, err
+	}
+	if len(paths) != 1 {
+		return "", Manifest{}, nil, fmt.Errorf("%w: expected exactly one %s, found %d", ErrInvalidPluginSource, ManifestFileName, len(paths))
+	}
+	manifest, warnings, err := LoadManifest(paths[0])
+	if err != nil {
+		return paths[0], manifest, warnings, err
+	}
+	return paths[0], manifest, warnings, nil
+}
+
+func (s *Service) git(ctx context.Context, dir string, args ...string) error {
+	output, err := s.gitCombinedOutput(ctx, dir, args...)
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message == "" {
+			message = err.Error()
+		}
+		return fmt.Errorf("git %s failed: %s", strings.Join(args, " "), message)
+	}
+	return nil
+}
+
+func (s *Service) gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	output, err := s.gitCombinedOutput(ctx, dir, args...)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (s *Service) gitCombinedOutput(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	command := exec.CommandContext(ctx, s.gitExecutable, args...)
+	if strings.TrimSpace(dir) != "" {
+		command.Dir = dir
+	}
+	return command.CombinedOutput()
+}
+
+func managedDirectoryName(pluginID string, sourceURL string) string {
+	return sanitizePathComponent(pluginID) + "-" + sourceDirectorySuffix(sourceURL)
+}
+
+func sourceDirectorySuffix(sourceURL string) string {
+	sum := sha256.Sum256([]byte(sourceURL))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
+func sanitizePathComponent(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	builder := strings.Builder{}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '.' || r == '_' {
+			builder.WriteRune(r)
+			continue
+		}
+		builder.WriteByte('-')
+	}
+	result := strings.Trim(builder.String(), ".-")
+	if result == "" {
+		return "plugin"
+	}
+	return result
+}

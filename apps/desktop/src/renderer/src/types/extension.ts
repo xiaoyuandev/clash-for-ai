@@ -1,4 +1,4 @@
-export type PluginScope = "user" | "bundled" | "project" | "managed";
+export type PluginScope = "user" | "project" | "managed";
 
 export type PluginStatus =
   | "installed"
@@ -8,8 +8,11 @@ export type PluginStatus =
   | "invalid";
 
 export interface ExtensionManifestEntry {
-  type: "process" | "none" | string;
+  type: "process" | "nodePackage" | "none" | string;
   command?: string;
+  package?: string;
+  version?: string;
+  bin?: string;
   args?: string[];
 }
 
@@ -40,11 +43,38 @@ export interface ExtensionPlugin {
   status: PluginStatus;
   last_error: string;
   manifest: ExtensionManifest;
+  install?: ExtensionPluginInstall;
+  runtime: ExtensionPluginRuntime;
   permissions: string[];
   contributes: Record<string, number>;
   warnings: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface ExtensionPluginInstall {
+  plugin_id: string;
+  source_type: "github" | string;
+  source_url: string;
+  install_dir: string;
+  git_commit: string;
+  installed_at: string;
+  updated_at: string;
+}
+
+export interface ExtensionPluginRuntime {
+  state: "none" | "stopped" | "starting" | "running" | "degraded" | string;
+  entry_type: string;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  last_error?: string;
+  updated_at?: string;
+}
+
+export interface ExtensionInstallInput {
+  source: "github";
+  url: string;
 }
 
 export interface ExtensionSettingsProperty {
@@ -133,50 +163,6 @@ export interface ExtensionBackgroundTask {
   plugin_name: string;
   enabled: boolean;
   status: PluginStatus;
-}
-
-export interface ExtensionTranscriptSource {
-  id: string;
-  title: string;
-  kind: string;
-  enabled: boolean;
-  session_count: number;
-  paths: string[];
-}
-
-export interface ExtensionTranscriptSyncInput {
-  plugin_id?: string;
-  output_directory?: string;
-  include_claude_code?: boolean;
-  include_codex_cli?: boolean;
-  include_system_events?: boolean;
-  redact_secrets?: boolean;
-  overwrite_existing?: boolean;
-}
-
-export interface ExtensionTranscriptSyncResult {
-  plugin_id: string;
-  status: "success" | "partial" | "failed" | string;
-  output_directory: string;
-  exported_count: number;
-  skipped_count: number;
-  failed_count: number;
-  started_at: string;
-  finished_at: string;
-  audit_log_id: string;
-  sources: Array<{
-    source_id: string;
-    discovered: number;
-    exported_count: number;
-    skipped_count: number;
-    failed_count: number;
-  }>;
-  failures: Array<{
-    source_id: string;
-    session_id?: string;
-    path?: string;
-    error: string;
-  }>;
 }
 
 export interface ExtensionAuditLog {
