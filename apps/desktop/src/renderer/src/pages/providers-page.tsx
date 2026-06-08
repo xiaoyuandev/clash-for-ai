@@ -30,6 +30,7 @@ import {
   columnCardClass,
   emptyStateClass,
   fieldLabelClass,
+  floatingModalPanelClass,
   iconBadgeClass,
   iconButtonSmallClass,
   inputClass,
@@ -1632,7 +1633,7 @@ export function ProvidersPage({
       {formOpen ? (
         <div className={modalBackdropClass} role="presentation">
           <section
-            className={`${modalPanelClass} max-w-3xl`}
+            className={`${floatingModalPanelClass} max-w-3xl`}
             role="dialog"
             aria-modal="true"
             aria-label={editingId ? t("providers.form.editTitle") : t("providers.form.addTitle")}

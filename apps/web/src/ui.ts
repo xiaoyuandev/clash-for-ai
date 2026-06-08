@@ -138,3 +138,4 @@ export const iconButtonSmallClass =
 export const modalBackdropClass =
   "fixed inset-0 z-50 grid place-items-center px-4 py-6 backdrop-blur-md [background:var(--modal-backdrop)]";
 export const modalPanelClass = `${glassPanelClass} max-h-[calc(100vh-3rem)] w-full max-w-4xl overflow-auto p-4 sm:p-5`;
+export const floatingModalPanelClass = `${glassPanelClass} max-h-[calc(100vh-3rem)] w-full max-w-4xl overflow-visible p-4 sm:p-5`;
