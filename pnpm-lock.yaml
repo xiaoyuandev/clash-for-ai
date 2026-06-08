@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@relay-switch/model-presets':
+        specifier: workspace:*
+        version: link:packages/model-presets
 
   apps/desktop:
     dependencies:
@@ -16,6 +20,9 @@ importers:
       '@electron-toolkit/utils':
         specifier: ^4.0.0
         version: 4.0.0(electron@41.2.1)
+      '@relay-switch/model-presets':
+        specifier: workspace:*
+        version: link:../../packages/model-presets
       electron-updater:
         specifier: ^6.8.3
         version: 6.8.3
@@ -71,6 +78,9 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.36.0
         version: 0.36.3(astro@5.18.1(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.1)(terser@5.47.1)(typescript@5.9.3))
+      '@relay-switch/model-presets':
+        specifier: workspace:*
+        version: link:../../packages/model-presets
       '@tailwindcss/vite':
         specifier: ^4.1.12
         version: 4.2.3(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.47.1))
@@ -83,6 +93,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@relay-switch/model-presets':
+        specifier: workspace:*
+        version: link:../../packages/model-presets
       react:
         specifier: ^19.1.0
         version: 19.2.5
@@ -114,6 +127,8 @@ importers:
       vite-plugin-pwa:
         specifier: ^1.0.3
         version: 1.3.0(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.47.1))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
+
+  packages/model-presets: {}
 
 packages:
 

@@ -16,6 +16,9 @@
     "docs:build": "pnpm --filter docs build",
     "docs:preview": "pnpm --filter docs preview"
   },
+  "devDependencies": {
+    "@relay-switch/model-presets": "workspace:*"
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron",

@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { APIRoute } from "astro";
-import { readModelPresetCatalog } from "../../../../scripts/model-presets-schema.mjs";
+import { readModelPresetCatalog } from "@relay-switch/model-presets/node";
 
 export const prerender = true;
 

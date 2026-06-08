@@ -30,6 +30,7 @@
     "release:linux": "pnpm build && pnpm build:core && pnpm prepare:ai-mini-gateway-runtime && node ./scripts/electron-builder-with-root-version.mjs --linux AppImage tar.gz --publish always"
   },
   "dependencies": {
+    "@relay-switch/model-presets": "workspace:*",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "electron-updater": "^6.8.3",

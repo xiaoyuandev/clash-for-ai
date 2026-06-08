@@ -22,7 +22,7 @@ import type {
   LocalGatewaySourceHealthcheck,
   LocalGatewayRuntimeResponse
 } from "../types/local-gateway";
-import type { ModelPreset, ModelPresetCatalog } from "../types/model-preset";
+import type { ModelPreset, ModelPresetCatalog } from "@relay-switch/model-presets";
 import {
   actionRowClass,
   buttonClass,

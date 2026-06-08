@@ -26,3 +26,6 @@ export interface ModelPresetCatalog {
   cached_at?: string;
   last_refresh_error?: string;
 }
+
+export function normalizeModelPresetCatalog(value: unknown, sourceURL?: string): ModelPresetCatalog;
+export function validateModelPresetCatalog(value: unknown): void;
