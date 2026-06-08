@@ -3,8 +3,36 @@
   "updated_at": "2026-06-08",
   "presets": [
     {
+      "name": "apikey",
+      "base_url": "https://api.apikey.fun"
+    },
+    {
       "name": "kocodex",
       "base_url": "https://kocodex.link"
+    },
+    {
+      "name": "b.ai",
+      "base_url": "https://api.b.ai"
+    },
+    {
+      "name": "unity2",
+      "base_url": "https://unity2.ai"
+    },
+    {
+      "name": "pincc",
+      "base_url": "https://v2.pincc.ai"
+    },
+    {
+      "name": "aihub2api",
+      "base_url": "https://aihub2api.cloud"
+    },
+    {
+      "name": "coderplan",
+      "base_url": "https://api.coderplan.ai/v1"
+    },
+    {
+      "name": "Token云桥",
+      "base_url": "https://api.0029.org"
     }
   ]
 }
