@@ -409,6 +409,47 @@ VITE_MODEL_PRESETS_URL=https://example.com/model-presets.json pnpm --filter web 
 9. `disabled: true` 可以隐藏某个 preset，但不需要从 JSON 里删除。
 10. `deprecated: true` 可以保留某个 preset，同时标记它后续会清理。
 
+#### Provider 预设配置
+
+`Providers` 表单可以从远程 JSON 加载可选的供应商预设。预设只负责辅助填写 `Name` 和 `Base URL`，最终保存的 `API Key` 仍然由用户在表单里填写。
+
+默认配置地址是：
+
+```text
+https://www.relayswitch.dev/provider-presets.json
+```
+
+前端构建时可以通过环境变量覆盖：
+
+```bash
+VITE_PROVIDER_PRESETS_URL=https://example.com/provider-presets.json pnpm --filter web build
+```
+
+源文件是 `config/provider-presets.json`。以后新增 Provider 预设只需要更新这个文件。docs 站点构建时会把它发布到默认 URL 对应的静态 JSON endpoint，并在 schema 不合法时让构建失败。你可以用 `pnpm validate:provider-presets` 在本地校验。
+
+示例配置：
+
+```json
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-08",
+  "presets": [
+    {
+      "name": "kocodex",
+      "base_url": "https://kocodex.link"
+    }
+  ]
+}
+```
+
+字段说明：
+
+1. `schema_version` 必须是 `1`。
+2. `presets[].name` 必须唯一。
+3. `presets[].base_url` 必须是合法的绝对 URL。
+4. `presets[]` 条目只支持 `name` 和 `base_url`。
+5. 预设不会保存或分发 `API Key`。
+
 ### 3. Tools
 
 `Tools` 页面用于帮助客户端工具正确接入 Relay Switch。

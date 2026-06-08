@@ -1,0 +1,25 @@
+{
+  "name": "@relay-switch/presets",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./model": {
+      "types": "./model/index.d.ts",
+      "import": "./model/core.mjs"
+    },
+    "./model/node": {
+      "types": "./model/node.d.ts",
+      "import": "./model/node.mjs"
+    },
+    "./provider": {
+      "types": "./provider/index.d.ts",
+      "import": "./provider/core.mjs"
+    },
+    "./provider/node": {
+      "types": "./provider/node.d.ts",
+      "import": "./provider/node.mjs"
+    }
+  }
+}

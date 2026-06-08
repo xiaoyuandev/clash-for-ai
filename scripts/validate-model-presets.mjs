@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { readModelPresetCatalog } from "@relay-switch/model-presets/node";
+import { readModelPresetCatalog } from "@relay-switch/presets/model/node";
 
 const sourcePath = resolve(process.cwd(), "config/model-presets.json");
 

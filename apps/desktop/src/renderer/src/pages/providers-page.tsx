@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
+import { getProviderPresets } from "../services/provider-presets";
 import {
   activateProvider,
   configureTool,
@@ -23,6 +24,7 @@ import {
 import type { LocalGatewayRuntimeStatus } from "../types/local-gateway";
 import type { ClaudeCodeModelMap, CodexModelEntry, Provider } from "../types/provider";
 import type { ProviderModel } from "../types/provider-model";
+import type { ProviderPreset, ProviderPresetCatalog } from "@relay-switch/presets/provider";
 import {
   buttonClass,
   columnCardClass,
@@ -126,6 +128,9 @@ export function ProvidersPage({
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [providerPresetCatalog, setProviderPresetCatalog] = useState<ProviderPresetCatalog | null>(null);
+  const [providerPresetLoading, setProviderPresetLoading] = useState(false);
+  const [providerPresetMenuOpen, setProviderPresetMenuOpen] = useState(false);
   const [showSelectedProviderApiKey, setShowSelectedProviderApiKey] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -192,6 +197,23 @@ export function ProvidersPage({
     });
   }, [modelSearch, modelTestStates, providerModels, showAvailableModelsOnly]);
 
+  const providerPresets = useMemo(() => providerPresetCatalog?.presets ?? [], [providerPresetCatalog]);
+
+  const filteredProviderPresets = useMemo(() => {
+    if (editingId) {
+      return [];
+    }
+
+    const keyword = name.trim().toLowerCase();
+    if (!keyword) {
+      return providerPresets.slice(0, 8);
+    }
+
+    return providerPresets
+      .filter((preset) => preset.name.toLowerCase().includes(keyword))
+      .slice(0, 8);
+  }, [editingId, name, providerPresets]);
+
   const localGatewayReady =
     localGatewayRuntime?.running === true && localGatewayRuntime.healthy === true;
 
@@ -233,6 +255,27 @@ export function ProvidersPage({
     ]);
     setFeedback(null);
   }, [feedback]);
+
+  const loadProviderPresets = useCallback(async () => {
+    setProviderPresetLoading(true);
+    try {
+      const catalog = await getProviderPresets();
+      setProviderPresetCatalog(catalog);
+    } catch (loadError) {
+      setProviderPresetCatalog({
+        schema_version: 1,
+        presets: [],
+        source_url: "",
+        last_refresh_error: loadError instanceof Error ? loadError.message : t("common.unknownError")
+      });
+    } finally {
+      setProviderPresetLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadProviderPresets();
+  }, [loadProviderPresets]);
 
   useEffect(() => {
     let cancelled = false;
@@ -872,6 +915,7 @@ export function ProvidersPage({
     setName(provider.name);
     setBaseUrl(provider.base_url);
     setApiKey(provider.api_key ?? "");
+    setProviderPresetMenuOpen(false);
     setFeedback(null);
     setError(null);
     setShowApiKey(false);
@@ -884,6 +928,7 @@ export function ProvidersPage({
     setBaseUrl("");
     setApiKey("");
     setShowApiKey(false);
+    setProviderPresetMenuOpen(false);
   }
 
   function startCreating() {
@@ -891,6 +936,19 @@ export function ProvidersPage({
     setFeedback(null);
     setError(null);
     setFormOpen(true);
+  }
+
+  function handleProviderNameChange(value: string) {
+    setName(value);
+    if (!editingId) {
+      setProviderPresetMenuOpen(true);
+    }
+  }
+
+  function applyProviderPreset(preset: ProviderPreset) {
+    setName(preset.name);
+    setBaseUrl(preset.base_url);
+    setProviderPresetMenuOpen(false);
   }
 
   async function syncClaudeCodeIntegrationIfConfigured() {
@@ -1601,12 +1659,45 @@ export function ProvidersPage({
             <form className="mt-4 grid gap-3" onSubmit={handleCreateProvider}>
               <label className={labelClass}>
                 <span className={fieldLabelClass}>{t("providers.form.name")}</span>
-                <input
-                  required
-                  className={inputClass}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    required
+                    className={inputClass}
+                    value={name}
+                    onFocus={() => {
+                      if (!editingId) {
+                        setProviderPresetMenuOpen(true);
+                      }
+                    }}
+                    onBlur={() => window.setTimeout(() => setProviderPresetMenuOpen(false), 120)}
+                    onChange={(event) => handleProviderNameChange(event.target.value)}
+                    placeholder={editingId ? undefined : t("providers.form.namePresetPlaceholder")}
+                    autoComplete="off"
+                  />
+                  {!editingId && providerPresetMenuOpen ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-64 overflow-y-auto rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-popup)] p-1 shadow-[var(--shadow-panel)]">
+                      {filteredProviderPresets.length > 0 ? (
+                        filteredProviderPresets.map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            className="block w-full rounded-lg px-3 py-2 text-left transition hover:[background:var(--panel-soft)]"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => applyProviderPreset(preset)}
+                          >
+                            <span className="block text-sm font-semibold text-[color:var(--color-heading)]">
+                              {preset.name}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-2 text-xs text-[color:var(--color-muted)]">
+                          {providerPresetLoading ? t("common.loading") : t("providers.form.namePresetEmpty")}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </label>
               <label className={labelClass}>
                 <span className={fieldLabelClass}>{t("providers.form.baseUrl")}</span>

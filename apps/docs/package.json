@@ -9,11 +9,10 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@relay-switch/model-presets": "workspace:*",
+    "@relay-switch/presets": "workspace:*",
     "@astrojs/starlight": "^0.36.0",
     "@tailwindcss/vite": "^4.1.12",
-    "astro": "^5.13.5"
-    ,
+    "astro": "^5.13.5",
     "tailwindcss": "^4.1.12"
   }
 }

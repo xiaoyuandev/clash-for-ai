@@ -1,13 +1,13 @@
-import { normalizeModelPresetCatalog } from "@relay-switch/presets/model";
-import type { ModelPresetCatalog } from "@relay-switch/presets/model";
+import { normalizeProviderPresetCatalog } from "@relay-switch/presets/provider";
+import type { ProviderPresetCatalog } from "@relay-switch/presets/provider";
 
-const DEFAULT_MODEL_PRESETS_URL =
-  "https://www.relayswitch.dev/model-presets.json";
-const DEV_MODEL_PRESETS_URL = "/model-presets.json";
-const MODEL_PRESETS_CACHE_KEY = "relay-switch:model-presets";
+const DEFAULT_PROVIDER_PRESETS_URL =
+  "https://www.relayswitch.dev/provider-presets.json";
+const DEV_PROVIDER_PRESETS_URL = "/provider-presets.json";
+const PROVIDER_PRESETS_CACHE_KEY = "relay-switch:provider-presets";
 
-function modelPresetsURL() {
-  return import.meta.env.VITE_MODEL_PRESETS_URL?.trim() || (import.meta.env.DEV ? DEV_MODEL_PRESETS_URL : DEFAULT_MODEL_PRESETS_URL);
+function providerPresetsURL() {
+  return import.meta.env.VITE_PROVIDER_PRESETS_URL?.trim() || (import.meta.env.DEV ? DEV_PROVIDER_PRESETS_URL : DEFAULT_PROVIDER_PRESETS_URL);
 }
 
 function errorMessage(error: unknown) {
@@ -18,9 +18,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readCachedCatalog(sourceURL: string): ModelPresetCatalog | null {
+function readCachedCatalog(sourceURL: string): ProviderPresetCatalog | null {
   try {
-    const raw = window.localStorage.getItem(MODEL_PRESETS_CACHE_KEY);
+    const raw = window.localStorage.getItem(PROVIDER_PRESETS_CACHE_KEY);
     if (!raw) {
       return null;
     }
@@ -28,16 +28,16 @@ function readCachedCatalog(sourceURL: string): ModelPresetCatalog | null {
     if (isObject(parsed) && typeof parsed.source_url === "string" && parsed.source_url !== sourceURL) {
       return null;
     }
-    return normalizeModelPresetCatalog(parsed, sourceURL);
+    return normalizeProviderPresetCatalog(parsed, sourceURL);
   } catch {
     return null;
   }
 }
 
-function writeCachedCatalog(catalog: ModelPresetCatalog) {
+function writeCachedCatalog(catalog: ProviderPresetCatalog) {
   try {
     window.localStorage.setItem(
-      MODEL_PRESETS_CACHE_KEY,
+      PROVIDER_PRESETS_CACHE_KEY,
       JSON.stringify({
         ...catalog,
         cached_at: new Date().toISOString()
@@ -48,8 +48,8 @@ function writeCachedCatalog(catalog: ModelPresetCatalog) {
   }
 }
 
-export async function getModelPresets(): Promise<ModelPresetCatalog> {
-  const sourceURL = modelPresetsURL();
+export async function getProviderPresets(): Promise<ProviderPresetCatalog> {
+  const sourceURL = providerPresetsURL();
   try {
     const response = await fetch(sourceURL, {
       cache: "no-cache",
@@ -58,10 +58,10 @@ export async function getModelPresets(): Promise<ModelPresetCatalog> {
       }
     });
     if (!response.ok) {
-      throw new Error(`Model presets request failed with ${response.status}`);
+      throw new Error(`Provider presets request failed with ${response.status}`);
     }
 
-    const catalog = normalizeModelPresetCatalog(await response.json(), sourceURL);
+    const catalog = normalizeProviderPresetCatalog(await response.json(), sourceURL);
     writeCachedCatalog(catalog);
     return catalog;
   } catch (error) {

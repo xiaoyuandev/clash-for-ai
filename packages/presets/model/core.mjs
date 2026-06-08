@@ -1,41 +1,10 @@
-function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function optionalString(value, path) {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "string") {
-    throw new Error(`${path} must be a string`);
-  }
-  return value.trim() ? value.trim() : undefined;
-}
-
-function optionalBoolean(value, path) {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "boolean") {
-    throw new Error(`${path} must be a boolean`);
-  }
-  return value;
-}
-
-function optionalStringList(value, path) {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!Array.isArray(value)) {
-    throw new Error(`${path} must be an array`);
-  }
-  return value.map((item, index) => {
-    if (typeof item !== "string" || !item.trim()) {
-      throw new Error(`${path}[${index}] must be a non-empty string`);
-    }
-    return item.trim();
-  });
-}
+import {
+  isObject,
+  optionalBoolean,
+  optionalString,
+  optionalStringList,
+  requiredString
+} from "../shared.mjs";
 
 function normalizeProvider(value, path) {
   if (!isObject(value)) {
@@ -43,13 +12,10 @@ function normalizeProvider(value, path) {
   }
 
   const providerType = value.provider_type;
-  const baseURL = value.base_url;
+  const baseURL = requiredString(value.base_url, `${path}.base_url`);
   const modelsAPI = value.models_api;
   if (providerType !== "openai-compatible" && providerType !== "anthropic-compatible") {
     throw new Error(`${path}.provider_type must be openai-compatible or anthropic-compatible`);
-  }
-  if (typeof baseURL !== "string" || !baseURL.trim()) {
-    throw new Error(`${path}.base_url must be a non-empty string`);
   }
   if (
     modelsAPI !== undefined &&
@@ -69,7 +35,7 @@ function normalizeProvider(value, path) {
     id: optionalString(value.id, `${path}.id`),
     label: optionalString(value.label, `${path}.label`),
     provider_type: providerType,
-    base_url: baseURL.trim(),
+    base_url: baseURL,
     models_api: modelsAPI,
     model_ids: modelIDs
   };
@@ -78,12 +44,6 @@ function normalizeProvider(value, path) {
 function normalizePreset(value, path) {
   if (!isObject(value)) {
     throw new Error(`${path} must be an object`);
-  }
-  if (typeof value.id !== "string" || !value.id.trim()) {
-    throw new Error(`${path}.id must be a non-empty string`);
-  }
-  if (typeof value.label !== "string" || !value.label.trim()) {
-    throw new Error(`${path}.label must be a non-empty string`);
   }
   if (!Array.isArray(value.providers)) {
     throw new Error(`${path}.providers must be an array`);
@@ -97,8 +57,8 @@ function normalizePreset(value, path) {
   }
 
   return {
-    id: value.id.trim(),
-    label: value.label.trim(),
+    id: requiredString(value.id, `${path}.id`),
+    label: requiredString(value.label, `${path}.label`),
     description: optionalString(value.description, `${path}.description`),
     aliases: optionalStringList(value.aliases, `${path}.aliases`),
     providers,

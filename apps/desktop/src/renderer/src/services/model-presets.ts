@@ -1,5 +1,5 @@
-import { normalizeModelPresetCatalog } from "@relay-switch/model-presets";
-import type { ModelPresetCatalog } from "@relay-switch/model-presets";
+import { normalizeModelPresetCatalog } from "@relay-switch/presets/model";
+import type { ModelPresetCatalog } from "@relay-switch/presets/model";
 
 const DEFAULT_MODEL_PRESETS_URL =
   "https://www.relayswitch.dev/model-presets.json";
