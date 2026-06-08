@@ -1643,7 +1643,19 @@ export function ProvidersPage({
 
             <form className="mt-4 grid gap-3" onSubmit={handleCreateProvider}>
               <label className={labelClass}>
-                <span className={fieldLabelClass}>{t("providers.form.name")}</span>
+                <span className="flex items-center justify-between gap-3">
+                  <span className={fieldLabelClass}>{t("providers.form.name")}</span>
+                  {!editingId ? (
+                    <a
+                      className="text-xs font-semibold text-[color:var(--accent)] transition hover:text-[color:var(--accent-strong)]"
+                      href="https://www.relayradar.dev/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t("providers.form.presetSource")}
+                    </a>
+                  ) : null}
+                </span>
                 <div className="relative">
                   <input
                     required
