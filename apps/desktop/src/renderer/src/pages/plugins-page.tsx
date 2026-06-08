@@ -37,6 +37,7 @@ import {
   heroCopyClass,
   heroTitleClass,
   hintClass,
+  iconButtonClass,
   inputClass,
   metaClass,
   monoClass,
@@ -131,6 +132,112 @@ function formatEntry(item: ExtensionPlugin) {
 
 function shortCommit(value?: string) {
   return value ? value.slice(0, 12) : "";
+}
+
+type PluginActionIconName = "enable" | "disable" | "update" | "uninstall";
+
+function PluginActionIcon({ name, spinning = false }: { name: PluginActionIconName; spinning?: boolean }) {
+  const className = `h-4 w-4 ${spinning ? "animate-spin" : ""}`;
+
+  if (name === "enable") {
+    return (
+      <svg
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m8 5 11 7-11 7V5Z" />
+      </svg>
+    );
+  }
+
+  if (name === "disable") {
+    return (
+      <svg
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M8 5v14" />
+        <path d="M16 5v14" />
+      </svg>
+    );
+  }
+
+  if (name === "update") {
+    return (
+      <svg
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12a9 9 0 0 1-15.2 6.5" />
+        <path d="M3 12A9 9 0 0 1 18.2 5.5" />
+        <path d="M18 2v4h4" />
+        <path d="M6 22v-4H2" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
+function pluginActionButtonClass(variant: "primary" | "secondary" | "danger" = "secondary") {
+  const base =
+    "group relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-strong)]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-50";
+  const variants = {
+    primary:
+      "[border-color:var(--accent-strong)]/25 [background:linear-gradient(135deg,var(--accent)_0%,var(--accent-strong)_100%)] text-[color:var(--accent-text)] shadow-[0_14px_32px_color-mix(in_srgb,var(--accent)_24%,transparent)] hover:brightness-105",
+    secondary:
+      "[border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]",
+    danger:
+      "[border-color:var(--danger-border)] [background:var(--danger-soft)] text-[color:var(--danger-text)] hover:brightness-105"
+  };
+
+  return `${base} ${variants[variant]}`;
+}
+
+function PluginActionTooltip({ label }: { label: string }) {
+  return (
+    <span
+      className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-2 py-1 text-[11px] font-medium text-[color:var(--color-heading)] opacity-0 shadow-[var(--shadow-soft)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+      aria-hidden="true"
+    >
+      {label}
+    </span>
+  );
 }
 
 export function PluginsPage({ apiBase }: PluginsPageProps) {
@@ -514,42 +621,60 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       {feedback ? <div className={successNoticeClass}>{feedback}</div> : null}
       {error ? <div className={dangerNoticeClass}>{error}</div> : null}
 
+      <form
+        className={`${sectionCardClass} grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end`}
+        onSubmit={handleInstall}
+      >
+        <label className="grid gap-2">
+          <span className={fieldLabelClass}>{t("plugins.install.githubUrl")}</span>
+          <input
+            className={inputClass}
+            type="url"
+            value={installUrl}
+            placeholder="https://github.com/owner/repo"
+            onChange={(event) => setInstallUrl(event.target.value)}
+          />
+        </label>
+        <button
+          type="submit"
+          className={`${buttonClass("primary")} sm:min-w-[132px]`}
+          disabled={busyAction === "install" || installUrl.trim() === ""}
+        >
+          {busyAction === "install" ? t("plugins.install.installing") : t("plugins.install.button")}
+        </button>
+      </form>
+
       <section className="grid min-h-0 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
         <div className={sectionCardClass}>
           <div className={sectionHeadClass}>
             <div className="space-y-1">
               <h2 className={sectionTitleClass}>{t("plugins.list.title")}</h2>
-              <p className={sectionMetaClass}>{t("plugins.list.subtitle")}</p>
             </div>
             <button
               type="button"
-              className={buttonClass("secondary")}
+              className={iconButtonClass}
               disabled={busyAction === "rescan"}
+              aria-label={busyAction === "rescan" ? t("plugins.button.rescanning") : t("plugins.button.rescan")}
+              title={busyAction === "rescan" ? t("plugins.button.rescanning") : t("plugins.button.rescan")}
               onClick={() => void syncItems("rescan")}
             >
-              {busyAction === "rescan" ? t("plugins.button.rescanning") : t("plugins.button.rescan")}
+              <svg
+                className={`h-4 w-4 ${busyAction === "rescan" ? "animate-spin" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 12a9 9 0 0 1-15.2 6.5" />
+                <path d="M3 12A9 9 0 0 1 18.2 5.5" />
+                <path d="M18 2v4h4" />
+                <path d="M6 22v-4H2" />
+              </svg>
             </button>
           </div>
-
-          <form className="mt-4 grid gap-2 border-t pt-4 [border-color:var(--border-soft)]" onSubmit={handleInstall}>
-            <label className="grid gap-2">
-              <span className={fieldLabelClass}>{t("plugins.install.githubUrl")}</span>
-              <input
-                className={inputClass}
-                type="url"
-                value={installUrl}
-                placeholder="https://github.com/owner/repo"
-                onChange={(event) => setInstallUrl(event.target.value)}
-              />
-            </label>
-            <button
-              type="submit"
-              className={buttonClass("primary")}
-              disabled={busyAction === "install" || installUrl.trim() === ""}
-            >
-              {busyAction === "install" ? t("plugins.install.installing") : t("plugins.install.button")}
-            </button>
-          </form>
 
           <div className="mt-4 grid gap-3">
             {loading ? (
@@ -593,43 +718,61 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                   <span className={statusPillClass(statusTone(selected.status, selected.enabled))}>
                     {selected.status}
                   </span>
-                  <button
-                    type="button"
-                    className={buttonClass(selected.enabled ? "secondary" : "primary")}
-                    disabled={
-                      selected.status === "invalid" ||
-                      selected.status === "incompatible" ||
-                      busyAction === "enable" ||
-                      busyAction === "disable"
-                    }
-                    onClick={() => void handleToggle(selected)}
-                  >
-                    {busyAction === "enable" || busyAction === "disable"
-                      ? t("common.saving")
-                      : selected.enabled
-                        ? t("plugins.button.disable")
-                        : t("plugins.button.enable")}
-                  </button>
-                  {selected.install ? (
-                    <>
-                      <button
-                        type="button"
-                        className={buttonClass("secondary")}
-                        disabled={busyAction === "update"}
-                        onClick={() => void handleUpdate(selected)}
-                      >
-                        {busyAction === "update" ? t("common.saving") : t("plugins.button.update")}
-                      </button>
-                      <button
-                        type="button"
-                        className={buttonClass("danger")}
-                        disabled={busyAction === "uninstall"}
-                        onClick={() => void handleUninstall(selected)}
-                      >
-                        {busyAction === "uninstall" ? t("common.saving") : t("plugins.button.uninstall")}
-                      </button>
-                    </>
-                  ) : null}
+                  <div className="flex shrink-0 flex-nowrap items-center gap-2">
+                    <button
+                      type="button"
+                      className={pluginActionButtonClass(selected.enabled ? "secondary" : "primary")}
+                      disabled={
+                        selected.status === "invalid" ||
+                        selected.status === "incompatible" ||
+                        busyAction === "enable" ||
+                        busyAction === "disable"
+                      }
+                      aria-label={selected.enabled ? t("plugins.button.disable") : t("plugins.button.enable")}
+                      onClick={() => void handleToggle(selected)}
+                    >
+                      <PluginActionIcon
+                        name={
+                          busyAction === "enable" || busyAction === "disable"
+                            ? "update"
+                            : selected.enabled
+                              ? "disable"
+                              : "enable"
+                        }
+                        spinning={busyAction === "enable" || busyAction === "disable"}
+                      />
+                      <PluginActionTooltip
+                        label={selected.enabled ? t("plugins.button.disable") : t("plugins.button.enable")}
+                      />
+                    </button>
+                    {selected.install ? (
+                      <>
+                        <button
+                          type="button"
+                          className={pluginActionButtonClass("secondary")}
+                          disabled={busyAction === "update"}
+                          aria-label={t("plugins.button.update")}
+                          onClick={() => void handleUpdate(selected)}
+                        >
+                          <PluginActionIcon name="update" spinning={busyAction === "update"} />
+                          <PluginActionTooltip label={t("plugins.button.update")} />
+                        </button>
+                        <button
+                          type="button"
+                          className={pluginActionButtonClass("danger")}
+                          disabled={busyAction === "uninstall"}
+                          aria-label={t("plugins.button.uninstall")}
+                          onClick={() => void handleUninstall(selected)}
+                        >
+                          <PluginActionIcon
+                            name={busyAction === "uninstall" ? "update" : "uninstall"}
+                            spinning={busyAction === "uninstall"}
+                          />
+                          <PluginActionTooltip label={t("plugins.button.uninstall")} />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

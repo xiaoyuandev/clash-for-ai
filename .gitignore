@@ -13,5 +13,7 @@ core/.gomodcache
 core/bin
 core/data
 .codex
+.playwright-cli
+output
 .env.local
 .docs/
