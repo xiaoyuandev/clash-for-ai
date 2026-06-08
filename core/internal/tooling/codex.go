@@ -8,7 +8,12 @@ import (
 	"strings"
 )
 
-const codexExperimentalBearerTokenKey = "experimental_bearer_token"
+const (
+	codexExperimentalBearerTokenKey = "experimental_bearer_token"
+	codexAuthModeKey                = "auth_mode"
+	codexChatGPTAuthMode            = "chatgpt"
+	codexDummyAPIKey                = "dummy"
+)
 
 func codexConfigPath() string {
 	return filepath.Join(currentRuntime().HomeDir, ".codex", "config.toml")
@@ -135,17 +140,17 @@ func isCodexConfigured(apiPort int) (bool, error) {
 
 	topLevelProvider := readTopLevelTomlValue(content, "model_provider")
 	var auth map[string]any
-	if err := json.Unmarshal([]byte(authContent), &auth); err != nil {
-		auth = map[string]any{}
+	if err := json.Unmarshal([]byte(authContent), &auth); err != nil || auth == nil {
+		return false, nil
 	}
 	openAIAPIKey, hasOpenAIAPIKey := auth["OPENAI_API_KEY"]
 
 	return topLevelProvider == "OpenAI" &&
-		readTopLevelTomlValue(content, codexExperimentalBearerTokenKey) == "dummy" &&
+		readTopLevelTomlValue(content, codexExperimentalBearerTokenKey) == codexDummyAPIKey &&
 		strings.Contains(content, "[model_providers.OpenAI]") &&
 		strings.Contains(content, `base_url = "http://127.0.0.1:`+intToString(apiPort)+`/v1"`) &&
 		hasOpenAIAPIKey &&
-		openAIAPIKey == nil, nil
+		isCodexAPIKeyConfigured(auth, openAIAPIKey), nil
 }
 
 func buildCodexConfig(existingContent string, apiPort int) string {
@@ -253,11 +258,28 @@ func buildCodexConfig(existingContent string, apiPort int) string {
 func buildCodexAuth(existingContent string) string {
 	auth := map[string]any{}
 	if strings.TrimSpace(existingContent) != "" {
-		_ = json.Unmarshal([]byte(existingContent), &auth)
+		if err := json.Unmarshal([]byte(existingContent), &auth); err != nil || auth == nil {
+			auth = map[string]any{}
+		}
 	}
-	auth["OPENAI_API_KEY"] = nil
+	auth["OPENAI_API_KEY"] = codexAPIKeyValueForAuthMode(auth)
 	content, _ := json.MarshalIndent(auth, "", "  ")
 	return string(content) + "\n"
+}
+
+func codexAPIKeyValueForAuthMode(auth map[string]any) any {
+	if mode, ok := auth[codexAuthModeKey].(string); ok && mode == codexChatGPTAuthMode {
+		return nil
+	}
+	return codexDummyAPIKey
+}
+
+func isCodexAPIKeyConfigured(auth map[string]any, value any) bool {
+	expected := codexAPIKeyValueForAuthMode(auth)
+	if expected == nil {
+		return value == nil
+	}
+	return value == expected
 }
 
 func readTopLevelTomlValue(content string, key string) string {
