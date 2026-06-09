@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const developerModeSettingKey = "developer_mode_enabled"
+
 type Service struct {
 	repository        Repository
 	sources           []ScanSource
@@ -64,6 +66,9 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Plugin, error) {
 }
 
 func (s *Service) Enable(ctx context.Context, id string) (*Plugin, error) {
+	if err := s.guardDevelopmentPlugin(ctx, id); err != nil {
+		return nil, err
+	}
 	item, err := s.repository.SetEnabled(ctx, id, true)
 	if err != nil {
 		return nil, err
@@ -91,6 +96,13 @@ func (s *Service) Scan(ctx context.Context) ([]Plugin, error) {
 			return nil, err
 		}
 	}
+	if enabled, err := s.isDeveloperModeEnabled(ctx); err != nil {
+		return nil, err
+	} else if !enabled {
+		if err := s.disableLocalDirectoryPlugins(ctx); err != nil {
+			return nil, err
+		}
+	}
 	items, err := s.repository.List(ctx)
 	if err != nil {
 		return nil, err
@@ -99,6 +111,85 @@ func (s *Service) Scan(ctx context.Context) ([]Plugin, error) {
 		s.startRuntime(ctx, item)
 	}
 	return s.decoratePlugins(items), nil
+}
+
+func (s *Service) DeveloperMode(ctx context.Context) (DeveloperModeState, error) {
+	enabled, err := s.isDeveloperModeEnabled(ctx)
+	if err != nil {
+		return DeveloperModeState{}, err
+	}
+	return DeveloperModeState{Enabled: enabled}, nil
+}
+
+func (s *Service) UpdateDeveloperMode(ctx context.Context, enabled bool) (DeveloperModeState, error) {
+	if err := s.repository.SetAppSetting(ctx, developerModeSettingKey, boolSettingValue(enabled)); err != nil {
+		return DeveloperModeState{}, err
+	}
+	if !enabled {
+		if err := s.disableLocalDirectoryPlugins(ctx); err != nil {
+			return DeveloperModeState{}, err
+		}
+	}
+	return DeveloperModeState{Enabled: enabled}, nil
+}
+
+func (s *Service) guardDevelopmentPlugin(ctx context.Context, pluginID string) error {
+	install, err := s.repository.GetInstallByPluginID(ctx, pluginID)
+	if err != nil {
+		if errors.Is(err, ErrPluginNotFound) {
+			return nil
+		}
+		return err
+	}
+	if install.SourceType != string(PluginSourceLocalDirectory) {
+		return nil
+	}
+	enabled, err := s.isDeveloperModeEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return ErrDeveloperModeDisabled
+	}
+	return nil
+}
+
+func (s *Service) guardDevelopmentRuntime(ctx context.Context, plugin Plugin) error {
+	if plugin.Install == nil || plugin.Install.SourceType != string(PluginSourceLocalDirectory) {
+		return nil
+	}
+	enabled, err := s.isDeveloperModeEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return ErrDeveloperModeDisabled
+	}
+	return nil
+}
+
+func (s *Service) disableLocalDirectoryPlugins(ctx context.Context) error {
+	pluginIDs, err := s.repository.DisableInstallsBySourceType(ctx, string(PluginSourceLocalDirectory))
+	if err != nil {
+		return err
+	}
+	if s.runtimeHost != nil {
+		for _, pluginID := range pluginIDs {
+			_ = s.runtimeHost.Stop(ctx, pluginID)
+		}
+	}
+	return nil
+}
+
+func (s *Service) isDeveloperModeEnabled(ctx context.Context) (bool, error) {
+	value, err := s.repository.GetAppSetting(ctx, developerModeSettingKey)
+	if err != nil {
+		if errors.Is(err, ErrPluginNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return parseBoolSetting(value), nil
 }
 
 func (s *Service) scanSource(ctx context.Context, source ScanSource) error {

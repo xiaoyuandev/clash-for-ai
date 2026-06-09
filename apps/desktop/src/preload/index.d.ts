@@ -165,6 +165,7 @@ declare global {
         };
       }>;
       copyText: (text: string) => Promise<{ ok: boolean }>;
+      selectDirectory: () => Promise<string | null>;
       openCherryStudioImport: () => Promise<{ ok: boolean; url: string }>;
       checkUpdates: () => Promise<{
         currentVersion: string;

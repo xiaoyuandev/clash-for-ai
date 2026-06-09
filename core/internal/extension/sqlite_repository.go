@@ -236,6 +236,54 @@ WHERE source_type = ? AND source_url = ?`, sourceType, sourceURL)
 	return scanPluginInstall(row)
 }
 
+func (r *SQLiteRepository) DisableInstallsBySourceType(ctx context.Context, sourceType string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT plugin_id
+FROM plugin_installs
+WHERE source_type = ?
+ORDER BY plugin_id ASC`, sourceType)
+	if err != nil {
+		return nil, fmt.Errorf("list plugin installs by source type: %w", err)
+	}
+	defer rows.Close()
+
+	pluginIDs := []string{}
+	for rows.Next() {
+		var pluginID string
+		if err := rows.Scan(&pluginID); err != nil {
+			return nil, fmt.Errorf("scan plugin install source type: %w", err)
+		}
+		pluginIDs = append(pluginIDs, pluginID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate plugin install source type: %w", err)
+	}
+	if len(pluginIDs) == 0 {
+		return pluginIDs, nil
+	}
+
+	placeholders := make([]string, len(pluginIDs))
+	args := []any{
+		boolToInt(false),
+		string(PluginStatusDisabled),
+		time.Now().UTC().Format(time.RFC3339),
+	}
+	for index, pluginID := range pluginIDs {
+		placeholders[index] = "?"
+		args = append(args, pluginID)
+	}
+
+	if _, err := r.db.ExecContext(ctx, `
+UPDATE plugins
+SET enabled = ?, status = ?, updated_at = ?
+WHERE id IN (`+strings.Join(placeholders, ",")+`) AND status != ?`,
+		append(args, string(PluginStatusInvalid))...,
+	); err != nil {
+		return nil, fmt.Errorf("disable plugin installs by source type: %w", err)
+	}
+	return pluginIDs, nil
+}
+
 func (r *SQLiteRepository) DeletePlugin(ctx context.Context, pluginID string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -259,6 +307,39 @@ func (r *SQLiteRepository) DeletePlugin(ctx context.Context, pluginID string) er
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit delete plugin tx: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) GetAppSetting(ctx context.Context, key string) (string, error) {
+	row := r.db.QueryRowContext(ctx, `
+SELECT value
+FROM app_settings
+WHERE key = ?`, key)
+
+	var value string
+	if err := row.Scan(&value); err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrPluginNotFound
+		}
+		return "", fmt.Errorf("get app setting: %w", err)
+	}
+	return value, nil
+}
+
+func (r *SQLiteRepository) SetAppSetting(ctx context.Context, key string, value string) error {
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO app_settings (key, value, updated_at)
+VALUES (?, ?, ?)
+ON CONFLICT(key) DO UPDATE SET
+	value = excluded.value,
+	updated_at = excluded.updated_at`,
+		key,
+		value,
+		time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("set app setting: %w", err)
 	}
 	return nil
 }

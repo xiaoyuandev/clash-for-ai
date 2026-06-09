@@ -14,7 +14,10 @@ type Repository interface {
 	UpsertInstall(ctx context.Context, install PluginInstall) (PluginInstall, error)
 	GetInstallByPluginID(ctx context.Context, pluginID string) (*PluginInstall, error)
 	GetInstallBySource(ctx context.Context, sourceType string, sourceURL string) (*PluginInstall, error)
+	DisableInstallsBySourceType(ctx context.Context, sourceType string) ([]string, error)
 	DeletePlugin(ctx context.Context, pluginID string) error
+	GetAppSetting(ctx context.Context, key string) (string, error)
+	SetAppSetting(ctx context.Context, key string, value string) error
 	GetSettings(ctx context.Context, pluginID string) (map[string]json.RawMessage, string, error)
 	ReplaceSettings(ctx context.Context, pluginID string, values map[string]json.RawMessage) (string, error)
 	RecordAudit(ctx context.Context, entry AuditLogEntry) (AuditLogEntry, error)

@@ -562,6 +562,62 @@ func TestManifestNodePackageEntryBuildsNpxRuntimePlan(t *testing.T) {
 	}
 }
 
+func TestLocalNodePackageEntryUsesBuiltLocalBin(t *testing.T) {
+	t.Parallel()
+
+	pluginDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(pluginDir, "package.json"), []byte(`{
+		"name": "@acme/relay-switch-plugin",
+		"bin": {
+			"relay-switch-plugin": "./dist/main.js"
+		}
+	}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(pluginDir, "dist"), 0o755); err != nil {
+		t.Fatalf("create dist dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginDir, "dist", "main.js"), []byte(`console.log("ok");`), 0o644); err != nil {
+		t.Fatalf("write local bin: %v", err)
+	}
+
+	manifest := Manifest{
+		ManifestVersion: 1,
+		ID:              "acme.node-plugin",
+		Name:            "Node Plugin",
+		Version:         "1.0.0",
+		Entry: ManifestEntry{
+			Type:    "nodePackage",
+			Package: "@acme/relay-switch-plugin",
+			Version: "1.2.3",
+			Bin:     "relay-switch-plugin",
+			Args:    []string{"serve"},
+		},
+		Contributes: ManifestContributes{},
+		Permissions: []string{},
+	}
+	plan, err := RuntimePlanForPlugin(Plugin{
+		ID:           manifest.ID,
+		ManifestPath: filepath.Join(pluginDir, ManifestFileName),
+		Manifest:     manifest,
+		Install: &PluginInstall{
+			SourceType: string(PluginSourceLocalDirectory),
+			InstallDir: pluginDir,
+			SourceURL:  pluginDir,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build local runtime plan: %v", err)
+	}
+	if plan.Command != "node" {
+		t.Fatalf("expected local node command, got %+v", plan)
+	}
+	expected := []string{filepath.Join(pluginDir, "dist", "main.js"), "serve"}
+	if strings.Join(plan.Args, "\x00") != strings.Join(expected, "\x00") {
+		t.Fatalf("unexpected local runtime args: %+v", plan.Args)
+	}
+}
+
 func TestManifestNodePackageRejectsNonExactVersion(t *testing.T) {
 	t.Parallel()
 
@@ -647,6 +703,139 @@ func TestServiceInstallGitHubPluginAutoEnablesAndUninstalls(t *testing.T) {
 	}
 	if _, err := os.Stat(installDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected install directory to be removed, got %v", err)
+	}
+}
+
+func TestServiceLocalInstallRequiresDeveloperMode(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	localDir := t.TempDir()
+	writeTestManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.local-disabled",
+		"name": "Local Disabled",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {},
+		"permissions": []
+	}`)
+
+	if _, err := service.LocalInstall(context.Background(), LocalInstallPluginInput{Path: localDir}); !errors.Is(err, ErrDeveloperModeDisabled) {
+		t.Fatalf("expected developer mode error, got %v", err)
+	}
+}
+
+func TestServiceLocalInstallReloadsAndDoesNotDeleteSource(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	if _, err := service.UpdateDeveloperMode(context.Background(), true); err != nil {
+		t.Fatalf("enable developer mode: %v", err)
+	}
+
+	localDir := t.TempDir()
+	writeTestManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.local-plugin",
+		"name": "Local Plugin",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {"commands": [{"id": "local.sync", "title": "Sync"}]},
+		"permissions": []
+	}`)
+
+	installed, err := service.LocalInstall(context.Background(), LocalInstallPluginInput{Path: localDir})
+	if err != nil {
+		t.Fatalf("local install plugin: %v", err)
+	}
+	normalizedLocalDir, err := filepath.EvalSymlinks(localDir)
+	if err != nil {
+		t.Fatalf("normalize local dir: %v", err)
+	}
+	if !installed.Enabled || installed.Status != PluginStatusEnabled || installed.Scope != PluginScopeDevelopment {
+		t.Fatalf("unexpected local plugin state: %+v", installed)
+	}
+	if installed.Install == nil || installed.Install.SourceType != string(PluginSourceLocalDirectory) || installed.Install.InstallDir != normalizedLocalDir {
+		t.Fatalf("unexpected local install metadata: %+v", installed.Install)
+	}
+
+	writeTestManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.local-plugin",
+		"name": "Local Plugin Reloaded",
+		"version": "0.2.0",
+		"entry": {"type": "none"},
+		"contributes": {"commands": [{"id": "local.sync", "title": "Sync"}]},
+		"permissions": []
+	}`)
+	reloaded, err := service.LocalInstall(context.Background(), LocalInstallPluginInput{Path: localDir})
+	if err != nil {
+		t.Fatalf("reload local plugin: %v", err)
+	}
+	if reloaded.Version != "0.2.0" || reloaded.Name != "Local Plugin Reloaded" {
+		t.Fatalf("expected local install to reload manifest, got %+v", reloaded)
+	}
+
+	writeTestManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.local-plugin",
+		"name": "Local Plugin Updated",
+		"version": "0.3.0",
+		"entry": {"type": "none"},
+		"contributes": {"commands": [{"id": "local.sync", "title": "Sync"}]},
+		"permissions": []
+	}`)
+	updated, err := service.Update(context.Background(), installed.ID)
+	if err != nil {
+		t.Fatalf("update local plugin: %v", err)
+	}
+	if updated.Version != "0.3.0" {
+		t.Fatalf("expected local update to reread manifest, got %+v", updated)
+	}
+
+	if err := service.Uninstall(context.Background(), installed.ID); err != nil {
+		t.Fatalf("uninstall local plugin: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(localDir, ManifestFileName)); err != nil {
+		t.Fatalf("local source directory should remain after uninstall: %v", err)
+	}
+}
+
+func TestServiceDeveloperModeDisableStopsAndDisablesLocalPlugins(t *testing.T) {
+	t.Parallel()
+
+	service := newTestExtensionService(t)
+	if _, err := service.UpdateDeveloperMode(context.Background(), true); err != nil {
+		t.Fatalf("enable developer mode: %v", err)
+	}
+
+	localDir := t.TempDir()
+	writeTestManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.local-toggle",
+		"name": "Local Toggle",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {},
+		"permissions": []
+	}`)
+	if _, err := service.LocalInstall(context.Background(), LocalInstallPluginInput{Path: localDir}); err != nil {
+		t.Fatalf("local install plugin: %v", err)
+	}
+
+	if _, err := service.UpdateDeveloperMode(context.Background(), false); err != nil {
+		t.Fatalf("disable developer mode: %v", err)
+	}
+	item, err := service.GetByID(context.Background(), "acme.local-toggle")
+	if err != nil {
+		t.Fatalf("get local plugin: %v", err)
+	}
+	if item.Enabled || item.Status != PluginStatusDisabled {
+		t.Fatalf("expected local plugin disabled after developer mode off, got %+v", item)
+	}
+	if _, err := service.Enable(context.Background(), "acme.local-toggle"); !errors.Is(err, ErrDeveloperModeDisabled) {
+		t.Fatalf("expected enable to be blocked while developer mode is off, got %v", err)
 	}
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import { getReleaseMetadata, type GitHubRelease, type ReleaseMetadata } from "../services/api";
+import { getDeveloperMode, updateDeveloperMode } from "../services/extensions";
 import { copyText } from "../bridge/platform-bridge";
 import { compareVersions } from "../utils/version";
 import {
@@ -39,6 +40,9 @@ export function SettingsPage({
   const { t } = useI18n();
   const [releaseMetadata, setReleaseMetadata] = useState<ReleaseMetadata | null>(initialReleaseMetadata);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [developerModeBusy, setDeveloperModeBusy] = useState(false);
+  const [developerModeFeedback, setDeveloperModeFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     setReleaseMetadata(initialReleaseMetadata);
@@ -64,6 +68,26 @@ export function SettingsPage({
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void getDeveloperMode()
+      .then((state) => {
+        if (!cancelled) {
+          setDeveloperMode(state.enabled);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setDeveloperModeFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
   const currentVersion = releaseMetadata?.available ? releaseMetadata.release?.release_version : undefined;
   const latestVersion = latestRelease?.tag_name;
   const updateComparison = compareVersions(currentVersion, latestVersion);
@@ -82,6 +106,22 @@ export function SettingsPage({
       setCopyFeedback(t("settings.updates.installCommandCopied"));
     } catch {
       setCopyFeedback(t("settings.updates.installCommandCopyFailed"));
+    }
+  }
+
+  async function handleDeveloperModeChange(enabled: boolean) {
+    setDeveloperModeBusy(true);
+    setDeveloperModeFeedback(null);
+    try {
+      const state = await updateDeveloperMode(enabled);
+      setDeveloperMode(state.enabled);
+      setDeveloperModeFeedback(
+        state.enabled ? t("settings.developerMode.enabled") : t("settings.developerMode.disabled")
+      );
+    } catch (error) {
+      setDeveloperModeFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+    } finally {
+      setDeveloperModeBusy(false);
     }
   }
 
@@ -136,6 +176,34 @@ export function SettingsPage({
             </p>
           </div>
         </div>
+      </section>
+
+      <section className={sectionCardClass}>
+        <div className={sectionHeadClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>{t("settings.developerMode.title")}</h2>
+            <p className={sectionMetaClass}>{t("settings.developerMode.meta")}</p>
+          </div>
+          <span className={statusPillClass(developerMode ? "warning" : "default")}>
+            {developerMode ? t("settings.developerMode.on") : t("settings.developerMode.off")}
+          </span>
+        </div>
+        <label className="mt-4 flex items-start gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
+          <input
+            className="mt-1 h-4 w-4"
+            type="checkbox"
+            checked={developerMode}
+            disabled={developerModeBusy}
+            onChange={(event) => void handleDeveloperModeChange(event.target.checked)}
+          />
+          <span className="grid gap-1">
+            <span className="text-sm font-semibold text-[color:var(--color-heading)]">
+              {t("settings.developerMode.toggle")}
+            </span>
+            <span className={hintClass}>{t("settings.developerMode.hint")}</span>
+          </span>
+        </label>
+        {developerModeFeedback ? <p className={`${hintClass} mt-3`}>{developerModeFeedback}</p> : null}
       </section>
 
       <section className={sectionCardClass}>

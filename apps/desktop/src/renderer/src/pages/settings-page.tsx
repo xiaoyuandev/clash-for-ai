@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ToastRegion, type ToastItem } from "../components/toast-region";
 import { useI18n } from "../i18n/i18n-provider";
+import { getDeveloperMode, updateDeveloperMode } from "../services/extensions";
 import { getRuntimeLabel } from "../utils/runtime-label";
 import {
   actionRowClass,
@@ -172,6 +173,8 @@ export function SettingsPage({
   const [updateBusy, setUpdateBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [launchBusy, setLaunchBusy] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [developerModeBusy, setDeveloperModeBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
   const [portInput, setPortInput] = useState(String(desktopState?.config.apiPort ?? 3456));
@@ -192,6 +195,28 @@ export function SettingsPage({
   useEffect(() => {
     setLocalGatewayPortInput(String(desktopState?.config.localGatewayPort ?? 3457));
   }, [desktopState?.config.localGatewayPort]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const apiBase = desktopState?.apiBase;
+
+    void getDeveloperMode(apiBase)
+      .then((state) => {
+        if (!cancelled) {
+          setDeveloperMode(state.enabled);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setFeedbackTone("error");
+          setFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [desktopState?.apiBase, t]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -346,6 +371,26 @@ export function SettingsPage({
       setFeedback(error instanceof Error ? error.message : t("settings.feedback.launchSettingsFailed"));
     } finally {
       setLaunchBusy(false);
+    }
+  }
+
+  async function handleToggleDeveloperMode() {
+    const nextEnabled = !developerMode;
+    setDeveloperModeBusy(true);
+    setFeedback(null);
+
+    try {
+      const state = await updateDeveloperMode(nextEnabled, desktopState?.apiBase);
+      setDeveloperMode(state.enabled);
+      setFeedbackTone("success");
+      setFeedback(
+        state.enabled ? t("settings.developerMode.enabled") : t("settings.developerMode.disabled")
+      );
+    } catch (error) {
+      setFeedbackTone("error");
+      setFeedback(error instanceof Error ? error.message : t("common.unknownError"));
+    } finally {
+      setDeveloperModeBusy(false);
     }
   }
 
@@ -564,6 +609,28 @@ export function SettingsPage({
           />
         </div>
         <p className={`${metaClass} mt-4`}>{t("settings.meta.trayHint")}</p>
+      </section>
+
+      <section className={sectionCardClass}>
+        <div className={sectionHeadClass}>
+          <div className="space-y-1">
+            <h2 className={sectionTitleClass}>{t("settings.developerMode.title")}</h2>
+            <p className={sectionMetaClass}>{t("settings.developerMode.meta")}</p>
+          </div>
+          <span className={statusPillClass(developerMode ? "warning" : "default")}>
+            {developerMode ? t("settings.developerMode.on") : t("settings.developerMode.off")}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <SettingsToggle
+            checked={developerMode}
+            label={t("settings.developerMode.toggle")}
+            meta={t("settings.developerMode.hint")}
+            disabled={developerModeBusy}
+            onChange={() => void handleToggleDeveloperMode()}
+          />
+        </div>
       </section>
 
       <section className={sectionCardClass}>

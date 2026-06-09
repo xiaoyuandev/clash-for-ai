@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-const runtimeRequestTimeout = 10 * time.Second
+const runtimeRequestTimeout = 60 * time.Second
 
 type RuntimeHost struct {
 	mu        sync.Mutex
@@ -88,6 +89,15 @@ func RuntimePlanForPlugin(plugin Plugin) (PluginRuntimePlan, error) {
 		if err := validateNodePackageEntry(entry); err != nil {
 			return PluginRuntimePlan{}, err
 		}
+		if plugin.Install != nil && plugin.Install.SourceType == string(PluginSourceLocalDirectory) {
+			plan, ok, err := localNodePackageRuntimePlan(entry, filepath.Dir(plugin.ManifestPath))
+			if err != nil {
+				return PluginRuntimePlan{}, err
+			}
+			if ok {
+				return plan, nil
+			}
+		}
 		packageSpec := fmt.Sprintf("%s@%s", strings.TrimSpace(entry.Package), strings.TrimSpace(entry.Version))
 		args := []string{"--yes", "--package", packageSpec, strings.TrimSpace(entry.Bin)}
 		args = append(args, entry.Args...)
@@ -100,6 +110,66 @@ func RuntimePlanForPlugin(plugin Plugin) (PluginRuntimePlan, error) {
 	default:
 		return PluginRuntimePlan{}, fmt.Errorf("unsupported runtime entry type: %s", entryType)
 	}
+}
+
+func localNodePackageRuntimePlan(entry ManifestEntry, manifestDir string) (PluginRuntimePlan, bool, error) {
+	packagePath := filepath.Join(manifestDir, "package.json")
+	content, err := os.ReadFile(packagePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return PluginRuntimePlan{}, false, nil
+		}
+		return PluginRuntimePlan{}, false, fmt.Errorf("read local package.json: %w", err)
+	}
+
+	var packageJSON struct {
+		Name string          `json:"name"`
+		Bin  json.RawMessage `json:"bin"`
+	}
+	if err := json.Unmarshal(content, &packageJSON); err != nil {
+		return PluginRuntimePlan{}, false, fmt.Errorf("decode local package.json: %w", err)
+	}
+	if strings.TrimSpace(packageJSON.Name) != strings.TrimSpace(entry.Package) {
+		return PluginRuntimePlan{}, false, nil
+	}
+
+	binPath, err := localPackageBinPath(packageJSON.Bin, strings.TrimSpace(entry.Bin))
+	if err != nil {
+		return PluginRuntimePlan{}, true, err
+	}
+	binPath = filepath.Clean(binPath)
+	if filepath.IsAbs(binPath) || binPath == "." || binPath == ".." || strings.HasPrefix(binPath, ".."+string(filepath.Separator)) {
+		return PluginRuntimePlan{}, true, fmt.Errorf("local package bin %q must stay inside the plugin directory", entry.Bin)
+	}
+
+	command := filepath.Join(manifestDir, binPath)
+	if _, err := os.Stat(command); err != nil {
+		return PluginRuntimePlan{}, true, fmt.Errorf("local package bin %q is not built: %w", entry.Bin, err)
+	}
+	args := []string{command}
+	args = append(args, entry.Args...)
+	return PluginRuntimePlan{
+		EntryType: "nodePackage",
+		Command:   "node",
+		Args:      args,
+		Cwd:       manifestDir,
+	}, true, nil
+}
+
+func localPackageBinPath(raw json.RawMessage, binName string) (string, error) {
+	var binMap map[string]string
+	if err := json.Unmarshal(raw, &binMap); err == nil && len(binMap) > 0 {
+		if value := strings.TrimSpace(binMap[binName]); value != "" {
+			return value, nil
+		}
+		return "", fmt.Errorf("local package.json does not declare bin %q", binName)
+	}
+
+	var singleBin string
+	if err := json.Unmarshal(raw, &singleBin); err == nil && strings.TrimSpace(singleBin) != "" {
+		return strings.TrimSpace(singleBin), nil
+	}
+	return "", fmt.Errorf("local package.json does not declare bin %q", binName)
 }
 
 func (h *RuntimeHost) Start(ctx context.Context, plugin Plugin, initialSettings map[string]any) error {
@@ -499,6 +569,9 @@ func (s *Service) decoratePlugins(items []Plugin) []Plugin {
 
 func (s *Service) startRuntime(ctx context.Context, plugin Plugin) {
 	if s.runtimeHost == nil {
+		return
+	}
+	if err := s.guardDevelopmentRuntime(ctx, plugin); err != nil {
 		return
 	}
 	if err := s.runtimeHost.Start(ctx, plugin, s.effectiveSettingsForRuntime(ctx, plugin.ID)); err != nil {

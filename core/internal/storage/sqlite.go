@@ -191,6 +191,17 @@ ON provider_codex_models (provider_id, position ASC);`
 		return fmt.Errorf("migrate provider_codex_models index: %w", err)
 	}
 
+	const appSettingsTable = `
+CREATE TABLE IF NOT EXISTS app_settings (
+	key TEXT PRIMARY KEY,
+	value TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);`
+
+	if _, err := s.DB.Exec(appSettingsTable); err != nil {
+		return fmt.Errorf("migrate app_settings table: %w", err)
+	}
+
 	const localGatewayModelSourcesTable = `
 CREATE TABLE IF NOT EXISTS local_gateway_model_sources (
 	id TEXT PRIMARY KEY,

@@ -416,6 +416,99 @@ func TestExtensionSettingsCommandsAndAuditEndpoints(t *testing.T) {
 	}
 }
 
+func TestDeveloperModeAndLocalInstallEndpoints(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestRouter(t, nil, localgateway.RuntimeConfig{
+		Host:    "127.0.0.1",
+		Port:    3457,
+		DataDir: filepath.Join(t.TempDir(), "runtime"),
+	})
+	localDir := t.TempDir()
+	writeRouterExtensionManifest(t, localDir, ".", `{
+		"manifestVersion": 1,
+		"id": "relay-switch.local-api",
+		"name": "Local API",
+		"version": "0.1.0",
+		"entry": {"type": "none"},
+		"contributes": {},
+		"permissions": []
+	}`)
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/settings/developer-mode", nil)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("unexpected initial developer mode status: %d body=%s", getRec.Code, getRec.Body.String())
+	}
+	var state extension.DeveloperModeState
+	if err := json.Unmarshal(getRec.Body.Bytes(), &state); err != nil {
+		t.Fatalf("decode developer mode state: %v", err)
+	}
+	if state.Enabled {
+		t.Fatalf("developer mode should default to disabled")
+	}
+
+	localBody, err := json.Marshal(extension.LocalInstallPluginInput{Path: localDir})
+	if err != nil {
+		t.Fatalf("marshal local install body: %v", err)
+	}
+	disabledReq := httptest.NewRequest(http.MethodPost, "/api/extensions/local-install", bytes.NewReader(localBody))
+	disabledRec := httptest.NewRecorder()
+	handler.ServeHTTP(disabledRec, disabledReq)
+	if disabledRec.Code != http.StatusForbidden {
+		t.Fatalf("expected disabled local install to be forbidden, got %d body=%s", disabledRec.Code, disabledRec.Body.String())
+	}
+
+	enableReq := httptest.NewRequest(http.MethodPut, "/api/settings/developer-mode", bytes.NewBufferString(`{"enabled":true}`))
+	enableRec := httptest.NewRecorder()
+	handler.ServeHTTP(enableRec, enableReq)
+	if enableRec.Code != http.StatusOK {
+		t.Fatalf("unexpected enable developer mode status: %d body=%s", enableRec.Code, enableRec.Body.String())
+	}
+	if err := json.Unmarshal(enableRec.Body.Bytes(), &state); err != nil {
+		t.Fatalf("decode enabled developer mode state: %v", err)
+	}
+	if !state.Enabled {
+		t.Fatalf("developer mode should be enabled")
+	}
+
+	installReq := httptest.NewRequest(http.MethodPost, "/api/extensions/local-install", bytes.NewReader(localBody))
+	installRec := httptest.NewRecorder()
+	handler.ServeHTTP(installRec, installReq)
+	if installRec.Code != http.StatusCreated {
+		t.Fatalf("unexpected local install status: %d body=%s", installRec.Code, installRec.Body.String())
+	}
+	var installed extension.Plugin
+	if err := json.Unmarshal(installRec.Body.Bytes(), &installed); err != nil {
+		t.Fatalf("decode installed plugin: %v", err)
+	}
+	if installed.Scope != extension.PluginScopeDevelopment || installed.Install == nil || installed.Install.SourceType != string(extension.PluginSourceLocalDirectory) {
+		t.Fatalf("unexpected local install payload: %+v", installed)
+	}
+
+	disableReq := httptest.NewRequest(http.MethodPut, "/api/settings/developer-mode", bytes.NewBufferString(`{"enabled":false}`))
+	disableRec := httptest.NewRecorder()
+	handler.ServeHTTP(disableRec, disableReq)
+	if disableRec.Code != http.StatusOK {
+		t.Fatalf("unexpected disable developer mode status: %d body=%s", disableRec.Code, disableRec.Body.String())
+	}
+
+	getPluginReq := httptest.NewRequest(http.MethodGet, "/api/extensions/relay-switch.local-api", nil)
+	getPluginRec := httptest.NewRecorder()
+	handler.ServeHTTP(getPluginRec, getPluginReq)
+	if getPluginRec.Code != http.StatusOK {
+		t.Fatalf("unexpected get local plugin status: %d body=%s", getPluginRec.Code, getPluginRec.Body.String())
+	}
+	var disabled extension.Plugin
+	if err := json.Unmarshal(getPluginRec.Body.Bytes(), &disabled); err != nil {
+		t.Fatalf("decode disabled local plugin: %v", err)
+	}
+	if disabled.Enabled || disabled.Status != extension.PluginStatusDisabled {
+		t.Fatalf("expected local plugin disabled after developer mode off, got %+v", disabled)
+	}
+}
+
 func TestLocalGatewaySourceAndSyncEndpoints(t *testing.T) {
 	t.Parallel()
 

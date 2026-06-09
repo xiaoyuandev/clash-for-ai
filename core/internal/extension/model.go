@@ -15,13 +15,15 @@ var ErrInvalidSettings = errors.New("invalid plugin settings")
 var ErrPluginAlreadyInstalled = errors.New("plugin is already installed")
 var ErrPluginNotManaged = errors.New("plugin is not managed by Relay Switch")
 var ErrInvalidPluginSource = errors.New("invalid plugin source")
+var ErrDeveloperModeDisabled = errors.New("developer mode is disabled")
 
 type PluginScope string
 
 const (
-	PluginScopeUser    PluginScope = "user"
-	PluginScopeProject PluginScope = "project"
-	PluginScopeManaged PluginScope = "managed"
+	PluginScopeUser        PluginScope = "user"
+	PluginScopeProject     PluginScope = "project"
+	PluginScopeManaged     PluginScope = "managed"
+	PluginScopeDevelopment PluginScope = "development"
 )
 
 type PluginStatus string
@@ -91,7 +93,8 @@ type ScanSource struct {
 type PluginSourceType string
 
 const (
-	PluginSourceGitHub PluginSourceType = "github"
+	PluginSourceGitHub         PluginSourceType = "github"
+	PluginSourceLocalDirectory PluginSourceType = "localDirectory"
 )
 
 type PluginInstall struct {
@@ -134,6 +137,14 @@ type PluginRuntimePlan struct {
 type InstallPluginInput struct {
 	Source string `json:"source"`
 	URL    string `json:"url"`
+}
+
+type LocalInstallPluginInput struct {
+	Path string `json:"path"`
+}
+
+type DeveloperModeState struct {
+	Enabled bool `json:"enabled"`
 }
 
 type CommandContribution struct {

@@ -106,6 +106,63 @@ func (s *Service) Install(ctx context.Context, input InstallPluginInput) (*Plugi
 	return &decorated, nil
 }
 
+func (s *Service) LocalInstall(ctx context.Context, input LocalInstallPluginInput) (*Plugin, error) {
+	enabled, err := s.isDeveloperModeEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, ErrDeveloperModeDisabled
+	}
+
+	sourceURL, err := normalizeLocalDirectory(input.Path)
+	if err != nil {
+		return nil, err
+	}
+	if existingInstall, err := s.repository.GetInstallBySource(ctx, string(PluginSourceLocalDirectory), sourceURL); err == nil {
+		return s.updateLocalDirectoryInstall(ctx, existingInstall.PluginID, sourceURL)
+	} else if !errors.Is(err, ErrPluginNotFound) {
+		return nil, err
+	}
+
+	manifestPath, manifest, warnings, err := loadSingleManagedManifest(sourceURL)
+	if err != nil {
+		return nil, err
+	}
+	if existing, err := s.repository.GetByID(ctx, manifest.ID); err == nil {
+		if existing.Install != nil && existing.Install.SourceType == string(PluginSourceLocalDirectory) && existing.Install.SourceURL == sourceURL {
+			return s.updateLocalDirectoryInstall(ctx, manifest.ID, sourceURL)
+		}
+		return nil, fmt.Errorf("%w: plugin id %q is already present", ErrPluginAlreadyInstalled, manifest.ID)
+	} else if !errors.Is(err, ErrPluginNotFound) {
+		return nil, err
+	}
+
+	item := manifestToPlugin(manifest, PluginScopeDevelopment, manifestPath, warnings)
+	item.Enabled = true
+	item.Status = PluginStatusEnabled
+	stored, err := s.repository.Upsert(ctx, item)
+	if err != nil {
+		return nil, err
+	}
+
+	install, err := s.repository.UpsertInstall(ctx, PluginInstall{
+		PluginID:   stored.ID,
+		SourceType: string(PluginSourceLocalDirectory),
+		SourceURL:  sourceURL,
+		InstallDir: sourceURL,
+		GitCommit:  "",
+	})
+	if err != nil {
+		_ = s.repository.DeletePlugin(ctx, stored.ID)
+		return nil, err
+	}
+	stored.Install = &install
+	s.startRuntime(ctx, stored)
+	decorated := s.decoratePlugin(stored)
+	return &decorated, nil
+}
+
 func (s *Service) Update(ctx context.Context, pluginID string) (*Plugin, error) {
 	plugin, err := s.repository.GetByID(ctx, pluginID)
 	if err != nil {
@@ -120,6 +177,9 @@ func (s *Service) Update(ctx context.Context, pluginID string) (*Plugin, error) 
 	}
 	if strings.TrimSpace(install.InstallDir) == "" {
 		return nil, ErrPluginNotManaged
+	}
+	if install.SourceType == string(PluginSourceLocalDirectory) {
+		return s.updateLocalDirectoryInstall(ctx, pluginID, install.InstallDir)
 	}
 	if s.runtimeHost != nil {
 		_ = s.runtimeHost.Stop(ctx, pluginID)
@@ -184,8 +244,10 @@ func (s *Service) Uninstall(ctx context.Context, pluginID string) error {
 		return err
 	}
 	if strings.TrimSpace(install.InstallDir) != "" {
-		if err := os.RemoveAll(install.InstallDir); err != nil {
-			return fmt.Errorf("remove plugin install directory: %w", err)
+		if install.SourceType != string(PluginSourceLocalDirectory) {
+			if err := os.RemoveAll(install.InstallDir); err != nil {
+				return fmt.Errorf("remove plugin install directory: %w", err)
+			}
 		}
 	}
 	if strings.TrimSpace(s.pluginDataDir) != "" {
@@ -194,6 +256,71 @@ func (s *Service) Uninstall(ctx context.Context, pluginID string) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) updateLocalDirectoryInstall(ctx context.Context, pluginID string, installDir string) (*Plugin, error) {
+	enabled, err := s.isDeveloperModeEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, ErrDeveloperModeDisabled
+	}
+	sourceURL, err := normalizeLocalDirectory(installDir)
+	if err != nil {
+		return nil, err
+	}
+
+	plugin, err := s.repository.GetByID(ctx, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	if plugin.Install == nil || plugin.Install.SourceType != string(PluginSourceLocalDirectory) {
+		return nil, ErrPluginNotManaged
+	}
+	if plugin.Install.SourceURL != sourceURL {
+		return nil, fmt.Errorf("%w: local plugin source changed", ErrInvalidPluginSource)
+	}
+	if s.runtimeHost != nil {
+		_ = s.runtimeHost.Stop(ctx, pluginID)
+	}
+
+	manifestPath, manifest, warnings, err := loadSingleManagedManifest(sourceURL)
+	if err != nil {
+		return nil, err
+	}
+	if manifest.ID != pluginID {
+		return nil, fmt.Errorf("%w: local manifest id changed from %q to %q", ErrInvalidPluginSource, pluginID, manifest.ID)
+	}
+
+	item := manifestToPlugin(manifest, PluginScopeDevelopment, manifestPath, warnings)
+	item.CreatedAt = plugin.CreatedAt
+	if item.Status == PluginStatusInvalid {
+		item.Enabled = false
+	} else {
+		item.Enabled = plugin.Enabled
+		item.Status = pluginStatusForEnabled(plugin.Enabled, plugin.Status)
+	}
+	stored, err := s.repository.Upsert(ctx, item)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedInstall, err := s.repository.UpsertInstall(ctx, PluginInstall{
+		PluginID:    stored.ID,
+		SourceType:  string(PluginSourceLocalDirectory),
+		SourceURL:   sourceURL,
+		InstallDir:  sourceURL,
+		GitCommit:   "",
+		InstalledAt: plugin.Install.InstalledAt,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stored.Install = &updatedInstall
+	s.startRuntime(ctx, stored)
+	decorated := s.decoratePlugin(stored)
+	return &decorated, nil
 }
 
 func normalizePluginSource(input InstallPluginInput) (PluginSourceType, string, error) {
@@ -233,6 +360,44 @@ func loadSingleManagedManifest(root string) (string, Manifest, []string, error) 
 		return paths[0], manifest, warnings, err
 	}
 	return paths[0], manifest, warnings, nil
+}
+
+func normalizeLocalDirectory(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("%w: path is required", ErrInvalidPluginSource)
+	}
+	if !filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("%w: local plugin path must be absolute", ErrInvalidPluginSource)
+	}
+	cleaned, err := filepath.EvalSymlinks(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("%w: inspect local plugin directory: %v", ErrInvalidPluginSource, err)
+	}
+	info, err := os.Stat(cleaned)
+	if err != nil {
+		return "", fmt.Errorf("%w: inspect local plugin directory: %v", ErrInvalidPluginSource, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%w: local plugin path is not a directory", ErrInvalidPluginSource)
+	}
+	return filepath.Clean(cleaned), nil
+}
+
+func parseBoolSetting(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func boolSettingValue(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 func (s *Service) git(ctx context.Context, dir string, args ...string) error {

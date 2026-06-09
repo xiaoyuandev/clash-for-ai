@@ -1,4 +1,4 @@
-export type PluginScope = "user" | "project" | "managed";
+export type PluginScope = "user" | "project" | "managed" | "development";
 
 export type PluginStatus =
   | "installed"
@@ -54,7 +54,7 @@ export interface ExtensionPlugin {
 
 export interface ExtensionPluginInstall {
   plugin_id: string;
-  source_type: "github" | string;
+  source_type: "github" | "localDirectory" | string;
   source_url: string;
   install_dir: string;
   git_commit: string;
@@ -75,6 +75,14 @@ export interface ExtensionPluginRuntime {
 export interface ExtensionInstallInput {
   source: "github";
   url: string;
+}
+
+export interface ExtensionLocalInstallInput {
+  path: string;
+}
+
+export interface DeveloperModeState {
+  enabled: boolean;
 }
 
 export interface ExtensionSettingsProperty {

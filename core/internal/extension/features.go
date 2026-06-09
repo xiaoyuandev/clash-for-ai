@@ -148,6 +148,33 @@ func (s *Service) executeCommandThroughRuntime(ctx context.Context, plugin Plugi
 		Message string `json:"message"`
 	}
 
+	if err := s.guardDevelopmentRuntime(ctx, plugin); err != nil {
+		entry, auditErr := s.repository.RecordAudit(ctx, AuditLogEntry{
+			PluginID:      plugin.ID,
+			PluginVersion: plugin.Version,
+			Capability:    "commands.execute",
+			Action:        command.ID,
+			ResourceType:  "command",
+			ResourceID:    command.ID,
+			Status:        "failed",
+			ErrorMessage:  err.Error(),
+			Metadata: map[string]any{
+				"mode": "runtime",
+			},
+		})
+		if auditErr != nil {
+			return CommandExecutionResult{}, auditErr
+		}
+		return CommandExecutionResult{
+			CommandID:  command.ID,
+			PluginID:   plugin.ID,
+			Status:     "failed",
+			Message:    err.Error(),
+			AuditLogID: entry.ID,
+			ExecutedAt: executedAt,
+		}, err
+	}
+
 	initialSettings := s.effectiveSettingsForRuntime(ctx, plugin.ID)
 	payload, err := s.runtimeHost.Call(ctx, plugin, "executeCommand", map[string]any{
 		"commandId": command.ID,
@@ -293,9 +320,11 @@ func (s *Service) UpdateSettings(ctx context.Context, pluginID string, input Upd
 	}
 	if plugin.Enabled && plugin.Status == PluginStatusEnabled && s.runtimeHost != nil {
 		if plan, planErr := RuntimePlanForPlugin(*plugin); planErr == nil && plan.EntryType != "none" {
-			_ = s.runtimeHost.Notify(ctx, *plugin, "settingsChanged", map[string]any{
-				"values": settings.EffectiveValues,
-			}, settings.EffectiveValues)
+			if err := s.guardDevelopmentRuntime(ctx, *plugin); err == nil {
+				_ = s.runtimeHost.Notify(ctx, *plugin, "settingsChanged", map[string]any{
+					"values": settings.EffectiveValues,
+				}, settings.EffectiveValues)
+			}
 		}
 	}
 	return settings, nil

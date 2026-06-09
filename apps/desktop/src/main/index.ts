@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, shell, Tray } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell, Tray, type OpenDialogOptions } from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { loadWorkspaceEnvLocal } from "./dev-env";
@@ -563,6 +563,20 @@ app.whenReady().then(() => {
   ipcMain.handle("app:copy-text", async (_, text: string) => {
     clipboard.writeText(text);
     return { ok: true };
+  });
+
+  ipcMain.handle("app:select-directory", async () => {
+    const options: OpenDialogOptions = {
+      properties: ["openDirectory"],
+      title: "Select plugin directory"
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
   });
 
   ipcMain.handle(

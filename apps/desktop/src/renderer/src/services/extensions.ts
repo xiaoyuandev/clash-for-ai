@@ -1,10 +1,12 @@
 import type {
+  DeveloperModeState,
   ExtensionAuditLog,
   ExtensionBackgroundTask,
   ExtensionCommand,
   ExtensionCommandResult,
   ExtensionDeclaredProcess,
   ExtensionInstallInput,
+  ExtensionLocalInstallInput,
   ExtensionPlugin,
   ExtensionSettings,
   ExtensionToolIntegration,
@@ -107,6 +109,48 @@ export async function installExtension(
       body: JSON.stringify(input)
     },
     "Extension install failed"
+  );
+}
+
+export async function loadLocalExtension(
+  input: ExtensionLocalInstallInput,
+  apiBase?: string
+): Promise<ExtensionPlugin> {
+  return fetchJson<ExtensionPlugin>(
+    `${getApiBase(apiBase)}/api/extensions/local-install`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Local extension load failed"
+  );
+}
+
+export async function getDeveloperMode(apiBase?: string): Promise<DeveloperModeState> {
+  return fetchJson<DeveloperModeState>(
+    `${getApiBase(apiBase)}/api/settings/developer-mode`,
+    {},
+    "Developer mode request failed"
+  );
+}
+
+export async function updateDeveloperMode(
+  enabled: boolean,
+  apiBase?: string
+): Promise<DeveloperModeState> {
+  return fetchJson<DeveloperModeState>(
+    `${getApiBase(apiBase)}/api/settings/developer-mode`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ enabled })
+    },
+    "Developer mode update failed"
   );
 }
 

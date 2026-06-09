@@ -74,8 +74,10 @@ func NewRouter(
 	mux.HandleFunc("/api/extensions/background-tasks", router.handleExtensionBackgroundTasks)
 	mux.HandleFunc("/api/extensions/audit-logs", router.handleExtensionAuditLogs)
 	mux.HandleFunc("/api/extensions/install", router.handleExtensionInstall)
+	mux.HandleFunc("/api/extensions/local-install", router.handleExtensionLocalInstall)
 	mux.HandleFunc("/api/extensions/rescan", router.handleExtensionRescan)
 	mux.HandleFunc("/api/extensions/", router.handleExtensionActions)
+	mux.HandleFunc("/api/settings/developer-mode", router.handleDeveloperMode)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
 	mux.HandleFunc("/api/local-gateway/capabilities", router.handleLocalGatewayCapabilities)
 	mux.HandleFunc("/api/local-gateway/source-capabilities", router.handleLocalGatewaySourceCapabilities)
@@ -420,6 +422,63 @@ func (r *Router) handleExtensionInstall(w http.ResponseWriter, req *http.Request
 	writeJSON(w, http.StatusCreated, item)
 }
 
+func (r *Router) handleExtensionLocalInstall(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	var input extension.LocalInstallPluginInput
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	item, err := r.extensions.LocalInstall(req.Context(), input)
+	if err != nil {
+		writeExtensionInstallError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, item)
+}
+
+func (r *Router) handleDeveloperMode(w http.ResponseWriter, req *http.Request) {
+	if r.extensions == nil {
+		http.Error(w, "extension service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	switch req.Method {
+	case http.MethodGet:
+		state, err := r.extensions.DeveloperMode(req.Context())
+		if err != nil {
+			http.Error(w, "failed to get developer mode", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	case http.MethodPut:
+		var input struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		state, err := r.extensions.UpdateDeveloperMode(req.Context(), input.Enabled)
+		if err != nil {
+			http.Error(w, "failed to update developer mode", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func (r *Router) handleExtensionCommands(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -456,6 +515,8 @@ func (r *Router) handleExtensionCommandActions(w http.ResponseWriter, req *http.
 		switch {
 		case errors.Is(err, extension.ErrCommandNotFound):
 			http.Error(w, "extension command not found", http.StatusNotFound)
+		case errors.Is(err, extension.ErrDeveloperModeDisabled):
+			http.Error(w, err.Error(), http.StatusForbidden)
 		case errors.Is(err, extension.ErrPluginNotEnabled):
 			writeJSON(w, http.StatusConflict, result)
 		default:
@@ -502,6 +563,8 @@ func (r *Router) handleExtensionToolIntegrationActions(w http.ResponseWriter, re
 		switch {
 		case errors.Is(err, extension.ErrToolIntegrationNotFound):
 			http.Error(w, "extension tool integration not found", http.StatusNotFound)
+		case errors.Is(err, extension.ErrDeveloperModeDisabled):
+			http.Error(w, err.Error(), http.StatusForbidden)
 		case errors.Is(err, extension.ErrToolIntegrationActionUnsupported):
 			http.Error(w, "extension tool integration action is not supported", http.StatusBadRequest)
 		case errors.Is(err, extension.ErrPluginNotEnabled):
@@ -1105,6 +1168,10 @@ func writeExtensionActionError(w http.ResponseWriter, err error) {
 		http.Error(w, "extension not found", http.StatusNotFound)
 		return
 	}
+	if errors.Is(err, extension.ErrDeveloperModeDisabled) {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	http.Error(w, err.Error(), http.StatusConflict)
 }
 
@@ -1125,6 +1192,8 @@ func writeExtensionInstallError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, extension.ErrPluginNotFound):
 		http.Error(w, "extension not found", http.StatusNotFound)
+	case errors.Is(err, extension.ErrDeveloperModeDisabled):
+		http.Error(w, err.Error(), http.StatusForbidden)
 	case errors.Is(err, extension.ErrInvalidPluginSource):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, extension.ErrPluginAlreadyInstalled):

@@ -4,6 +4,7 @@ import {
   disableExtension,
   enableExtension,
   executeExtensionCommand,
+  getDeveloperMode,
   executeExtensionToolIntegrationAction,
   getExtensionAuditLogs,
   getExtensionCommands,
@@ -11,6 +12,7 @@ import {
   getExtensionSettings,
   getExtensionToolIntegrations,
   installExtension,
+  loadLocalExtension,
   rescanExtensions,
   uninstallExtension,
   updateExtension,
@@ -119,6 +121,11 @@ function settingInputType(property: ExtensionSettingsProperty) {
   return property.type === "integer" || property.type === "number" ? "number" : "text";
 }
 
+function isDirectorySetting(key: string, property: ExtensionSettingsProperty) {
+  const text = `${key} ${property.title ?? ""} ${property.description ?? ""}`.toLowerCase();
+  return text.includes("directory") || text.includes("目录");
+}
+
 function formatEntry(item: ExtensionPlugin) {
   const entry = item.manifest.entry;
   if (entry.type === "nodePackage") {
@@ -132,6 +139,14 @@ function formatEntry(item: ExtensionPlugin) {
 
 function shortCommit(value?: string) {
   return value ? value.slice(0, 12) : "";
+}
+
+function canSelectDirectory() {
+  return Boolean(window.desktopBridge?.selectDirectory);
+}
+
+async function selectDirectory() {
+  return window.desktopBridge?.selectDirectory?.() ?? null;
 }
 
 type PluginActionIconName = "enable" | "disable" | "update" | "uninstall";
@@ -258,6 +273,8 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   const [commandBusy, setCommandBusy] = useState<string | null>(null);
   const [toolActionBusy, setToolActionBusy] = useState<string | null>(null);
   const [installUrl, setInstallUrl] = useState("");
+  const [localPath, setLocalPath] = useState("");
+  const [developerMode, setDeveloperMode] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -294,6 +311,8 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     () => new Set(settings?.schema.required ?? []),
     [settings]
   );
+
+  const directoryPickerAvailable = canSelectDirectory();
 
   const syncDetail = useCallback(
     async (pluginId: string | null) => {
@@ -338,8 +357,12 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       }
 
       try {
-        const nextItems = mode === "rescan" ? await rescanExtensions(apiBase) : await getExtensions(apiBase);
+        const [nextItems, nextDeveloperMode] = await Promise.all([
+          mode === "rescan" ? rescanExtensions(apiBase) : getExtensions(apiBase),
+          getDeveloperMode(apiBase)
+        ]);
         setItems(nextItems);
+        setDeveloperMode(nextDeveloperMode.enabled);
         setSelectedId((current) =>
           current && nextItems.some((item) => item.id === current)
             ? current
@@ -413,6 +436,45 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     }
   }
 
+  async function handlePickLocalDirectory() {
+    setError(null);
+    try {
+      const path = await selectDirectory();
+      if (path) {
+        setLocalPath(path);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    }
+  }
+
+  async function handleLocalInstall(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const path = localPath.trim();
+    if (!path) {
+      return;
+    }
+
+    setBusyAction("install");
+    setError(null);
+    setFeedback(null);
+    try {
+      const installed = await loadLocalExtension({ path }, apiBase);
+      setItems((current) =>
+        [...current.filter((entry) => entry.id !== installed.id), installed].sort((left, right) =>
+          left.id.localeCompare(right.id)
+        )
+      );
+      setSelectedId(installed.id);
+      await syncDetail(installed.id);
+      setFeedback(t("plugins.feedback.localLoaded"));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function handleUpdate(item: ExtensionPlugin) {
     setBusyAction("update");
     setError(null);
@@ -421,7 +483,11 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       const updated = await updateExtension(item.id, apiBase);
       setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
       await syncDetail(updated.id);
-      setFeedback(t("plugins.feedback.updated"));
+      setFeedback(
+        item.install?.source_type === "localDirectory"
+          ? t("plugins.feedback.reloaded")
+          : t("plugins.feedback.updated")
+      );
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
@@ -526,6 +592,18 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     }));
   }
 
+  async function handlePickSettingDirectory(key: string) {
+    setError(null);
+    try {
+      const path = await selectDirectory();
+      if (path) {
+        updateSettingValue(key, path);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
+    }
+  }
+
   function renderSettingControl(key: string, property: ExtensionSettingsProperty) {
     const value = settingsValues[key] ?? "";
     if (property.enum && property.enum.length > 0) {
@@ -553,7 +631,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
             checked={Boolean(value)}
             onChange={(event) => updateSettingValue(key, event.target.checked)}
           />
-          {Boolean(value) ? t("settings.runtime.yes") : t("settings.runtime.no")}
+          {t("settings.runtime.yes")}
         </label>
       );
     }
@@ -573,6 +651,28 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
             )
           }
         />
+      );
+    }
+
+    if (property.type === "string" && isDirectorySetting(key, property)) {
+      return (
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <input
+            className={inputClass}
+            type="text"
+            value={formatValue(value)}
+            onChange={(event) => updateSettingValue(key, event.target.value)}
+          />
+          {directoryPickerAvailable ? (
+            <button
+              type="button"
+              className={buttonClass("secondary")}
+              onClick={() => void handlePickSettingDirectory(key)}
+            >
+              {t("plugins.install.chooseDirectory")}
+            </button>
+          ) : null}
+        </div>
       );
     }
 
@@ -643,6 +743,42 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
           {busyAction === "install" ? t("plugins.install.installing") : t("plugins.install.button")}
         </button>
       </form>
+
+      {developerMode ? (
+        <form
+          className={`${sectionCardClass} grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end`}
+          onSubmit={handleLocalInstall}
+        >
+          <label className="grid gap-2">
+            <span className={fieldLabelClass}>{t("plugins.install.localDirectory")}</span>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <input
+                className={inputClass}
+                type="text"
+                value={localPath}
+                placeholder="/absolute/path/to/plugin"
+                onChange={(event) => setLocalPath(event.target.value)}
+              />
+              {directoryPickerAvailable ? (
+                <button
+                  type="button"
+                  className={buttonClass("secondary")}
+                  onClick={() => void handlePickLocalDirectory()}
+                >
+                  {t("plugins.install.chooseDirectory")}
+                </button>
+              ) : null}
+            </div>
+          </label>
+          <button
+            type="submit"
+            className={`${buttonClass("secondary")} sm:min-w-[132px]`}
+            disabled={busyAction === "install" || localPath.trim() === ""}
+          >
+            {busyAction === "install" ? t("plugins.install.loadingLocal") : t("plugins.install.localButton")}
+          </button>
+        </form>
+      ) : null}
 
       <section className="grid min-h-0 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
         <div className={sectionCardClass}>
@@ -751,11 +887,21 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                           type="button"
                           className={pluginActionButtonClass("secondary")}
                           disabled={busyAction === "update"}
-                          aria-label={t("plugins.button.update")}
+                          aria-label={
+                            selected.install.source_type === "localDirectory"
+                              ? t("plugins.button.reload")
+                              : t("plugins.button.update")
+                          }
                           onClick={() => void handleUpdate(selected)}
                         >
                           <PluginActionIcon name="update" spinning={busyAction === "update"} />
-                          <PluginActionTooltip label={t("plugins.button.update")} />
+                          <PluginActionTooltip
+                            label={
+                              selected.install.source_type === "localDirectory"
+                                ? t("plugins.button.reload")
+                                : t("plugins.button.update")
+                            }
+                          />
                         </button>
                         <button
                           type="button"
