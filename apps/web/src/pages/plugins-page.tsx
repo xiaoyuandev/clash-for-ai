@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import { canSelectDirectory, selectDirectory } from "../bridge/platform-bridge";
 import {
@@ -7,7 +7,6 @@ import {
   executeExtensionCommand,
   getDeveloperMode,
   executeExtensionToolIntegrationAction,
-  getExtensionAuditLogs,
   getExtensionCommands,
   getExtensions,
   getExtensionSettings,
@@ -20,7 +19,6 @@ import {
   updateExtensionSettings
 } from "../services/extensions";
 import type {
-  ExtensionAuditLog,
   ExtensionCommand,
   ExtensionPlugin,
   ExtensionSettings,
@@ -72,11 +70,6 @@ function statusTone(status: PluginStatus, enabled: boolean) {
   return "default" as const;
 }
 
-function formatContributionSummary(item: ExtensionPlugin) {
-  return Object.entries(item.contributes)
-    .filter(([, count]) => count > 0)
-    .sort(([left], [right]) => left.localeCompare(right));
-}
 
 function formatValue(value: unknown) {
   if (typeof value === "string") {
@@ -107,16 +100,6 @@ function serializeSettingsValues(values: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
 }
 
-function formatAuditTime(value: string) {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
-}
 
 function settingInputType(property: ExtensionSettingsProperty) {
   return property.type === "integer" || property.type === "number" ? "number" : "text";
@@ -127,16 +110,6 @@ function isDirectorySetting(key: string, property: ExtensionSettingsProperty) {
   return text.includes("directory") || text.includes("目录");
 }
 
-function formatEntry(item: ExtensionPlugin) {
-  const entry = item.manifest.entry;
-  if (entry.type === "nodePackage") {
-    return `${entry.package ?? ""}@${entry.version ?? ""} (${entry.bin ?? "bin"})`;
-  }
-  if (entry.type === "process") {
-    return entry.command ?? "process";
-  }
-  return entry.type;
-}
 
 function shortCommit(value?: string) {
   return value ? value.slice(0, 12) : "";
@@ -256,13 +229,14 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   const [toolIntegrations, setToolIntegrations] = useState<ExtensionToolIntegration[]>([]);
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
   const [settingsValues, setSettingsValues] = useState<Record<string, unknown>>({});
-  const [auditLogs, setAuditLogs] = useState<ExtensionAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<
     "rescan" | "install" | "enable" | "disable" | "update" | "uninstall" | null
   >(null);
-  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [settingsSaveStatus, setSettingsSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const settingsSaveTimerRef = useRef<number | null>(null);
+  const settingsSaveSeqRef = useRef(0);
   const [commandBusy, setCommandBusy] = useState<string | null>(null);
   const [toolActionBusy, setToolActionBusy] = useState<string | null>(null);
   const [installUrl, setInstallUrl] = useState("");
@@ -314,23 +288,22 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
         setToolIntegrations([]);
         setSettings(null);
         setSettingsValues({});
-        setAuditLogs([]);
+        setSettingsSaveStatus("idle");
         return;
       }
 
       setDetailLoading(true);
       try {
-        const [nextCommands, nextToolIntegrations, nextSettings, nextAuditLogs] = await Promise.all([
+        const [nextCommands, nextToolIntegrations, nextSettings] = await Promise.all([
           getExtensionCommands(apiBase),
           getExtensionToolIntegrations(apiBase),
-          getExtensionSettings(pluginId, apiBase),
-          getExtensionAuditLogs(pluginId, 20, apiBase)
+          getExtensionSettings(pluginId, apiBase)
         ]);
         setCommands(nextCommands);
         setToolIntegrations(nextToolIntegrations);
         setSettings(nextSettings);
         setSettingsValues(nextSettings.effective_values ?? {});
-        setAuditLogs(nextAuditLogs);
+        setSettingsSaveStatus("idle");
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
       } finally {
@@ -381,6 +354,22 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
   useEffect(() => {
     void syncDetail(selected?.id ?? null);
   }, [selected?.id, syncDetail]);
+
+  useEffect(() => {
+    if (settingsSaveTimerRef.current) {
+      window.clearTimeout(settingsSaveTimerRef.current);
+      settingsSaveTimerRef.current = null;
+    }
+    setSettingsSaveStatus("idle");
+  }, [selected?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (settingsSaveTimerRef.current) {
+        window.clearTimeout(settingsSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   async function handleToggle(item: ExtensionPlugin) {
     setBusyAction(item.enabled ? "disable" : "enable");
@@ -509,29 +498,46 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     }
   }
 
-  async function handleSaveSettings() {
-    if (!selected) {
-      return;
-    }
-
-    setSettingsBusy(true);
+  async function persistSettings(pluginId: string, values: Record<string, unknown>) {
+    const saveSeq = settingsSaveSeqRef.current + 1;
+    settingsSaveSeqRef.current = saveSeq;
+    setSettingsSaveStatus("saving");
     setError(null);
-    setFeedback(null);
+
     try {
-      const nextSettings = await updateExtensionSettings(
-        selected.id,
-        serializeSettingsValues(settingsValues),
-        apiBase
-      );
+      const nextSettings = await updateExtensionSettings(pluginId, serializeSettingsValues(values), apiBase);
       setSettings(nextSettings);
-      setSettingsValues(nextSettings.effective_values ?? {});
-      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase));
-      setFeedback(t("plugins.feedback.settingsSaved"));
+      if (settingsSaveSeqRef.current === saveSeq) {
+        setSettingsSaveStatus("saved");
+      }
     } catch (nextError) {
+      if (settingsSaveSeqRef.current === saveSeq) {
+        setSettingsSaveStatus("error");
+      }
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
-      setSettingsBusy(false);
+      if (settingsSaveSeqRef.current === saveSeq) {
+      }
     }
+  }
+
+  function scheduleSettingsSave(values: Record<string, unknown>, mode: "immediate" | "debounced") {
+    if (!selected || selected.status === "invalid" || detailLoading) {
+      return;
+    }
+    if (settingsSaveTimerRef.current) {
+      window.clearTimeout(settingsSaveTimerRef.current);
+      settingsSaveTimerRef.current = null;
+    }
+    if (mode === "immediate") {
+      void persistSettings(selected.id, values);
+      return;
+    }
+    setSettingsSaveStatus("saving");
+    settingsSaveTimerRef.current = window.setTimeout(() => {
+      settingsSaveTimerRef.current = null;
+      void persistSettings(selected.id, values);
+    }, 700);
   }
 
   async function handleExecuteCommand(command: ExtensionCommand) {
@@ -544,10 +550,8 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     setFeedback(null);
     try {
       const result = await executeExtensionCommand(command.id, apiBase);
-      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase));
       setFeedback(t("plugins.feedback.commandExecuted", { status: result.status }));
     } catch (nextError) {
-      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase).catch(() => auditLogs));
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
       setCommandBusy(null);
@@ -568,21 +572,89 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     setFeedback(null);
     try {
       const result = await executeExtensionToolIntegrationAction(integration.id, action, apiBase);
-      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase));
       setFeedback(t("plugins.feedback.toolActionRecorded", { status: result.status }));
     } catch (nextError) {
-      setAuditLogs(await getExtensionAuditLogs(selected.id, 20, apiBase).catch(() => auditLogs));
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
     } finally {
       setToolActionBusy(null);
     }
   }
 
-  function updateSettingValue(key: string, value: unknown) {
-    setSettingsValues((current) => ({
-      ...current,
+  function renderOtherInfo() {
+    if (!selected) {
+      return null;
+    }
+
+    return (
+      <details className="group border-t pt-5 [border-color:var(--border-soft)]">
+        <summary className="flex cursor-pointer select-none items-center justify-between gap-3 text-sm font-semibold text-[color:var(--color-heading)]">
+          <span>{t("plugins.detail.otherInfo")}</span>
+          <svg
+            className="h-4 w-4 text-[color:var(--color-muted)] transition group-open:rotate-180"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <div className="mt-4 grid gap-4">
+          {selected.install ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="min-w-0">
+                <p className={fieldLabelClass}>{t("plugins.detail.source")}</p>
+                <p className={`${monoClass} mt-1 truncate text-[11px]`}>{selected.install.source_url}</p>
+              </div>
+              <div>
+                <p className={fieldLabelClass}>{t("plugins.detail.gitCommit")}</p>
+                <p className={`${monoClass} mt-1 text-[11px]`}>
+                  {shortCommit(selected.install.git_commit) || t("settings.value.unknown")}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <p className={fieldLabelClass}>{t("plugins.detail.manifestPath")}</p>
+            <code className={`${monoClass} block rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3`}>
+              {selected.manifest_path}
+            </code>
+          </div>
+
+          <div className="space-y-2">
+            <p className={fieldLabelClass}>{t("plugins.detail.permissions")}</p>
+            {selected.permissions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selected.permissions.map((permission) => (
+                  <span key={permission} className={statusPillClass("warning")}>
+                    {permission}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className={metaClass}>{t("plugins.detail.noPermissions")}</p>
+            )}
+          </div>
+        </div>
+      </details>
+    );
+  }
+
+  function updateSettingValue(
+    key: string,
+    value: unknown,
+    mode: "immediate" | "debounced" = "debounced"
+  ) {
+    const nextValues = {
+      ...settingsValues,
       [key]: value
-    }));
+    };
+    setSettingsValues(nextValues);
+    scheduleSettingsSave(nextValues, mode);
   }
 
   async function handlePickSettingDirectory(key: string) {
@@ -590,7 +662,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
     try {
       const path = await selectDirectory();
       if (path) {
-        updateSettingValue(key, path);
+        updateSettingValue(key, path, "immediate");
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("common.unknownError"));
@@ -605,7 +677,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
         <select
           className={inputClass}
           value={currentValue}
-          onChange={(event) => updateSettingValue(key, parseEnumOptionValue(event.target.value))}
+          onChange={(event) => updateSettingValue(key, parseEnumOptionValue(event.target.value), "immediate")}
         >
           {property.enum.map((item) => (
             <option key={enumOptionValue(item)} value={enumOptionValue(item)}>
@@ -622,7 +694,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
           <input
             type="checkbox"
             checked={Boolean(value)}
-            onChange={(event) => updateSettingValue(key, event.target.checked)}
+            onChange={(event) => updateSettingValue(key, event.target.checked, "immediate")}
           />
           {t("settings.runtime.yes")}
         </label>
@@ -685,8 +757,6 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
       />
     );
   }
-
-  const selectedContributions = selected ? formatContributionSummary(selected) : [];
 
   return (
     <main className={pageShellClass}>
@@ -931,12 +1001,6 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                   </p>
                 </div>
                 <div>
-                  <p className={fieldLabelClass}>{t("plugins.detail.entry")}</p>
-                  <p className="mt-1 text-sm font-medium text-[color:var(--color-heading)]">
-                    {formatEntry(selected)}
-                  </p>
-                </div>
-                <div>
                   <p className={fieldLabelClass}>{t("plugins.detail.runtime")}</p>
                   <p className="mt-1 text-sm font-medium text-[color:var(--color-heading)]">
                     {selected.runtime.state}
@@ -944,27 +1008,6 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                 </div>
               </div>
 
-              {selected.install ? (
-                <div className="grid gap-3 border-t pt-5 [border-color:var(--border-soft)] sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <p className={fieldLabelClass}>{t("plugins.detail.source")}</p>
-                    <p className={`${monoClass} mt-1 truncate text-[11px]`}>{selected.install.source_url}</p>
-                  </div>
-                  <div>
-                    <p className={fieldLabelClass}>{t("plugins.detail.gitCommit")}</p>
-                    <p className={`${monoClass} mt-1 text-[11px]`}>
-                      {shortCommit(selected.install.git_commit) || t("settings.value.unknown")}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="space-y-2">
-                <p className={fieldLabelClass}>{t("plugins.detail.manifestPath")}</p>
-                <code className={`${monoClass} block rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3`}>
-                  {selected.manifest_path}
-                </code>
-              </div>
 
               {selected.last_error ? (
                 <div className={dangerNoticeClass}>{selected.last_error}</div>
@@ -986,52 +1029,25 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                 </div>
               ) : null}
 
-              <div className="grid gap-4 xl:grid-cols-2">
-                <div className="space-y-2">
-                  <p className={fieldLabelClass}>{t("plugins.detail.permissions")}</p>
-                  {selected.permissions.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selected.permissions.map((permission) => (
-                        <span key={permission} className={statusPillClass("warning")}>
-                          {permission}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className={metaClass}>{t("plugins.detail.noPermissions")}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <p className={fieldLabelClass}>{t("plugins.detail.contributions")}</p>
-                  {selectedContributions.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedContributions.map(([name, count]) => (
-                        <span key={name} className={statusPillClass()}>
-                          {name}: {count}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className={metaClass}>{t("plugins.detail.noContributions")}</p>
-                  )}
-                </div>
-              </div>
-
               <div className="space-y-3 border-t pt-5 [border-color:var(--border-soft)]">
                 <div className={sectionHeadClass}>
                   <div className="space-y-1">
                     <h3 className={sectionTitleClass}>{t("plugins.settings.title")}</h3>
                     <p className={sectionMetaClass}>{t("plugins.settings.subtitle")}</p>
                   </div>
-                  <button
-                    type="button"
-                    className={buttonClass("primary")}
-                    disabled={settingsBusy || selected.status === "invalid" || detailLoading}
-                    onClick={() => void handleSaveSettings()}
-                  >
-                    {settingsBusy ? t("common.saving") : t("plugins.settings.save")}
-                  </button>
+                  {settingsSaveStatus !== "idle" ? (
+                    <span
+                      className={statusPillClass(
+                        settingsSaveStatus === "error"
+                          ? "danger"
+                          : settingsSaveStatus === "saved"
+                            ? "success"
+                            : "warning"
+                      )}
+                    >
+                      {t(`plugins.settings.autoSave.${settingsSaveStatus}`)}
+                    </span>
+                  ) : null}
                 </div>
 
                 {detailLoading ? (
@@ -1051,6 +1067,41 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                         {renderSettingControl(key, property)}
                         {property.description ? <span className={hintClass}>{property.description}</span> : null}
                       </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border-t pt-5 [border-color:var(--border-soft)]">
+                <div className={sectionHeadClass}>
+                  <div className="space-y-1">
+                    <h3 className={sectionTitleClass}>{t("plugins.commands.title")}</h3>
+                    <p className={sectionMetaClass}>{t("plugins.commands.subtitle")}</p>
+                  </div>
+                </div>
+                {selectedCommands.length === 0 ? (
+                  <div className={emptyStateClass}>{t("plugins.commands.empty")}</div>
+                ) : (
+                  <div className="grid gap-2">
+                    {selectedCommands.map((command) => (
+                      <div
+                        key={command.id}
+                        className="flex flex-col gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[color:var(--color-heading)]">{command.title}</p>
+                          <p className={`${monoClass} mt-1 text-[11px]`}>{command.id}</p>
+                          {command.category ? <p className={hintClass}>{command.category}</p> : null}
+                        </div>
+                        <button
+                          type="button"
+                          className={buttonClass("secondary")}
+                          disabled={!command.enabled || commandBusy === command.id}
+                          onClick={() => void handleExecuteCommand(command)}
+                        >
+                          {commandBusy === command.id ? t("plugins.commands.executing") : t("plugins.commands.execute")}
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1135,83 +1186,7 @@ export function PluginsPage({ apiBase }: PluginsPageProps) {
                 )}
               </div>
 
-              <div className="space-y-3 border-t pt-5 [border-color:var(--border-soft)]">
-                <div className={sectionHeadClass}>
-                  <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("plugins.commands.title")}</h3>
-                    <p className={sectionMetaClass}>{t("plugins.commands.subtitle")}</p>
-                  </div>
-                </div>
-                {selectedCommands.length === 0 ? (
-                  <div className={emptyStateClass}>{t("plugins.commands.empty")}</div>
-                ) : (
-                  <div className="grid gap-2">
-                    {selectedCommands.map((command) => (
-                      <div
-                        key={command.id}
-                        className="flex flex-col gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[color:var(--color-heading)]">{command.title}</p>
-                          <p className={`${monoClass} mt-1 text-[11px]`}>{command.id}</p>
-                          {command.category ? <p className={hintClass}>{command.category}</p> : null}
-                        </div>
-                        <button
-                          type="button"
-                          className={buttonClass("secondary")}
-                          disabled={!command.enabled || commandBusy === command.id}
-                          onClick={() => void handleExecuteCommand(command)}
-                        >
-                          {commandBusy === command.id ? t("plugins.commands.executing") : t("plugins.commands.execute")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 border-t pt-5 [border-color:var(--border-soft)]">
-                <div className={sectionHeadClass}>
-                  <div className="space-y-1">
-                    <h3 className={sectionTitleClass}>{t("plugins.audit.title")}</h3>
-                    <p className={sectionMetaClass}>{t("plugins.audit.subtitle")}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className={buttonClass("secondary")}
-                    disabled={detailLoading}
-                    onClick={() => void syncDetail(selected.id)}
-                  >
-                    {t("common.refresh")}
-                  </button>
-                </div>
-                {auditLogs.length === 0 ? (
-                  <div className={emptyStateClass}>{t("plugins.audit.empty")}</div>
-                ) : (
-                  <div className="grid gap-2">
-                    {auditLogs.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-[color:var(--color-heading)]">
-                            {entry.action}
-                          </span>
-                          <span className={statusPillClass(entry.status === "failed" ? "danger" : "default")}>
-                            {entry.status}
-                          </span>
-                        </div>
-                        <p className={`${monoClass} mt-1 text-[11px]`}>{entry.capability}</p>
-                        <p className={hintClass}>{formatAuditTime(entry.timestamp)}</p>
-                        {entry.error_message ? (
-                          <p className="mt-2 text-sm text-[color:var(--danger-text)]">{entry.error_message}</p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {renderOtherInfo()}
 
               {selected.runtime.command ? (
                 <p className={hintClass}>
