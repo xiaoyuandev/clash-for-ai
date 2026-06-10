@@ -28,6 +28,7 @@ func Load() AppConfig {
 			port = parsed
 		}
 	}
+	httpHost := envOrDefault("HTTP_HOST", "127.0.0.1")
 
 	logRetentionDays := 30
 	if value := os.Getenv("LOG_RETENTION_DAYS"); value != "" {
@@ -69,7 +70,7 @@ func Load() AppConfig {
 		HTTPPort:                      port,
 		DataDir:                       dataDir,
 		LogLevel:                      "debug",
-		GatewayBind:                   "127.0.0.1",
+		GatewayBind:                   httpHost,
 		WebAssetsDir:                  os.Getenv("WEB_ASSETS_DIR"),
 		LogRetentionDays:              logRetentionDays,
 		LogMaxRecords:                 logMaxRecords,

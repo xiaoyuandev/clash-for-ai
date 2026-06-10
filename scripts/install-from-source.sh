@@ -7,6 +7,7 @@ BRANCH="${RELAY_SWITCH_BRANCH:-main}"
 INSTALL_ROOT="${RELAY_SWITCH_INSTALL_ROOT:-$HOME/.local/share/relay-switch}"
 BIN_DIR="${RELAY_SWITCH_BIN_DIR:-$HOME/.local/bin}"
 SERVICE_NAME="${RELAY_SWITCH_SERVICE_NAME:-relay-switch}"
+HTTP_HOST="${RELAY_SWITCH_HTTP_HOST:-127.0.0.1}"
 HTTP_PORT="${RELAY_SWITCH_HTTP_PORT:-3456}"
 LOCAL_GATEWAY_PORT="${RELAY_SWITCH_LOCAL_GATEWAY_PORT:-3457}"
 DATA_DIR="${RELAY_SWITCH_DATA_DIR:-$HOME/.local/share/relay-switch/data}"
@@ -125,6 +126,7 @@ cp -R "$SRC_DIR/apps/web/dist/." "$WEB_DIST_DIR/"
 
 cat >"$ENV_FILE" <<EOF
 HTTP_PORT=$HTTP_PORT
+HTTP_HOST=$HTTP_HOST
 CORE_DATA_DIR=$DATA_DIR
 WEB_ASSETS_DIR=$WEB_DIST_DIR
 LOCAL_GATEWAY_RUNTIME_KIND=$RUNTIME_KIND
@@ -211,8 +213,8 @@ append_path_hint
 setup_wsl_lingering_hint
 
 info "installation completed"
-info "API endpoint: http://127.0.0.1:$HTTP_PORT/v1"
-info "Web UI: http://127.0.0.1:$HTTP_PORT"
+info "API endpoint: http://$HTTP_HOST:$HTTP_PORT/v1"
+info "Web UI: http://$HTTP_HOST:$HTTP_PORT"
 info "Launcher: $LAUNCHER"
 if has_systemd_user; then
   info "Service: systemctl --user status $SERVICE_NAME"

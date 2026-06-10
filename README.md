@@ -122,6 +122,15 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scrip
 1. Web 管理界面：`http://127.0.0.1:3456`
 2. OpenAI-compatible 本地入口：`http://127.0.0.1:3456/v1`
 
+如果需要在安装时指定监听地址和端口，可以通过环境变量覆盖默认值：
+
+```bash
+RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 \
+  curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
+```
+
+`0.0.0.0` 表示监听所有网卡，远程访问时请使用服务器实际 IP 或域名，例如 `http://<server-ip>:8080`。
+
 **服务管理**
 
 默认会安装一个 `systemd --user` 服务：

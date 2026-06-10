@@ -6,6 +6,7 @@ REPO="${RELAY_SWITCH_RELEASE_REPO:-xiaoyuandev/relay-switch}"
 INSTALL_ROOT="${RELAY_SWITCH_INSTALL_ROOT:-$HOME/.local/share/relay-switch}"
 BIN_DIR="${RELAY_SWITCH_BIN_DIR:-$HOME/.local/bin}"
 SERVICE_NAME="${RELAY_SWITCH_SERVICE_NAME:-relay-switch}"
+HTTP_HOST="${RELAY_SWITCH_HTTP_HOST:-127.0.0.1}"
 HTTP_PORT="${RELAY_SWITCH_HTTP_PORT:-3456}"
 LOCAL_GATEWAY_PORT="${RELAY_SWITCH_LOCAL_GATEWAY_PORT:-3457}"
 DATA_DIR="${RELAY_SWITCH_DATA_DIR:-$HOME/.local/share/relay-switch/data}"
@@ -175,6 +176,7 @@ LAUNCHER="$BIN_DIR/relay-switch"
 
 cat >"$ENV_FILE" <<EOF
 HTTP_PORT=$HTTP_PORT
+HTTP_HOST=$HTTP_HOST
 CORE_DATA_DIR=$DATA_DIR
 WEB_ASSETS_DIR=$INSTALL_ROOT/web
 LOCAL_GATEWAY_RUNTIME_KIND=ai-mini-gateway
@@ -262,5 +264,5 @@ setup_wsl_hint
 
 info "installation completed"
 info "Release: $VERSION"
-info "API endpoint: http://127.0.0.1:$HTTP_PORT/v1"
-info "Web UI: http://127.0.0.1:$HTTP_PORT"
+info "API endpoint: http://$HTTP_HOST:$HTTP_PORT/v1"
+info "Web UI: http://$HTTP_HOST:$HTTP_PORT"
