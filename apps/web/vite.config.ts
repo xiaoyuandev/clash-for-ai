@@ -23,6 +23,20 @@ const localPresetRoutes = [
 function localPresetsPlugin(): Plugin {
   return {
     name: "local-presets",
+    buildStart() {
+      for (const item of localPresetRoutes) {
+        this.addWatchFile(item.sourcePath);
+      }
+    },
+    generateBundle() {
+      for (const item of localPresetRoutes) {
+        this.emitFile({
+          type: "asset",
+          fileName: item.route.replace(/^\//, ""),
+          source: readFileSync(item.sourcePath, "utf8")
+        });
+      }
+    },
     configureServer(server: ViteDevServer) {
       for (const item of localPresetRoutes) {
         server.middlewares.use(item.route, (req, res) => {

@@ -18,7 +18,13 @@ import type {
 export type { ReleaseMetadata } from "../types/local-gateway";
 
 function getApiBase(apiBase?: string) {
-  return apiBase ?? "http://127.0.0.1:3456";
+  if (apiBase) {
+    return apiBase;
+  }
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+  return "http://127.0.0.1:3456";
 }
 
 async function readErrorMessage(response: Response, fallback: string) {

@@ -2,7 +2,7 @@ import { normalizeModelPresetCatalog } from "@relay-switch/presets/model";
 import type { ModelPresetCatalog } from "@relay-switch/presets/model";
 
 const DEFAULT_MODEL_PRESETS_URL =
-  "https://www.relayswitch.dev/model-presets.json";
+  "/model-presets.json";
 const DEV_MODEL_PRESETS_URL = "/model-presets.json";
 const MODEL_PRESETS_CACHE_KEY = "relay-switch:model-presets";
 

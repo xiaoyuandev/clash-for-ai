@@ -2,7 +2,7 @@ import { normalizeProviderPresetCatalog } from "@relay-switch/presets/provider";
 import type { ProviderPresetCatalog } from "@relay-switch/presets/provider";
 
 const DEFAULT_PROVIDER_PRESETS_URL =
-  "https://www.relayswitch.dev/provider-presets.json";
+  "/provider-presets.json";
 const DEV_PROVIDER_PRESETS_URL = "/provider-presets.json";
 const PROVIDER_PRESETS_CACHE_KEY = "relay-switch:provider-presets";
 

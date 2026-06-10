@@ -45,6 +45,18 @@ interface ToolsPageProps {
   onCopyText: (text: string) => Promise<void>;
 }
 
+function currentApiBase() {
+  return window.location.origin || "http://127.0.0.1:3456";
+}
+
+function currentApiPort(apiBase: string) {
+  const url = new URL(apiBase);
+  if (url.port) {
+    return url.port;
+  }
+  return url.protocol === "https:" ? "443" : "80";
+}
+
 export function ToolsPage({ onCopyText }: ToolsPageProps) {
   const { t } = useI18n();
   const [toolPreset, setToolPreset] = useState<ToolPreset>("codex-cli");
@@ -127,15 +139,17 @@ export function ToolsPage({ onCopyText }: ToolsPageProps) {
     [t]
   );
 
+  const apiBase = currentApiBase();
+
   useEffect(() => {
     let cancelled = false;
 
     async function syncToolStates() {
       try {
         const [health, states, localGateway] = await Promise.all([
-          getHealth(),
-          getTools(),
-          getLocalGatewayRuntime().catch(() => null)
+          getHealth(apiBase),
+          getTools(apiBase),
+          getLocalGatewayRuntime(apiBase).catch(() => null)
         ]);
         if (cancelled) {
           return;
@@ -178,11 +192,11 @@ export function ToolsPage({ onCopyText }: ToolsPageProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [apiBase]);
 
   const selectedTool = toolCatalog.find((tool) => tool.id === toolPreset) ?? toolCatalog[0];
   const selectedState = toolStates[toolPreset];
-  const port = 3456;
+  const port = currentApiPort(apiBase);
   const openAIBase = `http://127.0.0.1:${port}/v1`;
   const anthropicBase = `http://127.0.0.1:${port}`;
   const localGatewayTone =
@@ -333,7 +347,7 @@ export function ToolsPage({ onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      const nextState = await configureToolRequest(toolId);
+      const nextState = await configureToolRequest(toolId, apiBase);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.configured"));
     } catch (error) {
@@ -348,7 +362,7 @@ export function ToolsPage({ onCopyText }: ToolsPageProps) {
     setActionFeedback(null);
 
     try {
-      const nextState = await restoreToolRequest(toolId);
+      const nextState = await restoreToolRequest(toolId, apiBase);
       setToolStates((current) => ({ ...current, [toolId]: nextState }));
       setActionFeedback(nextState.message ?? t("tools.action.restored"));
     } catch (error) {
