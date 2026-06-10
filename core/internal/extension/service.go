@@ -20,6 +20,8 @@ type Service struct {
 	managedInstallDir string
 	pluginDataDir     string
 	gitExecutable     string
+	prepareExecutable string
+	prepareArgs       []string
 	runtimeHost       *RuntimeHost
 }
 
@@ -27,6 +29,8 @@ type ServiceOptions struct {
 	ManagedInstallDir string
 	PluginDataDir     string
 	GitExecutable     string
+	PrepareExecutable string
+	PrepareArgs       []string
 }
 
 func NewService(repository Repository, sources []ScanSource) *Service {
@@ -44,6 +48,8 @@ func NewServiceWithOptions(repository Repository, sources []ScanSource, options 
 		managedInstallDir: options.ManagedInstallDir,
 		pluginDataDir:     options.PluginDataDir,
 		gitExecutable:     gitExecutable,
+		prepareExecutable: strings.TrimSpace(options.PrepareExecutable),
+		prepareArgs:       cloneStringSlice(options.PrepareArgs),
 		runtimeHost:       NewRuntimeHost(),
 	}
 }

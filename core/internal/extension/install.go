@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -64,6 +65,9 @@ func (s *Service) Install(ctx context.Context, input InstallPluginInput) (*Plugi
 		return nil, fmt.Errorf("%w: install directory already exists", ErrPluginAlreadyInstalled)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("inspect install directory: %w", err)
+	}
+	if err := s.prepareManagedInstall(ctx, tempDir, manifest); err != nil {
+		return nil, err
 	}
 	if err := os.Rename(tempDir, targetDir); err != nil {
 		return nil, fmt.Errorf("move managed plugin into place: %w", err)
@@ -194,6 +198,9 @@ func (s *Service) Update(ctx context.Context, pluginID string) (*Plugin, error) 
 	}
 	if manifest.ID != pluginID {
 		return nil, fmt.Errorf("%w: updated manifest id changed from %q to %q", ErrInvalidPluginSource, pluginID, manifest.ID)
+	}
+	if err := s.prepareManagedInstall(ctx, install.InstallDir, manifest); err != nil {
+		return nil, err
 	}
 	commit, err := s.gitOutput(ctx, install.InstallDir, "rev-parse", "HEAD")
 	if err != nil {
@@ -398,6 +405,105 @@ func boolSettingValue(value bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+type installCommand struct {
+	name string
+	args []string
+}
+
+func (s *Service) prepareManagedInstall(ctx context.Context, dir string, manifest Manifest) error {
+	commands, err := s.prepareCommandsForInstall(dir)
+	if err != nil {
+		return err
+	}
+	for _, item := range commands {
+		output, err := runInstallCommand(ctx, dir, item.name, item.args...)
+		if err != nil {
+			message := strings.TrimSpace(string(output))
+			if message == "" {
+				message = err.Error()
+			}
+			return fmt.Errorf("%w: prepare plugin failed: %s", ErrInvalidPluginSource, message)
+		}
+	}
+	if strings.TrimSpace(manifest.Entry.Type) == "nodePackage" {
+		if _, ok, err := localNodePackageRuntimePlan(manifest.Entry, dir); err != nil {
+			return fmt.Errorf("%w: prepare plugin failed: %s", ErrInvalidPluginSource, err.Error())
+		} else if !ok {
+			return fmt.Errorf("%w: prepare plugin failed: nodePackage entry must match a local package.json bin", ErrInvalidPluginSource)
+		}
+	}
+	return nil
+}
+
+func (s *Service) prepareCommandsForInstall(dir string) ([]installCommand, error) {
+	if strings.TrimSpace(s.prepareExecutable) != "" {
+		return []installCommand{{name: s.prepareExecutable, args: cloneStringSlice(s.prepareArgs)}}, nil
+	}
+	scripts, ok, err := packageScripts(dir)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
+	var commands []installCommand
+	switch {
+	case fileExists(filepath.Join(dir, "pnpm-lock.yaml")):
+		commands = append(commands, installCommand{name: "pnpm", args: []string{"install", "--frozen-lockfile"}})
+		if strings.TrimSpace(scripts["build"]) != "" {
+			commands = append(commands, installCommand{name: "pnpm", args: []string{"build"}})
+		}
+	case fileExists(filepath.Join(dir, "package-lock.json")):
+		commands = append(commands, installCommand{name: "npm", args: []string{"ci"}})
+		if strings.TrimSpace(scripts["build"]) != "" {
+			commands = append(commands, installCommand{name: "npm", args: []string{"run", "build"}})
+		}
+	case fileExists(filepath.Join(dir, "yarn.lock")):
+		commands = append(commands, installCommand{name: "yarn", args: []string{"install", "--frozen-lockfile"}})
+		if strings.TrimSpace(scripts["build"]) != "" {
+			commands = append(commands, installCommand{name: "yarn", args: []string{"build"}})
+		}
+	default:
+		commands = append(commands, installCommand{name: "npm", args: []string{"install"}})
+		if strings.TrimSpace(scripts["build"]) != "" {
+			commands = append(commands, installCommand{name: "npm", args: []string{"run", "build"}})
+		}
+	}
+	return commands, nil
+}
+
+func runInstallCommand(ctx context.Context, dir string, name string, args ...string) ([]byte, error) {
+	command := exec.CommandContext(ctx, name, args...)
+	command.Dir = dir
+	return command.CombinedOutput()
+}
+
+func packageScripts(dir string) (map[string]string, bool, error) {
+	content, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("%w: read package.json: %v", ErrInvalidPluginSource, err)
+	}
+	var packageJSON struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(content, &packageJSON); err != nil {
+		return nil, false, fmt.Errorf("%w: decode package.json: %v", ErrInvalidPluginSource, err)
+	}
+	if packageJSON.Scripts == nil {
+		packageJSON.Scripts = map[string]string{}
+	}
+	return packageJSON.Scripts, true, nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func (s *Service) git(ctx context.Context, dir string, args ...string) error {

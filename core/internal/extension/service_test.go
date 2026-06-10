@@ -618,6 +618,62 @@ func TestLocalNodePackageEntryUsesBuiltLocalBin(t *testing.T) {
 	}
 }
 
+func TestManagedNodePackageEntryUsesBuiltLocalBin(t *testing.T) {
+	t.Parallel()
+
+	pluginDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(pluginDir, "package.json"), []byte(`{
+		"name": "@acme/relay-switch-plugin",
+		"bin": {
+			"relay-switch-plugin": "./dist/main.js"
+		}
+	}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(pluginDir, "dist"), 0o755); err != nil {
+		t.Fatalf("create dist dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginDir, "dist", "main.js"), []byte(`console.log("ok");`), 0o644); err != nil {
+		t.Fatalf("write local bin: %v", err)
+	}
+
+	manifest := Manifest{
+		ManifestVersion: 1,
+		ID:              "acme.node-plugin",
+		Name:            "Node Plugin",
+		Version:         "1.0.0",
+		Entry: ManifestEntry{
+			Type:    "nodePackage",
+			Package: "@acme/relay-switch-plugin",
+			Version: "1.2.3",
+			Bin:     "relay-switch-plugin",
+			Args:    []string{"serve"},
+		},
+		Contributes: ManifestContributes{},
+		Permissions: []string{},
+	}
+	plan, err := RuntimePlanForPlugin(Plugin{
+		ID:           manifest.ID,
+		ManifestPath: filepath.Join(pluginDir, ManifestFileName),
+		Manifest:     manifest,
+		Install: &PluginInstall{
+			SourceType: string(PluginSourceGitHub),
+			InstallDir: pluginDir,
+			SourceURL:  "https://github.com/acme/relay-switch-plugin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("build managed runtime plan: %v", err)
+	}
+	if plan.Command != "node" {
+		t.Fatalf("expected local node command, got %+v", plan)
+	}
+	expected := []string{filepath.Join(pluginDir, "dist", "main.js"), "serve"}
+	if strings.Join(plan.Args, "\x00") != strings.Join(expected, "\x00") {
+		t.Fatalf("unexpected managed runtime args: %+v", plan.Args)
+	}
+}
+
 func TestManifestNodePackageRejectsNonExactVersion(t *testing.T) {
 	t.Parallel()
 
@@ -703,6 +759,172 @@ func TestServiceInstallGitHubPluginAutoEnablesAndUninstalls(t *testing.T) {
 	}
 	if _, err := os.Stat(installDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected install directory to be removed, got %v", err)
+	}
+}
+
+func TestServiceInstallGitHubNodePackagePreparesBeforeInstall(t *testing.T) {
+	t.Parallel()
+
+	fixture := t.TempDir()
+	writeTestManifest(t, fixture, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.external-node-plugin",
+		"name": "External Node Plugin",
+		"version": "1.0.0",
+		"entry": {
+			"type": "nodePackage",
+			"package": "@acme/relay-switch-plugin",
+			"version": "1.2.3",
+			"bin": "relay-switch-plugin",
+			"args": ["serve"]
+		},
+		"contributes": {},
+		"permissions": []
+	}`)
+	if err := os.WriteFile(filepath.Join(fixture, "package.json"), []byte(`{
+		"name": "@acme/relay-switch-plugin",
+		"bin": {"relay-switch-plugin": "./dist/main.js"},
+		"scripts": {"build": "node build.js"}
+	}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(fixture, "pnpm-lock.yaml"), []byte("lockfileVersion: '9.0'\n"), 0o644); err != nil {
+		t.Fatalf("write lockfile: %v", err)
+	}
+
+	managedDir := filepath.Join(t.TempDir(), "managed")
+	prepareLog := filepath.Join(t.TempDir(), "prepare.log")
+	service := newTestExtensionServiceWithOptions(t, ServiceOptions{
+		ManagedInstallDir: managedDir,
+		GitExecutable:     writeFakeGit(t, fixture),
+		PrepareExecutable: writeFakePrepare(t, prepareLog, true),
+		PrepareArgs:       []string{"prepare"},
+	})
+
+	installed, err := service.Install(context.Background(), InstallPluginInput{
+		Source: "github",
+		URL:    "https://github.com/acme/external-node-plugin",
+	})
+	if err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if installed.Install == nil || installed.Install.InstallDir == "" {
+		t.Fatalf("expected install metadata, got %+v", installed.Install)
+	}
+	content, err := os.ReadFile(prepareLog)
+	if err != nil {
+		t.Fatalf("read prepare log: %v", err)
+	}
+	if !strings.Contains(string(content), "prepare") {
+		t.Fatalf("expected prepare command to run, got %q", string(content))
+	}
+
+	plan, err := RuntimePlanForPlugin(*installed)
+	if err != nil {
+		t.Fatalf("build runtime plan: %v", err)
+	}
+	if plan.Command != "node" || len(plan.Args) == 0 || !strings.HasSuffix(plan.Args[0], filepath.Join("dist", "main.js")) {
+		t.Fatalf("expected prepared local runtime plan, got %+v", plan)
+	}
+}
+
+func TestServiceInstallGitHubNodePackagePrepareFailureCleansClone(t *testing.T) {
+	t.Parallel()
+
+	fixture := t.TempDir()
+	writeTestManifest(t, fixture, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.broken-node-plugin",
+		"name": "Broken Node Plugin",
+		"version": "1.0.0",
+		"entry": {
+			"type": "nodePackage",
+			"package": "@acme/relay-switch-plugin",
+			"version": "1.2.3",
+			"bin": "relay-switch-plugin"
+		},
+		"contributes": {},
+		"permissions": []
+	}`)
+	if err := os.WriteFile(filepath.Join(fixture, "package.json"), []byte(`{
+		"name": "@acme/relay-switch-plugin",
+		"bin": {"relay-switch-plugin": "./dist/main.js"},
+		"scripts": {"build": "node build.js"}
+	}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	managedDir := filepath.Join(t.TempDir(), "managed")
+	service := newTestExtensionServiceWithOptions(t, ServiceOptions{
+		ManagedInstallDir: managedDir,
+		GitExecutable:     writeFakeGit(t, fixture),
+		PrepareExecutable: writeFakePrepare(t, filepath.Join(t.TempDir(), "prepare.log"), false),
+		PrepareArgs:       []string{"prepare"},
+	})
+
+	if _, err := service.Install(context.Background(), InstallPluginInput{
+		Source: "github",
+		URL:    "https://github.com/acme/broken-node-plugin",
+	}); err == nil || !errors.Is(err, ErrInvalidPluginSource) {
+		t.Fatalf("expected prepare failure, got %v", err)
+	}
+	if _, err := service.GetByID(context.Background(), "acme.broken-node-plugin"); !errors.Is(err, ErrPluginNotFound) {
+		t.Fatalf("expected failed install not to be persisted, got %v", err)
+	}
+	entries, err := os.ReadDir(managedDir)
+	if err != nil {
+		t.Fatalf("read managed dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected failed clone to be cleaned, got %d entries", len(entries))
+	}
+}
+
+func TestServiceInstallGitHubNodePackageRequiresLocalPackageBin(t *testing.T) {
+	t.Parallel()
+
+	fixture := t.TempDir()
+	writeTestManifest(t, fixture, ".", `{
+		"manifestVersion": 1,
+		"id": "acme.mismatched-node-plugin",
+		"name": "Mismatched Node Plugin",
+		"version": "1.0.0",
+		"entry": {
+			"type": "nodePackage",
+			"package": "@acme/relay-switch-plugin",
+			"version": "1.2.3",
+			"bin": "relay-switch-plugin"
+		},
+		"contributes": {},
+		"permissions": []
+	}`)
+	if err := os.WriteFile(filepath.Join(fixture, "package.json"), []byte(`{
+		"name": "@acme/different-plugin",
+		"bin": {"relay-switch-plugin": "./dist/main.js"}
+	}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	managedDir := filepath.Join(t.TempDir(), "managed")
+	service := newTestExtensionServiceWithOptions(t, ServiceOptions{
+		ManagedInstallDir: managedDir,
+		GitExecutable:     writeFakeGit(t, fixture),
+		PrepareExecutable: writeFakePrepare(t, filepath.Join(t.TempDir(), "prepare.log"), true),
+		PrepareArgs:       []string{"prepare"},
+	})
+
+	if _, err := service.Install(context.Background(), InstallPluginInput{
+		Source: "github",
+		URL:    "https://github.com/acme/mismatched-node-plugin",
+	}); err == nil || !errors.Is(err, ErrInvalidPluginSource) {
+		t.Fatalf("expected local package bin failure, got %v", err)
+	}
+	entries, err := os.ReadDir(managedDir)
+	if err != nil {
+		t.Fatalf("read managed dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected failed clone to be cleaned, got %d entries", len(entries))
 	}
 }
 
@@ -906,6 +1128,24 @@ func writeFakeGit(t *testing.T, fixtureDir string) string {
 		"esac\n"
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake git: %v", err)
+	}
+	return path
+}
+
+func writeFakePrepare(t *testing.T, logPath string, success bool) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "prepare")
+	exitBlock := "mkdir -p dist\nprintf '%s\\n' 'console.log(\"ok\");' > dist/main.js\n"
+	if !success {
+		exitBlock = "echo 'build failed' >&2\nexit 9\n"
+	}
+	script := "#!/bin/sh\n" +
+		"set -eu\n" +
+		"printf '%s\\n' \"$*\" >> " + shellQuote(logPath) + "\n" +
+		exitBlock
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake prepare: %v", err)
 	}
 	return path
 }

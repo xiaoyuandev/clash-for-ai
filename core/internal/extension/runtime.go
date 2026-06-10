@@ -89,7 +89,7 @@ func RuntimePlanForPlugin(plugin Plugin) (PluginRuntimePlan, error) {
 		if err := validateNodePackageEntry(entry); err != nil {
 			return PluginRuntimePlan{}, err
 		}
-		if plugin.Install != nil && plugin.Install.SourceType == string(PluginSourceLocalDirectory) {
+		if plugin.Install != nil && (plugin.Install.SourceType == string(PluginSourceLocalDirectory) || plugin.Install.SourceType == string(PluginSourceGitHub)) {
 			plan, ok, err := localNodePackageRuntimePlan(entry, filepath.Dir(plugin.ManifestPath))
 			if err != nil {
 				return PluginRuntimePlan{}, err
