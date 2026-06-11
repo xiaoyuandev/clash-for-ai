@@ -125,6 +125,23 @@ After installation, the default endpoints are:
 1. Web management UI: `http://127.0.0.1:3456`
 2. OpenAI-compatible local endpoint: `http://127.0.0.1:3456/v1`
 
+To override the listen host and port during installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 bash
+```
+
+`0.0.0.0` binds all interfaces. For remote access, use the server IP or domain, for example `http://<server-ip>:8080`.
+
+After installation, the helper command can also update the runtime config:
+
+```bash
+env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 relay-switch start
+```
+
+This writes the values to the installed `relay-switch.env`, so future starts keep using them. If `relay-switch start` finds the service already running, it restarts it to apply the current config. If another service owns the target port, it prints a clear error and refuses to start.
+
 **Service management**
 
 The installer creates a `systemd --user` service by default:

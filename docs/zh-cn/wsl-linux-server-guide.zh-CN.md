@@ -72,28 +72,39 @@ http://127.0.0.1:3456
 
 ```bash
 RELAY_SWITCH_VERSION=vX.Y.Z
+RELAY_SWITCH_HTTP_HOST=127.0.0.1
 RELAY_SWITCH_HTTP_PORT=3456
 RELAY_SWITCH_LOCAL_GATEWAY_PORT=3457
 RELAY_SWITCH_INSTALL_ROOT="$HOME/.local/share/relay-switch"
 RELAY_SWITCH_DATA_DIR="$HOME/.local/share/relay-switch/data"
 ```
 
-例如把主入口改到 `8080`：
+例如把主入口改到 `8080` 并监听所有网卡：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_HTTP_PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 bash
 ```
 
 安装完成后的主入口会变成：
 
 ```text
-http://127.0.0.1:8080/v1
+http://<server-ip>:8080/v1
 ```
+
+安装完成后，也可以通过辅助命令更新同一份运行配置：
+
+```bash
+env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 relay-switch start
+```
+
+这会把配置写入安装目录下的 `relay-switch.env`，后续不带环境变量启动也会沿用。`relay-switch start` 如果发现服务已经在运行，会自动重启以应用当前配置；如果目标端口被其他服务占用，会明确报错并拒绝启动。
 
 如果你需要固定到某个已发布版本或执行回滚，可以显式指定：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 回滚时同样使用这个方式，把 `RELAY_SWITCH_VERSION` 改成目标 release tag 即可。

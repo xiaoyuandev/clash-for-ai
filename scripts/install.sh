@@ -193,36 +193,319 @@ set -euo pipefail
 SERVICE_NAME="$SERVICE_NAME"
 ENV_FILE="$ENV_FILE"
 CORE_BIN="$INSTALL_ROOT/bin/relay-switch-core"
+EOF
 
-run_foreground() {
-  set -a
-  # shellcheck disable=SC1090
-  source "\$ENV_FILE"
-  set +a
-  exec "\$CORE_BIN"
+cat >>"$LAUNCHER" <<'EOF'
+info() {
+  printf '[relay-switch] %s\n' "$*"
 }
 
-case "\${1:-start}" in
-  start)
-    if command -v systemctl >/dev/null 2>&1 && systemctl --user --version >/dev/null 2>&1; then
-      systemctl --user start "\$SERVICE_NAME"
-      systemctl --user --no-pager --full status "\$SERVICE_NAME" || true
-    else
-      run_foreground
+fail() {
+  printf '[relay-switch] error: %s\n' "$*" >&2
+  exit 1
+}
+
+has_systemd_user() {
+  command -v systemctl >/dev/null 2>&1 || return 1
+  systemctl --user --version >/dev/null 2>&1 || return 1
+}
+
+require_systemd_user() {
+  has_systemd_user || fail "systemd --user is unavailable; use 'relay-switch run' to start in the foreground"
+}
+
+validate_port() {
+  local port="$1"
+  case "$port" in
+    ''|*[!0-9]*) fail "HTTP port must be an integer from 1 to 65535, got: $port" ;;
+  esac
+  if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    fail "HTTP port must be an integer from 1 to 65535, got: $port"
+  fi
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local tmp_file
+
+  [ -f "$ENV_FILE" ] || fail "runtime env file not found: $ENV_FILE"
+  tmp_file="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { replaced = 0 }
+    $0 ~ "^" key "=" {
+      print key "=" value
+      replaced = 1
+      next
+    }
+    { print }
+    END {
+      if (!replaced) {
+        print key "=" value
+      }
+    }
+  ' "$ENV_FILE" >"$tmp_file"
+  mv "$tmp_file" "$ENV_FILE"
+}
+
+apply_runtime_overrides() {
+  RUNTIME_CONFIG_CHANGED=0
+  HTTP_HOST_CHANGED=0
+  HTTP_PORT_CHANGED=0
+
+  if [ -n "${RELAY_SWITCH_HTTP_HOST:-}" ]; then
+    HTTP_HOST="$RELAY_SWITCH_HTTP_HOST"
+    HTTP_HOST_CHANGED=1
+    RUNTIME_CONFIG_CHANGED=1
+  fi
+
+  if [ -n "${RELAY_SWITCH_HTTP_PORT:-}" ]; then
+    validate_port "$RELAY_SWITCH_HTTP_PORT"
+    HTTP_PORT="$RELAY_SWITCH_HTTP_PORT"
+    HTTP_PORT_CHANGED=1
+    RUNTIME_CONFIG_CHANGED=1
+  fi
+
+  validate_port "$HTTP_PORT"
+}
+
+persist_runtime_overrides() {
+  if [ "${HTTP_HOST_CHANGED:-0}" -eq 1 ]; then
+    set_env_value "HTTP_HOST" "$HTTP_HOST"
+  fi
+
+  if [ "${HTTP_PORT_CHANGED:-0}" -eq 1 ]; then
+    set_env_value "HTTP_PORT" "$HTTP_PORT"
+  fi
+
+  if [ "${RUNTIME_CONFIG_CHANGED:-0}" -eq 1 ]; then
+    info "updated runtime config in $ENV_FILE"
+  fi
+}
+
+prepare_runtime_config() {
+  load_runtime_config
+  apply_runtime_overrides
+}
+
+load_runtime_config() {
+  [ -f "$ENV_FILE" ] || fail "runtime env file not found: $ENV_FILE"
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  HTTP_HOST="${HTTP_HOST:-127.0.0.1}"
+  HTTP_PORT="${HTTP_PORT:-3456}"
+  validate_port "$HTTP_PORT"
+}
+
+port_is_listening() {
+  local port="$1"
+
+  if command -v ss >/dev/null 2>&1; then
+    ss -H -ltn "sport = :$port" 2>/dev/null | grep . >/dev/null
+    return
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -n -P -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | grep . >/dev/null
+    return
+  fi
+
+  fail "cannot check port $port because neither 'ss' nor 'lsof' is available"
+}
+
+listener_pids_for_port() {
+  local port="$1"
+  local pids=""
+
+  if command -v ss >/dev/null 2>&1; then
+    pids="$(ss -H -ltnp "sport = :$port" 2>/dev/null | grep -Eo 'pid=[0-9]+' | cut -d= -f2 | sort -u || true)"
+    if [ -n "$pids" ]; then
+      printf '%s\n' "$pids"
+      return
     fi
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -t -n -P -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u || true
+  fi
+}
+
+service_is_active() {
+  has_systemd_user && systemctl --user is-active --quiet "$SERVICE_NAME"
+}
+
+service_main_pid() {
+  has_systemd_user || return 0
+  systemctl --user show "$SERVICE_NAME" -p MainPID --value 2>/dev/null || true
+}
+
+pid_matches_core() {
+  local pid="$1"
+  local main_pid="${2:-}"
+  local core_real
+  local exe_real
+  local cmdline
+
+  if [ -n "$main_pid" ] && [ "$main_pid" != "0" ] && [ "$pid" = "$main_pid" ]; then
+    return 0
+  fi
+
+  core_real="$(readlink -f "$CORE_BIN" 2>/dev/null || printf '%s' "$CORE_BIN")"
+  exe_real="$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)"
+  if [ -n "$exe_real" ] && [ "$exe_real" = "$core_real" ]; then
+    return 0
+  fi
+
+  if [ -r "/proc/$pid/cmdline" ]; then
+    cmdline="$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)"
+    case "$cmdline" in
+      *"$CORE_BIN"*) return 0 ;;
+    esac
+  fi
+
+  return 1
+}
+
+pids_match_core_binary() {
+  local pids="$1"
+  local pid
+  local matched=0
+
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    matched=1
+    pid_matches_core "$pid" "" || return 1
+  done <<EOF_PIDS
+$pids
+EOF_PIDS
+
+  [ "$matched" -eq 1 ]
+}
+
+port_owned_by_current_service() {
+  local port="$1"
+  local main_pid
+  local pids
+  local pid
+  local matched=0
+
+  service_is_active || return 1
+  main_pid="$(service_main_pid)"
+  pids="$(listener_pids_for_port "$port")"
+  [ -n "$pids" ] || return 1
+
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    matched=1
+    pid_matches_core "$pid" "$main_pid" || return 1
+  done <<EOF_PIDS
+$pids
+EOF_PIDS
+
+  [ "$matched" -eq 1 ]
+}
+
+format_pids() {
+  tr '\n' ',' | sed 's/,$//'
+}
+
+assert_port_available() {
+  local port="$1"
+  local allow_current_service="${2:-no}"
+  local pids
+  local pid_list
+
+  if ! command -v ss >/dev/null 2>&1 && ! command -v lsof >/dev/null 2>&1; then
+    info "warning: cannot pre-check port $port because neither 'ss' nor 'lsof' is available"
+    return 0
+  fi
+
+  if ! port_is_listening "$port"; then
+    return 0
+  fi
+
+  if [ "$allow_current_service" = "yes" ] && port_owned_by_current_service "$port"; then
+    return 0
+  fi
+
+  pids="$(listener_pids_for_port "$port")"
+  if [ -n "$pids" ]; then
+    pid_list="$(printf '%s\n' "$pids" | format_pids)"
+    if pids_match_core_binary "$pids"; then
+      fail "port $port is already in use by relay-switch-core process PID(s): $pid_list. Stop that process or choose another port with RELAY_SWITCH_HTTP_PORT."
+    fi
+    fail "port $port is already in use by PID(s): $pid_list. Stop that process or choose another port with RELAY_SWITCH_HTTP_PORT."
+  fi
+
+  fail "port $port is already in use, but the owning process could not be identified. Stop the process, check with 'sudo ss -ltnp \"sport = :$port\"', or choose another port with RELAY_SWITCH_HTTP_PORT."
+}
+
+exec_core() {
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  exec "$CORE_BIN"
+}
+
+run_foreground() {
+  prepare_runtime_config
+  assert_port_available "$HTTP_PORT" "no"
+  persist_runtime_overrides
+  exec_core
+}
+
+start_service() {
+  prepare_runtime_config
+
+  if has_systemd_user; then
+    if service_is_active; then
+      assert_port_available "$HTTP_PORT" "yes"
+      persist_runtime_overrides
+      info "$SERVICE_NAME is already running; restarting to apply current config"
+      systemctl --user restart "$SERVICE_NAME"
+    else
+      assert_port_available "$HTTP_PORT" "no"
+      persist_runtime_overrides
+      systemctl --user start "$SERVICE_NAME"
+    fi
+    systemctl --user --no-pager --full status "$SERVICE_NAME" || true
+  else
+    assert_port_available "$HTTP_PORT" "no"
+    persist_runtime_overrides
+    exec_core
+  fi
+}
+
+restart_service() {
+  require_systemd_user
+  prepare_runtime_config
+  assert_port_available "$HTTP_PORT" "yes"
+  persist_runtime_overrides
+  systemctl --user restart "$SERVICE_NAME"
+  systemctl --user --no-pager --full status "$SERVICE_NAME" || true
+}
+
+case "${1:-start}" in
+  start)
+    start_service
     ;;
   stop)
-    systemctl --user stop "\$SERVICE_NAME"
+    require_systemd_user
+    systemctl --user stop "$SERVICE_NAME"
     ;;
   restart)
-    systemctl --user restart "\$SERVICE_NAME"
-    systemctl --user --no-pager --full status "\$SERVICE_NAME" || true
+    restart_service
     ;;
   status)
-    systemctl --user --no-pager --full status "\$SERVICE_NAME"
+    require_systemd_user
+    systemctl --user --no-pager --full status "$SERVICE_NAME"
     ;;
   logs)
-    journalctl --user -u "\$SERVICE_NAME" -n 200 -f
+    require_systemd_user
+    journalctl --user -u "$SERVICE_NAME" -n 200 -f
     ;;
   run)
     run_foreground
@@ -254,13 +537,19 @@ WantedBy=default.target
 EOF
 
   systemctl --user daemon-reload
-  systemctl --user enable --now "$SERVICE_NAME"
+  systemctl --user enable "$SERVICE_NAME"
+  "$LAUNCHER" start
 else
   info "systemd --user is unavailable; use '$LAUNCHER run' to start manually"
 fi
 
 append_path_hint
 setup_wsl_hint
+
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
 
 info "installation completed"
 info "Release: $VERSION"

@@ -41,7 +41,8 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scrip
 Pinned release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 Development-only source install:
@@ -61,17 +62,27 @@ The production installer supports:
 
 ```bash
 RELAY_SWITCH_VERSION=vX.Y.Z
+RELAY_SWITCH_HTTP_HOST=127.0.0.1
 RELAY_SWITCH_HTTP_PORT=3456
 RELAY_SWITCH_LOCAL_GATEWAY_PORT=3457
 RELAY_SWITCH_INSTALL_ROOT="$HOME/.local/share/relay-switch"
 RELAY_SWITCH_DATA_DIR="$HOME/.local/share/relay-switch/data"
 ```
 
-Example:
+Example, binding the main entrypoint to all interfaces on port `8080`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_HTTP_PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 bash
 ```
+
+After installation, the helper command can update the same runtime config:
+
+```bash
+env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 relay-switch start
+```
+
+This writes the values to the installed `relay-switch.env`, so future starts keep using them. If `relay-switch start` finds the service already running, it restarts it to apply the current config. If another service owns the target port, it prints a clear error and refuses to start.
 
 ## 5. Service Management
 
@@ -123,7 +134,8 @@ After startup:
 To roll back to an older stable release, reinstall with a pinned tag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 ## 9. Troubleshooting

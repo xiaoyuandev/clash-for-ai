@@ -125,11 +125,19 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scrip
 如果需要在安装时指定监听地址和端口，可以通过环境变量覆盖默认值：
 
 ```bash
-RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 \
-  curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 bash
 ```
 
 `0.0.0.0` 表示监听所有网卡，远程访问时请使用服务器实际 IP 或域名，例如 `http://<server-ip>:8080`。
+
+安装完成后，也可以通过辅助命令更新运行配置：
+
+```bash
+env RELAY_SWITCH_HTTP_HOST=0.0.0.0 RELAY_SWITCH_HTTP_PORT=8080 relay-switch start
+```
+
+这会把配置写入安装目录下的 `relay-switch.env`，后续不带环境变量启动也会沿用。`relay-switch start` 如果发现服务已经在运行，会自动重启以应用当前配置；如果目标端口被其他服务占用，会明确报错并拒绝启动。
 
 **服务管理**
 

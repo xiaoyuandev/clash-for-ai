@@ -55,7 +55,8 @@ curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scrip
 Pinned release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | RELAY_SWITCH_VERSION=vX.Y.Z bash
+curl -fsSL https://raw.githubusercontent.com/xiaoyuandev/relay-switch/main/scripts/install.sh | \
+  env RELAY_SWITCH_VERSION=vX.Y.Z bash
 ```
 
 Development-only source install:
