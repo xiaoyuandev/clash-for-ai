@@ -15,7 +15,6 @@ import { ToolsPage } from "./pages/tools-page";
 import { useTheme } from "./theme/theme-provider";
 import type { AuthMode, Provider } from "./types/provider";
 import type { CreateLocalGatewayModelSourceInput } from "./types/local-gateway";
-import { getRuntimeLabel } from "./utils/runtime-label";
 import appIcon from "../../../build/icon.png";
 import {
   appBackdropClass,
@@ -27,8 +26,6 @@ import {
   heroClass,
   heroCopyClass,
   heroTitleClass,
-  iconBadgeClass,
-  inputClass,
   modalBackdropClass,
   modalPanelClass,
   metaClass,
@@ -37,8 +34,7 @@ import {
   pageShellClass,
   sectionMetaClass,
   sectionTitleClass,
-  statusDotClass,
-  statusPillClass
+  statusDotClass
 } from "./ui";
 
 interface DesktopState {
@@ -234,15 +230,10 @@ export default function App() {
   const [modelsRefreshToken, setModelsRefreshToken] = useState(0);
   const [pendingImportRequest, setPendingImportRequest] = useState<ImportRequest | null>(null);
   const [importBusy, setImportBusy] = useState(false);
-  const [dismissedUpdateReminderKey, setDismissedUpdateReminderKey] = useState<string | null>(null);
+  const [dismissedUpdateReminderKey] = useState<string | null>(null);
   const autoUpdateCheckStartedRef = useRef(false);
   const lastUpdateToastKeyRef = useRef<string | null>(null);
   const lastHandledDeepLinkEventIdRef = useRef<string | null>(null);
-  const runtimeLabel = getRuntimeLabel(desktopState?.runtime, {
-    desktopApp: t("settings.value.desktopApp"),
-    browser: t("settings.value.browser"),
-    unknown: t("settings.value.unknown")
-  });
   const navItems = [
     {
       id: "providers",
@@ -688,73 +679,74 @@ export default function App() {
       <div className={appBackdropClass} />
       <div className="relative mx-auto flex h-screen w-full max-w-[1600px] flex-row gap-3 overflow-hidden px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
         <aside
-          className={`${glassPanelClass} flex h-[calc(100vh-1.25rem)] w-[228px] min-w-[228px] flex-col gap-3 overflow-y-auto p-3 sm:h-[calc(100vh-1.5rem)] xl:h-[calc(100vh-2rem)]`}
+          className={`${glassPanelClass} flex h-[calc(100vh-1.25rem)] w-[72px] min-w-[72px] flex-col items-center gap-3 overflow-visible p-3 sm:h-[calc(100vh-1.5rem)] xl:h-[calc(100vh-2rem)]`}
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5">
+          <div className="flex flex-col items-center">
+            <div className="group relative flex items-center justify-center">
               <img
                 src={appIcon}
                 alt="Relay Switch"
-                className="h-9 w-9 rounded-lg shadow-[0_8px_18px_rgba(15,23,42,0.14)]"
+                className="h-10 w-10 rounded-lg shadow-[0_8px_18px_rgba(15,23,42,0.14)]"
               />
-              <div className="min-w-0">
+              <div className="sr-only">
                 <p className={`${eyebrowClass} mb-1`}>AI Gateway</p>
-                <h2 className="truncate text-lg font-semibold text-[color:var(--color-heading)]">
-                  Relay Switch
-                </h2>
+                <h2>Relay Switch</h2>
               </div>
+              <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                Relay Switch
+              </span>
             </div>
-            <p className={metaClass}>
-              {selectedProvider
-                ? t("app.currentProvider", { name: selectedProvider.name })
-                : t("app.selectProviderHint")}
-            </p>
           </div>
 
-          <nav className="grid gap-1.5">
+          <nav className="grid w-full justify-items-center gap-1.5">
             {navItems.map(({ id, label, icon }) => (
-              <button
-                key={id}
-                type="button"
-                className={navButtonClass(view === id)}
-                onClick={() => {
-                  setView(id as typeof view);
-                }}
-              >
-                <span className="flex items-center gap-3">
-                  <span className={iconBadgeClass}>{icon}</span>
-                  <span>{label}</span>
+              <div key={id} className="group relative flex justify-center">
+                <button
+                  type="button"
+                  className={`${navButtonClass(view === id)} h-10 w-10 justify-center px-0`}
+                  onClick={() => {
+                    setView(id as typeof view);
+                  }}
+                  aria-label={label}
+                  title={label}
+                >
+                  {icon}
+                </button>
+                <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                  {label}
                 </span>
-              </button>
+              </div>
             ))}
           </nav>
 
-          <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <label className="min-w-0 flex-1">
-                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
-                  {t("app.language")}
-                </span>
-                <select
-                  className={inputClass}
-                  value={locale}
-                  onChange={(event) => setLocale(event.target.value as typeof locale)}
-                >
-                  {Object.entries(localeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <div className="grid justify-items-center gap-2">
+            <label className="group relative block">
+              <span className="sr-only">{t("app.language")}</span>
+              <select
+                className="h-10 w-10 cursor-pointer appearance-none rounded-lg border text-center text-xs font-semibold [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] outline-none transition hover:[border-color:var(--border-strong)] focus:ring-2 focus:ring-[color:var(--accent-strong)]/20"
+                value={locale}
+                onChange={(event) => setLocale(event.target.value as typeof locale)}
+                aria-label={t("app.language")}
+                title={t("app.language")}
+              >
+                {Object.keys(localeLabels).map((key) => (
+                  <option key={key} value={key}>
+                    {key === "zh" ? "中" : "EN"}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                {t("app.language")}
+              </span>
+            </label>
 
-              <div className="shrink-0">
-                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
-                  {t("app.theme")}
-                </span>
+            <div className="group relative shrink-0">
+              <span className="sr-only">
+                {t("app.theme")}
+              </span>
                 <button
                   type="button"
-                  className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] transition hover:[border-color:var(--border-strong)] hover:[background:var(--panel-soft)]"
+                  className={`${buttonClass("secondary")} h-10 w-10 px-0`}
                   onClick={() => toggleTheme()}
                   aria-label={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
                   title={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
@@ -769,82 +761,61 @@ export default function App() {
                     </svg>
                   )}
                 </button>
-              </div>
+              <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                {resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
+              </span>
             </div>
           </div>
 
-          <div className="mt-auto grid gap-3">
+          <div className="mt-auto grid justify-items-center gap-2">
             {updates && showUpdateReminder ? (
-              <div className="rounded-lg border [border-color:var(--success-border)] [background:var(--panel-solid)] p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-sm font-medium text-[color:var(--color-text)]">
-                      <span className={statusDotClass("warning")} />
-                      {updates.status === "downloaded"
-                        ? t("updates.card.installReady")
-                        : t("updates.card.availableCompact")}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-lg text-[color:var(--color-subtle)] transition hover:[background:var(--panel-soft)] hover:text-[color:var(--color-text)]"
-                    onClick={() => setDismissedUpdateReminderKey(updateReminderKey)}
-                    aria-label={t("common.close")}
-                    title={t("common.close")}
-                  >
-                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    className={buttonClass(
-                      desktopState?.platform === "darwin" || updates.status === "downloaded"
-                        ? "primary"
-                        : "secondary"
-                    )}
-                    onClick={() =>
-                      void (desktopState?.platform === "darwin"
-                        ? handleOpenReleasePage()
-                        : updates.status === "downloaded"
-                          ? handleQuitAndInstallUpdate()
-                          : handleDownloadUpdate())
-                    }
-                  >
-                    {desktopState?.platform === "darwin"
-                      ? t("settings.button.openReleasePage")
+              <div className="group relative">
+                <button
+                  type="button"
+                  className={`${buttonClass(
+                    desktopState?.platform === "darwin" || updates.status === "downloaded"
+                      ? "primary"
+                      : "secondary"
+                  )} h-10 w-10 px-0`}
+                  onClick={() =>
+                    void (desktopState?.platform === "darwin"
+                      ? handleOpenReleasePage()
                       : updates.status === "downloaded"
-                        ? t("settings.button.installUpdate")
-                        : t("settings.button.downloadUpdate")}
-                  </button>
-                </div>
+                        ? handleQuitAndInstallUpdate()
+                        : handleDownloadUpdate())
+                  }
+                  aria-label={
+                    updates.status === "downloaded"
+                      ? t("updates.card.installReady")
+                      : t("updates.card.availableCompact")
+                  }
+                  title={
+                    updates.status === "downloaded"
+                      ? t("updates.card.installReady")
+                      : t("updates.card.availableCompact")
+                  }
+                >
+                  <span className={statusDotClass("warning")} />
+                </button>
+                <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                  {updates.status === "downloaded"
+                    ? t("updates.card.installReady")
+                    : t("updates.card.availableCompact")}
+                </span>
               </div>
             ) : null}
-            <span
-              className={statusPillClass(
-                desktopState?.core.running ? "success" : "danger"
-              )}
-            >
-              {t("app.runtimeChip", {
-                status: desktopState?.core.running ? t("app.coreRunning") : t("app.coreStopped"),
-                port: desktopState?.core.port ?? "-"
-              })}
-            </span>
-            <div className="rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
-              <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
+            <div className="group relative flex h-10 w-10 items-center justify-center rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)]">
                 <span
                   className={statusDotClass(
                     desktopState?.core.running ? "success" : "danger"
                   )}
                 />
-                Runtime
-              </p>
-              <p className="text-sm text-[color:var(--color-text)]">
-                {runtimeLabel} · {desktopState?.platform ?? "-"}
-              </p>
-              <p className={sectionMetaClass}>{desktopState?.apiBase ?? "-"}</p>
+              <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                {t("app.runtimeChip", {
+                  status: desktopState?.core.running ? t("app.coreRunning") : t("app.coreStopped"),
+                  port: desktopState?.core.port ?? "-"
+                })}
+              </span>
             </div>
           </div>
         </aside>

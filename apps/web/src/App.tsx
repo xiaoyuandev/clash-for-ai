@@ -33,6 +33,48 @@ import {
   statusPillClass
 } from "./ui";
 
+function WebNavIcon({ id }: { id: string }) {
+  const className = "h-4 w-4 fill-current";
+
+  if (id === "providers") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5zM6.5 7a.5.5 0 0 0-.5.5V10h12V7.5a.5.5 0 0 0-.5-.5zM18 12H6v4.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5z" />
+      </svg>
+    );
+  }
+
+  if (id === "models") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+      </svg>
+    );
+  }
+
+  if (id === "tools") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M13.4 3.4a2 2 0 0 1 2.8 0l4.4 4.4a2 2 0 0 1 0 2.8l-2.1 2.1-7.2-7.2zM10.1 6.7 3 13.8V21h7.2l7.1-7.1zM6 18H5v-1l7.4-7.4 1 1z" />
+      </svg>
+    );
+  }
+
+  if (id === "logs") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 5h14v2H5zm0 6h14v2H5zm0 6h9v2H5z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m19.4 13 .1-1-.1-1 2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a8 8 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5" />
+    </svg>
+  );
+}
+
 export default function App() {
   const { locale, localeLabels, setLocale, t } = useI18n();
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -212,42 +254,66 @@ export default function App() {
             {mobileNavOpen ? "Close" : "Menu"}
           </button>
         </div>
-        <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[224px_minmax(0,1fr)]">
+        <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[72px_minmax(0,1fr)]">
           <aside
             className={`${glassPanelClass} ${
               mobileNavOpen ? "flex" : "hidden"
-            } min-h-0 flex-col gap-3 overflow-y-auto p-3 xl:flex`}
+            } min-h-0 flex-col gap-3 overflow-visible p-3 xl:flex xl:items-center`}
           >
-            <div className="space-y-1.5">
-              <p className={fieldLabelClass}>Relay Switch</p>
-              <h1 className="text-lg font-semibold text-[color:var(--color-heading)]">
+            <div className="space-y-1.5 xl:flex xl:flex-col xl:items-center xl:space-y-0">
+              <p className={`${fieldLabelClass} xl:hidden`}>Relay Switch</p>
+              <div className="hidden h-10 w-10 items-center justify-center rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-soft)] text-sm font-semibold text-[color:var(--accent)] xl:flex">
+                RS
+              </div>
+              <h1 className="text-lg font-semibold text-[color:var(--color-heading)] xl:sr-only">
                 Relay Switch Web
               </h1>
-              <p className={metaClass}>{t("tools.overview.subtitle")}</p>
+              <p className={`${metaClass} xl:hidden`}>{t("tools.overview.subtitle")}</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={statusPillClass("warning")}>WSL / Linux server</span>
-              <span className={statusPillClass()}>{t("settings.value.browser")}</span>
+            <div className="flex flex-wrap items-center gap-2 xl:flex-col">
+              <span className={`${statusPillClass("warning")} xl:hidden`}>WSL / Linux server</span>
+              <span className={`${statusPillClass()} xl:hidden`}>{t("settings.value.browser")}</span>
+              <span className="group relative hidden h-8 w-8 items-center justify-center rounded-lg border [border-color:var(--warning-border)] [background:var(--warning-soft)] xl:inline-flex">
+                <span className={statusDotClass("warning")} />
+                <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block">
+                  WSL / Linux server
+                </span>
+              </span>
+              <span className="group relative hidden h-8 w-8 items-center justify-center rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] xl:inline-flex">
+                <span className={statusDotClass()} />
+                <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block">
+                  {t("settings.value.browser")}
+                </span>
+              </span>
             </div>
 
-            <nav className="grid gap-1.5">
+            <nav className="grid gap-1.5 xl:w-full xl:justify-items-center">
               {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={navButtonClass(location.pathname === item.path || (item.path === "/providers" && location.pathname === "/"))}
-                  onClick={() => navigate(item.path)}
-                >
-                  {item.label}
-                </button>
+                <div key={item.id} className="group relative w-full xl:flex xl:justify-center">
+                  <button
+                    type="button"
+                    className={`${navButtonClass(location.pathname === item.path || (item.path === "/providers" && location.pathname === "/"))} xl:h-10 xl:w-10 xl:justify-center xl:px-0`}
+                    onClick={() => navigate(item.path)}
+                    aria-label={item.label}
+                    title={item.label}
+                  >
+                    <span className="hidden xl:block">
+                      <WebNavIcon id={item.id} />
+                    </span>
+                    <span className="xl:hidden">{item.label}</span>
+                  </button>
+                  <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                    {item.label}
+                  </span>
+                </div>
               ))}
             </nav>
 
-            <div className="mt-auto space-y-2.5">
-              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="min-w-0 flex-1">
+            <div className="mt-auto space-y-2.5 xl:w-full">
+              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5 xl:border-0 xl:bg-transparent xl:p-0">
+                <div className="flex items-center justify-between gap-3 xl:flex-col xl:justify-center xl:gap-2">
+                  <label className="min-w-0 flex-1 xl:hidden">
                     <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                       {t("app.language")}
                     </span>
@@ -264,13 +330,33 @@ export default function App() {
                     </select>
                   </label>
 
-                  <div className="shrink-0">
-                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
+                  <label className="group relative hidden xl:block">
+                    <span className="sr-only">{t("app.language")}</span>
+                    <select
+                      className="h-10 w-10 cursor-pointer appearance-none rounded-lg border text-center text-xs font-semibold [border-color:var(--border-soft)] [background:var(--panel-solid)] text-[color:var(--color-text)] outline-none transition hover:[border-color:var(--border-strong)] focus:ring-2 focus:ring-[color:var(--accent-strong)]/20"
+                      value={locale}
+                      onChange={(event) => setLocale(event.target.value as typeof locale)}
+                      aria-label={t("app.language")}
+                      title={t("app.language")}
+                    >
+                      {Object.keys(localeLabels).map((key) => (
+                        <option key={key} value={key}>
+                          {key === "zh" ? "中" : "EN"}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                      {t("app.language")}
+                    </span>
+                  </label>
+
+                  <div className="group relative shrink-0">
+                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)] xl:sr-only xl:mb-0">
                       {t("app.theme")}
                     </span>
                     <button
                       type="button"
-                      className={buttonClass("secondary")}
+                      className={`${buttonClass("secondary")} xl:h-10 xl:w-10 xl:px-0`}
                       onClick={toggleTheme}
                       aria-label={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
                       title={resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
@@ -285,25 +371,34 @@ export default function App() {
                         </svg>
                       )}
                     </button>
+                    <span className="pointer-events-none absolute left-[calc(100%+0.5rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block">
+                      {resolvedTheme === "dark" ? t("app.themeLight") : t("app.themeDark")}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3 xl:place-items-center xl:border-0 xl:bg-transparent xl:p-0">
                 <div>
-                  <p className={fieldLabelClass}>Runtime</p>
+                  <p className={`${fieldLabelClass} xl:sr-only`}>Runtime</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+                <div className="flex flex-wrap items-center gap-3 xl:flex-col xl:gap-2">
+                  <span className="group relative inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
                     <span className={statusDotClass(runtimeOverview.core.available ? "success" : "danger")} />
-                    Core
+                    <span className="xl:sr-only">Core</span>
+                    <span className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block">
+                      Core
+                    </span>
                   </span>
-                  <span className="inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+                  <span className="group relative inline-flex items-center gap-2 text-sm text-[color:var(--color-text)]">
                     <span className={statusDotClass(localGatewayTone === "success" ? "success" : "danger")} />
-                    Gateway
+                    <span className="xl:sr-only">Gateway</span>
+                    <span className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-30 hidden -translate-y-1/2 whitespace-nowrap rounded-md border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block">
+                      Gateway
+                    </span>
                   </span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 xl:hidden">
                   <p className={metaClass}>
                     {runtimeOverview.environment
                       ? `${runtimeOverview.environment.os} / ${runtimeOverview.environment.arch}${
