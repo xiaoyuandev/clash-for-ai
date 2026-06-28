@@ -798,7 +798,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
         ) : null}
       </section>
 
-      <section className={sectionCardClass}>
+      <section className={`${sectionCardClass} flex min-h-[420px] flex-1 flex-col`}>
         <div className={sectionHeadClass}>
           <div className="space-y-1">
             <h2 className={sectionTitleClass}>{t("models.sources.title")}</h2>
@@ -815,7 +815,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
           </div>
         </div>
 
-        <div className={`${scrollListClass} mt-4 max-h-[360px]`}>
+        <div className={`${scrollListClass} mt-4 min-h-0 flex-1`}>
           {sources.length === 0 ? (
             <div className={emptyStateClass}>
               <p>{loading ? t("common.loading") : t("models.sources.empty")}</p>

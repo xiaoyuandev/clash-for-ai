@@ -123,7 +123,7 @@ export function selectableItemClass(active: boolean) {
 }
 
 export const listClass = "grid gap-2.5";
-export const splitLayoutClass = "grid gap-3 xl:grid-cols-[304px_minmax(0,1fr)]";
+export const splitLayoutClass = "grid gap-3 lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[304px_minmax(0,1fr)]";
 export const actionRowClass = "flex flex-wrap items-center gap-2";
 export const stickySearchClass =
   "sticky top-0 z-10 -mx-2 rounded-lg px-2 py-1.5 [background:var(--panel-glass)]";

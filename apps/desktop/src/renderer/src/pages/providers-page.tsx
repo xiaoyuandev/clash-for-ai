@@ -1019,7 +1019,7 @@ export function ProvidersPage({
       </section>
 
       <section className={`${splitLayoutClass} min-h-0 flex-1 overflow-hidden`}>
-        <section className={`${columnCardClass} min-h-0 h-full overflow-hidden`}>
+        <section className={`${columnCardClass} max-lg:hidden min-h-0 h-full overflow-hidden`}>
           <div className={sectionHeadClass}>
             <div className="space-y-1">
               <h2 className={sectionTitleClass}>{t("providers.list.title")}</h2>
@@ -1205,7 +1205,7 @@ export function ProvidersPage({
             </div>
           ) : (
             <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden pr-1">
-              <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+              <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.1fr)_minmax(240px,0.9fr)] gap-4 overflow-y-auto pr-1 2xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
                   <section className="flex min-h-0 flex-col overflow-hidden">
                     <div className={sectionHeadClass}>
                       <div className="space-y-1">
