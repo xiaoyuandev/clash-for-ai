@@ -741,7 +741,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-4 py-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] px-3 py-2.5">
           <span className={statusPillClass(runtimeStateTone)}>
             {runtime.runtime.state.toUpperCase()}
           </span>
@@ -1121,7 +1121,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
               </label>
               <label className={`${labelClass} md:col-span-2`}>
                 <span className={fieldLabelClass}>{t("models.form.models")}</span>
-                <div className="grid gap-3 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-3">
+                <div className="grid gap-3 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-soft)] p-3">
                   {selectedPresetProvider ? (
                     <p className={metaClass}>
                       {t("models.form.presetSource", {

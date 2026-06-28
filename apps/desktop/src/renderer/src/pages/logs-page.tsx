@@ -163,7 +163,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
             <h1 className={heroTitleClass}>{t("logs.title")}</h1>
           </div>
           <p className={heroCopyClass}>{t("logs.subtitle")}</p>
-          <p className="max-w-2xl rounded-[16px] border [border-color:var(--success-border)] [background:var(--success-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--success-text)]">
+          <p className="max-w-2xl rounded-lg border [border-color:var(--success-border)] [background:var(--success-soft)] px-3 py-2 text-sm leading-5 text-[color:var(--success-text)]">
             {t("logs.privacy.localOnly")}
           </p>
         </div>
@@ -258,8 +258,8 @@ export function LogsPage({ apiBase }: LogsPageProps) {
             </div>
           </div>
         ) : (
-          <div className="mt-4 overflow-hidden rounded-[18px] border [border-color:var(--border-soft)] [background:var(--panel-solid)]">
-            <div className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] gap-2.5 border-b [border-color:var(--border-soft)] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+          <div className="mt-4 overflow-x-auto rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)]">
+            <div className="grid min-w-[920px] grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] gap-2.5 border-b [border-color:var(--border-soft)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
               <span>{t("logs.columns.time")}</span>
               <span>{t("logs.columns.method")}</span>
               <span>{t("logs.columns.path")}</span>
@@ -278,7 +278,7 @@ export function LogsPage({ apiBase }: LogsPageProps) {
                 return (
                   <article
                     key={log.id}
-                    className="grid grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] items-center gap-2.5 px-3 py-2.5 text-sm"
+                    className="grid min-w-[920px] grid-cols-[1.05fr_80px_1.25fr_1fr_1.2fr_100px_88px] items-center gap-2.5 px-3 py-2 text-sm transition hover:[background:var(--panel-soft)]"
                     title={
                       log.error_message
                         ? `${localTime}\n${log.method} ${log.path}\n${log.provider_name}\n${log.model ?? "-"}\n${log.error_message}`

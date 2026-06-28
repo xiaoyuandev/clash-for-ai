@@ -190,11 +190,17 @@ export default function App() {
     <div className={appShellClass}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
       <div className={appBackdropClass} />
-      <div className="relative mx-auto h-full min-h-0 w-full max-w-[1600px] px-3 py-3 sm:px-4 sm:py-4 xl:px-6">
-        <div className={`${glassPanelClass} mb-4 flex items-center justify-between gap-3 px-4 py-3 xl:hidden`}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:[background:var(--panel-glass)] focus:px-3 focus:py-2 focus:text-sm focus:text-[color:var(--color-text)] focus:shadow-[var(--shadow-panel)]"
+      >
+        Skip to main content
+      </a>
+      <div className="relative mx-auto h-full min-h-0 w-full max-w-[1600px] px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
+        <div className={`${glassPanelClass} mb-3 flex items-center justify-between gap-3 px-3 py-2 xl:hidden`}>
           <div className="min-w-0">
             <p className={fieldLabelClass}>Relay Switch</p>
-            <p className="text-base font-semibold text-[color:var(--color-heading)]">Relay Switch Web</p>
+            <p className="truncate text-sm font-semibold text-[color:var(--color-heading)]">Relay Switch Web</p>
           </div>
           <button
             type="button"
@@ -206,15 +212,15 @@ export default function App() {
             {mobileNavOpen ? "Close" : "Menu"}
           </button>
         </div>
-        <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[224px_minmax(0,1fr)]">
           <aside
             className={`${glassPanelClass} ${
               mobileNavOpen ? "flex" : "hidden"
-            } min-h-0 flex-col gap-4 overflow-y-auto p-4 xl:flex`}
+            } min-h-0 flex-col gap-3 overflow-y-auto p-3 xl:flex`}
           >
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className={fieldLabelClass}>Relay Switch</p>
-              <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--color-heading)]">
+              <h1 className="text-lg font-semibold text-[color:var(--color-heading)]">
                 Relay Switch Web
               </h1>
               <p className={metaClass}>{t("tools.overview.subtitle")}</p>
@@ -225,7 +231,7 @@ export default function App() {
               <span className={statusPillClass()}>{t("settings.value.browser")}</span>
             </div>
 
-            <nav className="grid gap-2">
+            <nav className="grid gap-1.5">
               {navItems.map((item) => (
                 <button
                   key={item.id}
@@ -238,11 +244,11 @@ export default function App() {
               ))}
             </nav>
 
-            <div className="mt-auto space-y-3">
-              <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
+            <div className="mt-auto space-y-2.5">
+              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <label className="min-w-0 flex-1">
-                    <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                       {t("app.language")}
                     </span>
                     <select
@@ -259,7 +265,7 @@ export default function App() {
                   </label>
 
                   <div className="shrink-0">
-                    <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                       {t("app.theme")}
                     </span>
                     <button
@@ -283,7 +289,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+              <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
                 <div>
                   <p className={fieldLabelClass}>Runtime</p>
                 </div>
@@ -315,7 +321,7 @@ export default function App() {
             </div>
           </aside>
 
-          <main className="min-h-0 min-w-0 overflow-y-auto">
+          <main id="main-content" className="min-h-0 min-w-0 overflow-y-auto">
             <Routes>
               <Route
                 path="/"

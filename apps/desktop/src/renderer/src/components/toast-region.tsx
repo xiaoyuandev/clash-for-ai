@@ -33,11 +33,11 @@ export function ToastRegion({ items, onDismiss }: ToastRegionProps) {
   }
 
   return (
-    <div className="pointer-events-none fixed right-5 top-5 z-[60] grid w-[min(360px,calc(100vw-2rem))] gap-3">
+    <div className="pointer-events-none fixed right-3 top-3 z-[60] grid w-[min(360px,calc(100vw-1.5rem))] gap-2">
       {items.map((item) => (
         <div
           key={item.id}
-          className={`pointer-events-auto rounded-3xl border px-4 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl ${
+          className={`pointer-events-auto rounded-lg border px-3 py-2.5 shadow-[var(--shadow-panel)] ${
             item.tone === "success"
               ? "[border-color:var(--success-border)] [background:var(--success-soft)] text-[color:var(--success-text)]"
               : item.tone === "error"
@@ -55,7 +55,7 @@ export function ToastRegion({ items, onDismiss }: ToastRegionProps) {
                     : "bg-[color:var(--color-subtle)]"
               }`}
             />
-            <p className="text-sm leading-6">{item.message}</p>
+            <p className="text-sm leading-5">{item.message}</p>
           </div>
         </div>
       ))}

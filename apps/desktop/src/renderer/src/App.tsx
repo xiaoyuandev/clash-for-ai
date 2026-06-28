@@ -593,6 +593,12 @@ export default function App() {
   return (
     <div className={appShellClass}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:[background:var(--panel-glass)] focus:px-3 focus:py-2 focus:text-sm focus:text-[color:var(--color-text)] focus:shadow-[var(--shadow-panel)]"
+      >
+        Skip to main content
+      </a>
       {pendingImportRequest ? (
         <div className={modalBackdropClass} role="presentation">
           <section
@@ -680,20 +686,20 @@ export default function App() {
         </div>
       ) : null}
       <div className={appBackdropClass} />
-      <div className="relative mx-auto flex h-screen w-full max-w-[1600px] flex-row gap-3 overflow-hidden px-3 py-3 sm:px-4 sm:py-4 xl:gap-4 xl:px-6">
+      <div className="relative mx-auto flex h-screen w-full max-w-[1600px] flex-row gap-3 overflow-hidden px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
         <aside
-          className={`${glassPanelClass} flex h-[calc(100vh-1.5rem)] w-[248px] min-w-[248px] flex-col gap-4 overflow-y-auto px-3 py-4 sm:h-[calc(100vh-2rem)] sm:w-[260px] sm:min-w-[260px] sm:px-4 xl:h-[calc(100vh-3rem)]`}
+          className={`${glassPanelClass} flex h-[calc(100vh-1.25rem)] w-[228px] min-w-[228px] flex-col gap-3 overflow-y-auto p-3 sm:h-[calc(100vh-1.5rem)] xl:h-[calc(100vh-2rem)]`}
         >
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2.5">
               <img
                 src={appIcon}
                 alt="Relay Switch"
-                className="h-11 w-11 rounded-xl shadow-[0_10px_22px_rgba(15,23,42,0.16)]"
+                className="h-9 w-9 rounded-lg shadow-[0_8px_18px_rgba(15,23,42,0.14)]"
               />
               <div className="min-w-0">
                 <p className={`${eyebrowClass} mb-1`}>AI Gateway</p>
-                <h2 className="truncate bg-[linear-gradient(135deg,var(--accent-strong),#a5f3fc)] bg-clip-text text-[24px] font-semibold tracking-[-0.05em] text-transparent">
+                <h2 className="truncate text-lg font-semibold text-[color:var(--color-heading)]">
                   Relay Switch
                 </h2>
               </div>
@@ -705,7 +711,7 @@ export default function App() {
             </p>
           </div>
 
-          <nav className="grid gap-2">
+          <nav className="grid gap-1.5">
             {navItems.map(({ id, label, icon }) => (
               <button
                 key={id}
@@ -723,10 +729,10 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="grid gap-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
+          <div className="grid gap-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-2.5">
             <div className="flex items-center justify-between gap-3">
               <label className="min-w-0 flex-1">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                   {t("app.language")}
                 </span>
                 <select
@@ -743,7 +749,7 @@ export default function App() {
               </label>
 
               <div className="shrink-0">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                   {t("app.theme")}
                 </span>
                 <button
@@ -769,7 +775,7 @@ export default function App() {
 
           <div className="mt-auto grid gap-3">
             {updates && showUpdateReminder ? (
-              <div className="rounded-[16px] border [border-color:var(--success-border)] [background:var(--panel-solid)] p-3">
+              <div className="rounded-lg border [border-color:var(--success-border)] [background:var(--panel-solid)] p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm font-medium text-[color:var(--color-text)]">
@@ -826,8 +832,8 @@ export default function App() {
                 port: desktopState?.core.port ?? "-"
               })}
             </span>
-            <div className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
-              <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-subtle)]">
+            <div className="rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
+              <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-subtle)]">
                 <span
                   className={statusDotClass(
                     desktopState?.core.running ? "success" : "danger"
@@ -843,7 +849,7 @@ export default function App() {
           </div>
         </aside>
 
-        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <section id="main-content" className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {coreStartError ? (
             <div className="mx-auto mb-3 flex w-full max-w-[1600px] flex-col gap-3 rounded-[18px] border [border-color:var(--danger-border)] [background:var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">

@@ -452,7 +452,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[332px_minmax(0,1fr)]">
+      <section className="grid gap-3 xl:grid-cols-[304px_minmax(0,1fr)]">
         <div className={`${sectionCardClass} min-w-0`}>
           <div className={sectionHeadClass}>
             <div className="space-y-1">
@@ -584,7 +584,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           </div>
 
           {selectedTool.supportsAdapter ? (
-            <div className={`${infoCardClass} mt-4 p-4`}>
+            <div className={`${infoCardClass} mt-4`}>
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className={fieldLabelClass}>{t("tools.detail.oneClickTitle")}</p>
@@ -623,7 +623,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   </button>
                 </div>
               ) : null}
-              <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
+              <pre className="rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3 text-sm leading-6 text-[color:var(--color-text)]">
                 <code>{connectionGuide.command}</code>
               </pre>
               <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
@@ -639,7 +639,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
           ) : (
             <>
               {selectedTool.id === "cherry-studio" ? (
-                <div className={`${infoCardClass} mt-4 p-4`}>
+                <div className={`${infoCardClass} mt-4`}>
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <p className={fieldLabelClass}>{t("tools.detail.cherryImportTitle")}</p>
@@ -661,7 +661,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               ) : null}
 
               {connectionGuide.supportsManual ? (
-                <div className="mt-4 grid grid-cols-2 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
+                <div className="mt-4 grid grid-cols-2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-1">
                   <button
                     type="button"
                     className={connectMode === "command" ? buttonClass("primary") : buttonClass("ghost")}
@@ -680,7 +680,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
               ) : null}
 
               {connectMode === "command" || !connectionGuide.supportsManual ? (
-                <div className={`${infoCardClass} mt-4 p-4`}>
+                <div className={`${infoCardClass} mt-4`}>
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <p className={fieldLabelClass}>{connectionGuide.title}</p>
@@ -701,7 +701,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                       </svg>
                     </button>
                   </div>
-                  <pre className="rounded-3xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-4 text-sm leading-7 text-[color:var(--color-text)]">
+                  <pre className="rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3 text-sm leading-6 text-[color:var(--color-text)]">
                     <code>{connectionGuide.command}</code>
                   </pre>
                   <div className="mt-3 rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] px-3 py-2.5">
@@ -709,7 +709,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                   </div>
                 </div>
               ) : (
-                <div className={`${infoCardClass} mt-4 p-4`}>
+                <div className={`${infoCardClass} mt-4`}>
                   <div className="mb-4">
                     <p className={fieldLabelClass}>{connectionGuide.manualTitle}</p>
                   </div>
@@ -718,7 +718,7 @@ export function ToolsPage({ desktopState, onCopyText }: ToolsPageProps) {
                       {connectionGuide.manualItems.map((item) => (
                         <div
                           key={item.label}
-                          className="rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3"
+                          className="rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <p className={fieldLabelClass}>{item.label}</p>

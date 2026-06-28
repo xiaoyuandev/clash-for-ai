@@ -438,7 +438,7 @@ export function SettingsPage({
     <main className={pageShellClass}>
       <ToastRegion items={toasts} onDismiss={dismissToast} />
       <section className={heroClass}>
-        <div className="space-y-4">
+        <div className="space-y-2">
           <div>
             <p className={eyebrowClass}>Relay Switch</p>
             <h1 className={heroTitleClass}>{t("settings.title")}</h1>
@@ -526,7 +526,7 @@ export function SettingsPage({
         </div>
 
         {desktopState?.core.lastError ? (
-          <p className="mt-5 rounded-2xl border [border-color:var(--danger-border)] [background:var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
+          <p className="mt-4 rounded-lg border [border-color:var(--danger-border)] [background:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger-text)]">
             <span className={monoClass}>{desktopState.core.lastError}</span>
           </p>
         ) : null}
@@ -650,7 +650,7 @@ export function SettingsPage({
         </div>
 
         {hasAvailableMacUpdate ? (
-          <p className="mt-4 rounded-2xl border [border-color:var(--success-border)] [background:var(--success-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--success-text)]">
+          <p className="mt-4 rounded-lg border [border-color:var(--success-border)] [background:var(--success-soft)] px-3 py-2 text-sm leading-5 text-[color:var(--success-text)]">
             {t("settings.meta.macManualUpdate")}
           </p>
         ) : null}

@@ -353,7 +353,7 @@ function createWindow(forceShow = false): void {
     minHeight: 680,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: "#171310",
+    backgroundColor: "#0f172a",
     icon: iconPath,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),

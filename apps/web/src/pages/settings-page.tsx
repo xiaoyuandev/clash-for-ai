@@ -164,9 +164,9 @@ export function SettingsPage({
           </div>
         </div>
 
-        <div className="mt-4 rounded-[16px] border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3.5">
+        <div className="mt-4 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-solid)] p-3">
           <p className={hintClass}>{t("settings.webUpdate.commandHint")}</p>
-          <code className={`${monoClass} mt-3 block rounded-xl border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3`}>
+          <code className={`${monoClass} mt-3 block rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-input)] p-3`}>
             {installCommand}
           </code>
           {copyFeedback ? <p className={`${hintClass} mt-2`}>{copyFeedback}</p> : null}
