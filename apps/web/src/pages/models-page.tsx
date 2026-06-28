@@ -119,6 +119,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [runtimePanelOpen, setRuntimePanelOpen] = useState(false);
+  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [sourceName, setSourceName] = useState("");
@@ -826,89 +827,51 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
               const modelIDs = collectModelIDs(source);
 
               return (
-                <article key={source.id} className={queueItemClass}>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-[15px] font-semibold text-[color:var(--color-heading)]">
-                        {source.name}
-                      </strong>
-                      <span className={statusPillClass(source.enabled ? "success" : "default")}>
-                        {source.enabled ? t("models.sources.enabled") : t("models.sources.disabled")}
-                      </span>
-                      <span
-                        className={statusPillClass(
-                          source.last_sync_status === "synced"
-                            ? "success"
-                            : source.last_sync_status === "error"
-                              ? "danger"
-                              : "warning"
-                        )}
-                      >
-                        {source.last_sync_status}
-                      </span>
-                    </div>
-                    <p className={monoClass}>{source.base_url}</p>
-                    <p className={metaClass}>{source.provider_type}</p>
-                    <p className={metaClass}>
-                      API Key <span className={monoClass}>{source.api_key_masked || source.api_key}</span>
-                    </p>
-                    <div className="space-y-1">
-                      <p className={metaClass}>{t("models.sources.modelIDs")}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {modelIDs.map((modelID) => (
-                          <span
-                            key={modelID}
-                            className="inline-flex rounded-full border [border-color:var(--border-soft)] [background:var(--panel-soft)] px-2.5 py-1 font-mono text-[11px] text-[color:var(--color-text)]"
-                          >
-                            {modelID}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {capability ? (
-                      <div className="flex flex-wrap gap-2">
-                        <span className={statusPillClass(
-                          capability.models_api_status === "supported"
-                            ? "success"
-                            : capability.models_api_status === "unsupported"
-                              ? "default"
-                              : "warning"
-                        )}>
-                          models {capability.models_api_status}
+                <article key={source.id} className={`${queueItemClass} flex-col`}>
+                  <div className="flex w-full items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-strong)]/35"
+                      aria-expanded={expandedSourceId === source.id}
+                      aria-controls={`model-source-detail-${source.id}`}
+                      onClick={() =>
+                        setExpandedSourceId((current) => (current === source.id ? null : source.id))
+                      }
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-[15px] font-semibold text-[color:var(--color-heading)]">
+                          {source.name}
+                        </strong>
+                        <span className={statusPillClass(source.enabled ? "success" : "default")}>
+                          {source.enabled ? t("models.sources.enabled") : t("models.sources.disabled")}
                         </span>
-                        <span className={statusPillClass(
-                          capability.openai_chat_completions_status === "supported"
-                            ? "success"
-                            : capability.openai_chat_completions_status === "unsupported"
-                              ? "default"
-                              : "warning"
-                        )}>
-                          chat {capability.openai_chat_completions_status}
+                        <span
+                          className={statusPillClass(
+                            source.last_sync_status === "synced"
+                              ? "success"
+                              : source.last_sync_status === "error"
+                                ? "danger"
+                                : "warning"
+                          )}
+                        >
+                          {source.last_sync_status}
                         </span>
-                        <span className={statusPillClass(
-                          capability.stream_status === "supported"
-                            ? "success"
-                            : capability.stream_status === "unsupported"
-                              ? "default"
-                              : "warning"
-                        )}>
-                          stream {capability.stream_status}
+                        <span className={statusPillClass("default")}>
+                          {t("models.sources.modelIDs")} {modelIDs.length}
+                        </span>
+                        <span className={statusPillClass("default")}>
+                          {expandedSourceId === source.id
+                            ? t("models.sources.hideDetails")
+                            : t("models.sources.viewDetails")}
                         </span>
                       </div>
-                    ) : null}
-                    {healthcheck ? (
-                      <p className={metaClass}>
-                        health {healthcheck.status} · {healthcheck.status_code} · {healthcheck.latency_ms}ms
-                        {healthcheck.summary ? ` · ${healthcheck.summary}` : ""}
-                      </p>
-                    ) : null}
-                    {source.last_sync_error ? (
-                      <p className="text-sm text-[color:var(--danger-text)]">
-                        {source.last_sync_error}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <span className={metaClass}>{source.provider_type}</span>
+                        <span className="hidden text-[color:var(--color-subtle)] sm:inline">·</span>
+                        <span className={`${monoClass} truncate`}>{source.base_url}</span>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
                     <div className="relative flex items-center">
                       <button
                         type="button"
@@ -992,6 +955,83 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
                       </div>
                     </div>
                   </div>
+                  </div>
+
+                  {expandedSourceId === source.id ? (
+                    <div
+                      id={`model-source-detail-${source.id}`}
+                      className="mt-3 w-full space-y-3 border-t [border-color:var(--border-soft)] pt-3"
+                    >
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <p className={fieldLabelClass}>{t("models.form.baseUrl")}</p>
+                          <p className={`${monoClass} mt-1`}>{source.base_url}</p>
+                        </div>
+                        <div>
+                          <p className={fieldLabelClass}>{t("models.form.apiKey")}</p>
+                          <p className={`${monoClass} mt-1`}>{source.api_key_masked || source.api_key}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className={fieldLabelClass}>{t("models.sources.modelIDs")}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {modelIDs.map((modelID) => (
+                            <span
+                              key={modelID}
+                              className="inline-flex rounded-md border [border-color:var(--border-soft)] [background:var(--panel-soft)] px-2 py-1 font-mono text-[11px] text-[color:var(--color-text)]"
+                            >
+                              {modelID}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {capability ? (
+                        <div className="flex flex-wrap gap-2">
+                          <span className={statusPillClass(
+                            capability.models_api_status === "supported"
+                              ? "success"
+                              : capability.models_api_status === "unsupported"
+                                ? "default"
+                                : "warning"
+                          )}>
+                            models {capability.models_api_status}
+                          </span>
+                          <span className={statusPillClass(
+                            capability.openai_chat_completions_status === "supported"
+                              ? "success"
+                              : capability.openai_chat_completions_status === "unsupported"
+                                ? "default"
+                                : "warning"
+                          )}>
+                            chat {capability.openai_chat_completions_status}
+                          </span>
+                          <span className={statusPillClass(
+                            capability.stream_status === "supported"
+                              ? "success"
+                              : capability.stream_status === "unsupported"
+                                ? "default"
+                                : "warning"
+                          )}>
+                            stream {capability.stream_status}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {healthcheck ? (
+                        <p className={metaClass}>
+                          health {healthcheck.status} · {healthcheck.status_code} · {healthcheck.latency_ms}ms
+                          {healthcheck.summary ? ` · ${healthcheck.summary}` : ""}
+                        </p>
+                      ) : null}
+                      {source.last_sync_error ? (
+                        <p className="text-sm text-[color:var(--danger-text)]">
+                          {source.last_sync_error}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </article>
               );
             })
