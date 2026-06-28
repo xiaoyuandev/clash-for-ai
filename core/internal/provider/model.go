@@ -34,6 +34,7 @@ type Provider struct {
 	ID                 string             `json:"id"`
 	Name               string             `json:"name"`
 	BaseURL            string             `json:"base_url"`
+	ModelsPath         string             `json:"models_path"`
 	APIKeyRef          string             `json:"-"`
 	APIKey             string             `json:"api_key"`
 	AuthMode           AuthMode           `json:"auth_mode"`

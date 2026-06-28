@@ -13,6 +13,7 @@ function normalizeProvider(value, path) {
 
   const providerType = value.provider_type;
   const baseURL = requiredString(value.base_url, `${path}.base_url`);
+  const modelsPath = normalizeModelsPath(optionalString(value.models_path, `${path}.models_path`) ?? "");
   const modelsAPI = value.models_api;
   if (providerType !== "openai-compatible" && providerType !== "anthropic-compatible") {
     throw new Error(`${path}.provider_type must be openai-compatible or anthropic-compatible`);
@@ -36,9 +37,18 @@ function normalizeProvider(value, path) {
     label: optionalString(value.label, `${path}.label`),
     provider_type: providerType,
     base_url: baseURL,
+    models_path: modelsPath,
     models_api: modelsAPI,
     model_ids: modelIDs
   };
+}
+
+function normalizeModelsPath(value) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
 function normalizePreset(value, path) {

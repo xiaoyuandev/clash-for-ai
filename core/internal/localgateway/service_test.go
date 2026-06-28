@@ -244,6 +244,35 @@ func TestServicePreviewSourceModels(t *testing.T) {
 	}
 }
 
+func TestServicePreviewSourceModelsUsesModelsPathOverride(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/models" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"doubao-seed-code","object":"model"}]}`))
+	}))
+	defer server.Close()
+
+	service := NewService(nil, nil)
+
+	items, err := service.PreviewSourceModels(context.Background(), PreviewModelSourceInput{
+		BaseURL:      server.URL + "/api/v3",
+		ModelsPath:   "/models",
+		APIKey:       "sk-test-openai",
+		ProviderType: "openai-compatible",
+	})
+	if err != nil {
+		t.Fatalf("preview source models: %v", err)
+	}
+
+	if len(items) != 1 || items[0].ID != "doubao-seed-code" {
+		t.Fatalf("unexpected source models: %+v", items)
+	}
+}
+
 func TestServicePreviewSourceModelsRejectsInvalidInput(t *testing.T) {
 	t.Parallel()
 

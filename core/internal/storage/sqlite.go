@@ -116,6 +116,15 @@ CREATE TABLE IF NOT EXISTS providers (
 		return fmt.Errorf("migrate providers runtime_kind column: %w", err)
 	}
 
+	if err := addColumnIfMissing(
+		s.DB,
+		"providers",
+		"models_path",
+		"TEXT NOT NULL DEFAULT ''",
+	); err != nil {
+		return fmt.Errorf("migrate providers models_path column: %w", err)
+	}
+
 	const requestLogsTable = `
 CREATE TABLE IF NOT EXISTS request_logs (
 	id TEXT PRIMARY KEY,
@@ -211,6 +220,15 @@ CREATE TABLE IF NOT EXISTS local_gateway_model_sources (
 
 	if _, err := s.DB.Exec(localGatewayModelSourcesTable); err != nil {
 		return fmt.Errorf("migrate local_gateway_model_sources table: %w", err)
+	}
+
+	if err := addColumnIfMissing(
+		s.DB,
+		"local_gateway_model_sources",
+		"models_path",
+		"TEXT NOT NULL DEFAULT ''",
+	); err != nil {
+		return fmt.Errorf("migrate local_gateway_model_sources models_path column: %w", err)
 	}
 
 	const localGatewayModelSourcesIndex = `

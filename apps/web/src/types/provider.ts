@@ -39,6 +39,7 @@ export interface Provider {
   id: string;
   name: string;
   base_url: string;
+  models_path: string;
   api_key: string;
   auth_mode: AuthMode;
   extra_headers: Record<string, string>;

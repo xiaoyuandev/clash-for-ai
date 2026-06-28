@@ -14,6 +14,7 @@ export interface ModelPresetProvider {
   label?: string;
   provider_type: "openai-compatible" | "anthropic-compatible";
   base_url: string;
+  models_path?: string;
   models_api?: "auto" | "supported" | "unsupported";
   model_ids: string[];
 }

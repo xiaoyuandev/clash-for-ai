@@ -106,6 +106,8 @@ interface ProvidersPageProps {
   onSelectedProviderChange: (provider: Provider | null) => void;
 }
 
+const defaultModelsPath = "/v1/models";
+
 export function ProvidersPage({
   desktopState,
   apiBase,
@@ -127,6 +129,7 @@ export function ProvidersPage({
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [modelsPath, setModelsPath] = useState(defaultModelsPath);
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [providerPresetCatalog, setProviderPresetCatalog] = useState<ProviderPresetCatalog | null>(null);
@@ -207,12 +210,10 @@ export function ProvidersPage({
 
     const keyword = name.trim().toLowerCase();
     if (!keyword) {
-      return providerPresets.slice(0, 8);
+      return providerPresets;
     }
 
-    return providerPresets
-      .filter((preset) => preset.name.toLowerCase().includes(keyword))
-      .slice(0, 8);
+    return providerPresets.filter((preset) => preset.name.toLowerCase().includes(keyword));
   }, [editingId, name, providerPresets]);
 
   const localGatewayReady =
@@ -515,6 +516,7 @@ export function ProvidersPage({
       const payload = {
         name: name.trim(),
         base_url: baseUrl.trim(),
+        models_path: modelsPath.trim(),
         api_key: apiKey.trim(),
         auth_mode: existingProvider?.auth_mode,
         extra_headers: {},
@@ -719,6 +721,7 @@ export function ProvidersPage({
         {
           name: selectedProvider.name,
           base_url: selectedProvider.base_url,
+          models_path: selectedProvider.models_path ?? "",
           api_key: selectedProvider.api_key,
           auth_mode: selectedProvider.auth_mode,
           extra_headers: selectedProvider.extra_headers ?? {},
@@ -915,6 +918,7 @@ export function ProvidersPage({
     setEditingId(provider.id);
     setName(provider.name);
     setBaseUrl(provider.base_url);
+    setModelsPath(provider.models_path || defaultModelsPath);
     setApiKey(provider.api_key ?? "");
     setProviderPresetMenuOpen(false);
     setFeedback(null);
@@ -927,6 +931,7 @@ export function ProvidersPage({
     setEditingId(null);
     setName("");
     setBaseUrl("");
+    setModelsPath(defaultModelsPath);
     setApiKey("");
     setShowApiKey(false);
     setProviderPresetMenuOpen(false);
@@ -949,6 +954,7 @@ export function ProvidersPage({
   function applyProviderPreset(preset: ProviderPreset) {
     setName(preset.name);
     setBaseUrl(preset.base_url);
+    setModelsPath(preset.models_path || defaultModelsPath);
     setProviderPresetMenuOpen(false);
   }
 
@@ -1721,6 +1727,16 @@ export function ProvidersPage({
                   onChange={(event) => setBaseUrl(event.target.value)}
                   placeholder="https://api.example.com/v1"
                 />
+              </label>
+              <label className={labelClass}>
+                <span className={fieldLabelClass}>{t("providers.form.modelsPath")}</span>
+                <input
+                  className={inputClass}
+                  value={modelsPath}
+                  onChange={(event) => setModelsPath(event.target.value)}
+                  placeholder="/models"
+                />
+                <span className={metaClass}>{t("providers.form.modelsPathHint")}</span>
               </label>
               <label className={labelClass}>
                 <span className={fieldLabelClass}>{t("providers.form.apiKey")}</span>

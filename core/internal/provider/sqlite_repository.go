@@ -17,7 +17,7 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 
 func (r *SQLiteRepository) List(ctx context.Context) ([]Provider, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, name, base_url, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
+SELECT id, name, base_url, models_path, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
        is_active, last_health_status, last_healthcheck_at, api_key_masked, claude_code_model_map_json,
        is_system_managed, is_editable, is_deletable, runtime_kind
 FROM providers
@@ -45,7 +45,7 @@ ORDER BY name ASC, id ASC`)
 
 func (r *SQLiteRepository) GetActive(ctx context.Context) (*Provider, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, name, base_url, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
+SELECT id, name, base_url, models_path, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
        is_active, last_health_status, last_healthcheck_at, api_key_masked, claude_code_model_map_json,
        is_system_managed, is_editable, is_deletable, runtime_kind
 FROM providers
@@ -65,7 +65,7 @@ LIMIT 1`)
 
 func (r *SQLiteRepository) GetByID(ctx context.Context, id string) (*Provider, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, name, base_url, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
+SELECT id, name, base_url, models_path, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
        is_active, last_health_status, last_healthcheck_at, api_key_masked, claude_code_model_map_json,
        is_system_managed, is_editable, is_deletable, runtime_kind
 FROM providers
@@ -241,13 +241,14 @@ func (r *SQLiteRepository) Create(ctx context.Context, item Provider) (Provider,
 
 	_, err = r.db.ExecContext(ctx, `
 INSERT INTO providers (
-	id, name, base_url, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
+	id, name, base_url, models_path, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
 	is_active, last_health_status, last_healthcheck_at, api_key_masked, claude_code_model_map_json,
 	is_system_managed, is_editable, is_deletable, runtime_kind
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		item.ID,
 		item.Name,
 		item.BaseURL,
+		item.ModelsPath,
 		item.APIKeyRef,
 		string(item.AuthMode),
 		string(extraHeadersJSON),
@@ -287,12 +288,13 @@ func (r *SQLiteRepository) Update(ctx context.Context, item Provider) (Provider,
 
 	result, err := r.db.ExecContext(ctx, `
 UPDATE providers
-SET name = ?, base_url = ?, api_key_ref = ?, auth_mode = ?, extra_headers_json = ?,
+SET name = ?, base_url = ?, models_path = ?, api_key_ref = ?, auth_mode = ?, extra_headers_json = ?,
     capabilities_json = ?, is_active = ?, last_health_status = ?, last_healthcheck_at = ?, api_key_masked = ?, claude_code_model_map_json = ?,
     is_system_managed = ?, is_editable = ?, is_deletable = ?, runtime_kind = ?
 WHERE id = ?`,
 		item.Name,
 		item.BaseURL,
+		item.ModelsPath,
 		item.APIKeyRef,
 		string(item.AuthMode),
 		string(extraHeadersJSON),
@@ -376,7 +378,7 @@ func (r *SQLiteRepository) Activate(ctx context.Context, id string) (*Provider, 
 	}
 
 	row := tx.QueryRowContext(ctx, `
-SELECT id, name, base_url, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
+SELECT id, name, base_url, models_path, api_key_ref, auth_mode, extra_headers_json, capabilities_json,
        is_active, last_health_status, last_healthcheck_at, api_key_masked, claude_code_model_map_json,
        is_system_managed, is_editable, is_deletable, runtime_kind
 FROM providers
@@ -415,6 +417,7 @@ func scanProvider(scanner providerScanner) (Provider, error) {
 		&item.ID,
 		&item.Name,
 		&item.BaseURL,
+		&item.ModelsPath,
 		&item.APIKeyRef,
 		&authMode,
 		&extraHeadersJSON,

@@ -498,7 +498,7 @@ func (h *Handler) forwardWithFallback(ctx context.Context, input forwardInput) f
 	for index, attempt := range input.attempts {
 		reqURL := *input.baseURL
 		if input.path == "/v1/models" {
-			reqURL.Path = provider.ResolveModelsPath(input.baseURL.Path)
+			reqURL.Path = provider.ResolveModelsPath(input.baseURL.Path, input.activeProvider.ModelsPath)
 		} else {
 			reqURL.Path = resolveUpstreamPath(input.baseURL.Path, input.path)
 		}

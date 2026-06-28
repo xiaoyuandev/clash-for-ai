@@ -1,6 +1,7 @@
 export interface ProviderPreset {
   name: string;
   base_url: string;
+  models_path?: string;
 }
 
 export interface ProviderPresetCatalog {

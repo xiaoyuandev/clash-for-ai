@@ -105,6 +105,8 @@ const emptyCapabilities: LocalGatewayCapabilities = {
   supports_explicit_source_health: false
 };
 
+const defaultModelsPath = "/v1/models";
+
 export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   const { t } = useI18n();
   const [runtime, setRuntime] = useState<LocalGatewayRuntimeResponse>(emptyRuntime);
@@ -124,6 +126,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [sourceName, setSourceName] = useState("");
   const [sourceBaseURL, setSourceBaseURL] = useState("");
+  const [sourceModelsPath, setSourceModelsPath] = useState(defaultModelsPath);
   const [sourceAPIKey, setSourceAPIKey] = useState("");
   const [showSourceAPIKey, setShowSourceAPIKey] = useState(false);
   const [sourceProviderType, setSourceProviderType] = useState<
@@ -313,6 +316,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     setEditingSourceId(null);
     setSourceName("");
     setSourceBaseURL("");
+    setSourceModelsPath(defaultModelsPath);
     setSourceAPIKey("");
     setShowSourceAPIKey(false);
     setSourceProviderType("openai-compatible");
@@ -330,6 +334,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     setEditingSourceId(source.id);
     setSourceName(source.name);
     setSourceBaseURL(source.base_url);
+    setSourceModelsPath(source.models_path || defaultModelsPath);
     setSourceAPIKey(source.api_key || "");
     setShowSourceAPIKey(false);
     setSourceProviderType(source.provider_type);
@@ -357,6 +362,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
   function clearPresetSourceFields() {
     setSourceSelectedPresetID("");
     setSourceBaseURL("");
+    setSourceModelsPath(defaultModelsPath);
     setSourceProviderType("openai-compatible");
     setSourceModelIDsInput("");
     setSourceModelIDsTouched(false);
@@ -406,6 +412,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
 
     setSourceProviderType(provider.provider_type);
     setSourceBaseURL(provider.base_url);
+    setSourceModelsPath(provider.models_path || defaultModelsPath);
     setSourceModelOptions(provider.model_ids);
     setSourceModelIDsInput(provider.model_ids.join(", "));
     setSourceModelIDsTouched(false);
@@ -472,6 +479,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
       void previewLocalGatewaySourceModels(
         {
           base_url: sourceBaseURL.trim(),
+          models_path: sourceModelsPath.trim(),
           api_key: sourceAPIKey.trim(),
           provider_type: sourceProviderType
         },
@@ -522,7 +530,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     return () => {
       window.clearTimeout(timeoutID);
     };
-  }, [apiBase, formOpen, selectedPresetProvider, sourceAPIKey, sourceBaseURL, sourceModelIDsInput, sourceModelIDsTouched, sourceProviderType, t]);
+  }, [apiBase, formOpen, selectedPresetProvider, sourceAPIKey, sourceBaseURL, sourceModelIDsInput, sourceModelIDsTouched, sourceModelsPath, sourceProviderType, t]);
 
   async function handleSaveSource(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -544,6 +552,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
     const payload: CreateLocalGatewayModelSourceInput = {
       name: sourceName.trim(),
       base_url: sourceBaseURL.trim(),
+      models_path: sourceModelsPath.trim(),
       api_key: sourceAPIKey.trim(),
       provider_type: sourceProviderType,
       default_model_id: modelIDs[0],
@@ -630,6 +639,7 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
         {
           name: source.name,
           base_url: source.base_url,
+          models_path: source.models_path ?? "",
           api_key: "",
           provider_type: source.provider_type,
           default_model_id: source.default_model_id,
@@ -1124,6 +1134,32 @@ export function ModelsPage({ apiBase, refreshToken = 0 }: ModelsPageProps) {
                   className={inputClass}
                   value={sourceBaseURL}
                   onChange={(event) => handleSourceBaseURLChange(event.target.value)}
+                />
+              </label>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1.5">
+                  <span className={fieldLabelClass}>{t("models.form.modelsPath")}</span>
+                  <span className="group relative inline-flex">
+                    <span
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full border [border-color:var(--border-soft)] text-[10px] font-bold text-[color:var(--color-subtle)]"
+                      aria-label={t("models.form.modelsPathHint")}
+                      tabIndex={0}
+                    >
+                      ?
+                    </span>
+                    <span
+                      className="pointer-events-none absolute left-1/2 top-[calc(100%+0.45rem)] z-40 hidden w-64 -translate-x-1/2 rounded-lg border [border-color:var(--border-soft)] [background:var(--panel-popup)] px-3 py-2 text-xs font-normal leading-5 text-[color:var(--color-text)] shadow-[var(--shadow-panel)] group-hover:block group-focus-within:block"
+                      role="tooltip"
+                    >
+                      {t("models.form.modelsPathHint")}
+                    </span>
+                  </span>
+                </span>
+                <input
+                  className={inputClass}
+                  value={sourceModelsPath}
+                  onChange={(event) => setSourceModelsPath(event.target.value)}
+                  placeholder="/models"
                 />
               </label>
               <label className={labelClass}>

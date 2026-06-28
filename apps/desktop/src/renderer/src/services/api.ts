@@ -152,6 +152,7 @@ export async function getProviders(apiBase?: string): Promise<Provider[]> {
 export interface CreateProviderInput {
   name: string;
   base_url: string;
+  models_path: string;
   api_key: string;
   auth_mode?: "bearer" | "x-api-key" | "both";
   extra_headers: Record<string, string>;

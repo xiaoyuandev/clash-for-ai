@@ -20,7 +20,7 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 
 func (r *SQLiteRepository) ListSources(ctx context.Context) ([]ModelSource, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, name, base_url, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
+SELECT id, name, base_url, models_path, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
        enabled, position, api_key_masked, last_sync_status, last_sync_error, created_at, updated_at
 FROM local_gateway_model_sources
 ORDER BY position ASC, id ASC`)
@@ -47,7 +47,7 @@ ORDER BY position ASC, id ASC`)
 
 func (r *SQLiteRepository) GetSourceByID(ctx context.Context, id string) (*ModelSource, error) {
 	row := r.db.QueryRowContext(ctx, `
-SELECT id, name, base_url, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
+SELECT id, name, base_url, models_path, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
        enabled, position, api_key_masked, last_sync_status, last_sync_error, created_at, updated_at
 FROM local_gateway_model_sources
 WHERE id = ?`, id)
@@ -71,12 +71,13 @@ func (r *SQLiteRepository) CreateSource(ctx context.Context, item ModelSource) (
 
 	_, err = r.db.ExecContext(ctx, `
 INSERT INTO local_gateway_model_sources (
-	id, name, base_url, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
+	id, name, base_url, models_path, api_key_ref, provider_type, default_model_id, exposed_model_ids_json,
 	enabled, position, api_key_masked, last_sync_status, last_sync_error, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		item.ID,
 		item.Name,
 		item.BaseURL,
+		item.ModelsPath,
 		item.APIKeyRef,
 		item.ProviderType,
 		item.DefaultModelID,
@@ -104,11 +105,12 @@ func (r *SQLiteRepository) UpdateSource(ctx context.Context, item ModelSource) (
 
 	result, err := r.db.ExecContext(ctx, `
 UPDATE local_gateway_model_sources
-SET name = ?, base_url = ?, api_key_ref = ?, provider_type = ?, default_model_id = ?, exposed_model_ids_json = ?,
+SET name = ?, base_url = ?, models_path = ?, api_key_ref = ?, provider_type = ?, default_model_id = ?, exposed_model_ids_json = ?,
     enabled = ?, position = ?, api_key_masked = ?, last_sync_status = ?, last_sync_error = ?, created_at = ?, updated_at = ?
 WHERE id = ?`,
 		item.Name,
 		item.BaseURL,
+		item.ModelsPath,
 		item.APIKeyRef,
 		item.ProviderType,
 		item.DefaultModelID,
@@ -314,6 +316,7 @@ func scanModelSource(scanner modelSourceScanner) (ModelSource, error) {
 		&item.ID,
 		&item.Name,
 		&item.BaseURL,
+		&item.ModelsPath,
 		&item.APIKeyRef,
 		&item.ProviderType,
 		&item.DefaultModelID,

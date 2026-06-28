@@ -132,6 +132,78 @@ func TestFetchModelsAcceptsEmptyOpenAIModelsResponse(t *testing.T) {
 	}
 }
 
+func TestFetchModelsUsesModelsPathOverride(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/api/v3/models" {
+			t.Fatalf("unexpected models path: %s", req.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"doubao-seed-code"}]}`))
+	}))
+	defer upstream.Close()
+
+	service := newTestService(t)
+	ctx := context.Background()
+	item, err := service.Create(ctx, CreateInput{
+		Name:       "Volcengine Coding Plan",
+		BaseURL:    upstream.URL + "/api/v3",
+		ModelsPath: "/models",
+		APIKey:     "sk-test",
+	})
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	models, err := service.FetchModels(ctx, item.ID)
+	if err != nil {
+		t.Fatalf("fetch models: %v", err)
+	}
+	if len(models) != 1 || models[0].ID != "doubao-seed-code" {
+		t.Fatalf("unexpected models: %+v", models)
+	}
+}
+
+func TestResolveModelsPathWithOverride(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		basePath   string
+		modelsPath string
+		want       string
+	}{
+		{
+			name:       "default path does not duplicate v1 base path",
+			basePath:   "/v1",
+			modelsPath: "/v1/models",
+			want:       "/v1/models",
+		},
+		{
+			name:       "models path appends to custom base path",
+			basePath:   "/api/v3",
+			modelsPath: "/models",
+			want:       "/api/v3/models",
+		},
+		{
+			name:       "explicit full custom path is preserved",
+			basePath:   "/api/v3",
+			modelsPath: "/api/v3/models",
+			want:       "/api/v3/models",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := ResolveModelsPath(test.basePath, test.modelsPath); got != test.want {
+				t.Fatalf("unexpected models path: got %q want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestTestModelAvailabilityUsesOpenAIChatCompletions(t *testing.T) {
 	t.Parallel()
 

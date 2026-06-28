@@ -21,7 +21,7 @@ const catalogKeys = new Set([
   "cached_at",
   "last_refresh_error"
 ]);
-const presetKeys = new Set(["name", "base_url"]);
+const presetKeys = new Set(["name", "base_url", "models_path"]);
 
 function normalizePreset(value, path) {
   if (!isObject(value)) {
@@ -31,12 +31,22 @@ function normalizePreset(value, path) {
 
   const name = requiredString(value.name, `${path}.name`);
   const baseURL = requiredString(value.base_url, `${path}.base_url`);
+  const modelsPath = normalizeModelsPath(optionalString(value.models_path, `${path}.models_path`) ?? "");
   validateAbsoluteURL(baseURL, `${path}.base_url`);
 
   return {
     name,
-    base_url: baseURL
+    base_url: baseURL,
+    models_path: modelsPath
   };
+}
+
+function normalizeModelsPath(value) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
 export function normalizeProviderPresetCatalog(value, sourceURL) {

@@ -333,6 +333,7 @@ func (a *AIMiniGatewayAdapter) ListModelSources(ctx context.Context) ([]RuntimeM
 		ExternalID      string   `json:"external_id"`
 		Name            string   `json:"name"`
 		BaseURL         string   `json:"base_url"`
+		ModelsPath      string   `json:"models_path"`
 		ProviderType    string   `json:"provider_type"`
 		DefaultModelID  string   `json:"default_model_id"`
 		ExposedModelIDs []string `json:"exposed_model_ids"`
@@ -352,6 +353,7 @@ func (a *AIMiniGatewayAdapter) ListModelSources(ctx context.Context) ([]RuntimeM
 			ExternalID:      item.ExternalID,
 			Name:            item.Name,
 			BaseURL:         item.BaseURL,
+			ModelsPath:      item.ModelsPath,
 			ProviderType:    item.ProviderType,
 			DefaultModelID:  item.DefaultModelID,
 			ExposedModelIDs: append([]string(nil), item.ExposedModelIDs...),
@@ -555,6 +557,7 @@ func (a *AIMiniGatewayAdapter) syncFromProductStateAtomically(ctx context.Contex
 		ExternalID      string   `json:"external_id,omitempty"`
 		Name            string   `json:"name"`
 		BaseURL         string   `json:"base_url"`
+		ModelsPath      string   `json:"models_path,omitempty"`
 		APIKey          string   `json:"api_key"`
 		ProviderType    string   `json:"provider_type"`
 		DefaultModelID  string   `json:"default_model_id"`
@@ -579,6 +582,7 @@ func (a *AIMiniGatewayAdapter) syncFromProductStateAtomically(ctx context.Contex
 			ExternalID:      firstNonEmpty(source.ExternalID, source.ID),
 			Name:            source.Name,
 			BaseURL:         source.BaseURL,
+			ModelsPath:      source.ModelsPath,
 			APIKey:          source.APIKey,
 			ProviderType:    source.ProviderType,
 			DefaultModelID:  source.DefaultModelID,
@@ -629,6 +633,7 @@ func (a *AIMiniGatewayAdapter) syncFromProductStateLegacy(ctx context.Context, i
 			ExternalID:      firstNonEmpty(source.ExternalID, source.ID),
 			Name:            source.Name,
 			BaseURL:         source.BaseURL,
+			ModelsPath:      source.ModelsPath,
 			APIKey:          source.APIKey,
 			ProviderType:    source.ProviderType,
 			DefaultModelID:  source.DefaultModelID,

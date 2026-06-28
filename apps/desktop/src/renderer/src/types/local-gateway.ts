@@ -4,6 +4,7 @@ export interface LocalGatewayModelSource {
   id: string;
   name: string;
   base_url: string;
+  models_path: string;
   api_key: string;
   provider_type: "openai-compatible" | "anthropic-compatible";
   default_model_id: string;
@@ -84,6 +85,7 @@ export interface LocalGatewaySourceHealthcheck {
 
 export interface PreviewLocalGatewayModelSourceInput {
   base_url: string;
+  models_path: string;
   api_key: string;
   provider_type: "openai-compatible" | "anthropic-compatible";
 }
@@ -97,6 +99,7 @@ export interface LocalGatewaySourceModel {
 export interface CreateLocalGatewayModelSourceInput {
   name: string;
   base_url: string;
+  models_path: string;
   api_key: string;
   provider_type: "openai-compatible" | "anthropic-compatible";
   default_model_id: string;

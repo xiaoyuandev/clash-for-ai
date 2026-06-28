@@ -17,6 +17,7 @@ import (
 type CreateModelSourceInput struct {
 	Name            string   `json:"name"`
 	BaseURL         string   `json:"base_url"`
+	ModelsPath      string   `json:"models_path"`
 	APIKey          string   `json:"api_key"`
 	ProviderType    string   `json:"provider_type"`
 	DefaultModelID  string   `json:"default_model_id"`
@@ -28,6 +29,7 @@ type CreateModelSourceInput struct {
 type UpdateModelSourceInput struct {
 	Name            string   `json:"name"`
 	BaseURL         string   `json:"base_url"`
+	ModelsPath      string   `json:"models_path"`
 	APIKey          string   `json:"api_key"`
 	ProviderType    string   `json:"provider_type"`
 	DefaultModelID  string   `json:"default_model_id"`
@@ -38,6 +40,7 @@ type UpdateModelSourceInput struct {
 
 type PreviewModelSourceInput struct {
 	BaseURL      string `json:"base_url"`
+	ModelsPath   string `json:"models_path"`
 	APIKey       string `json:"api_key"`
 	ProviderType string `json:"provider_type"`
 }
@@ -109,6 +112,7 @@ func (s *Service) CreateSource(ctx context.Context, input CreateModelSourceInput
 		ID:              id,
 		Name:            normalizedInput.Name,
 		BaseURL:         normalizedInput.BaseURL,
+		ModelsPath:      normalizedInput.ModelsPath,
 		APIKeyRef:       apiKeyRef,
 		APIKey:          normalizedInput.APIKey,
 		ProviderType:    normalizedInput.ProviderType,
@@ -138,6 +142,7 @@ func (s *Service) UpdateSource(ctx context.Context, id string, input UpdateModel
 
 	item.Name = normalizedInput.Name
 	item.BaseURL = normalizedInput.BaseURL
+	item.ModelsPath = normalizedInput.ModelsPath
 	item.ProviderType = normalizedInput.ProviderType
 	item.DefaultModelID = normalizedInput.DefaultModelID
 	item.ExposedModelIDs = normalizedInput.ExposedModelIDs
@@ -216,6 +221,7 @@ func (s *Service) BuildSyncInput(ctx context.Context) (SyncInput, error) {
 			ExternalID:      source.ID,
 			Name:            source.Name,
 			BaseURL:         source.BaseURL,
+			ModelsPath:      source.ModelsPath,
 			APIKey:          apiKey,
 			ProviderType:    source.ProviderType,
 			DefaultModelID:  source.DefaultModelID,
@@ -249,7 +255,7 @@ func (s *Service) PreviewSourceModels(ctx context.Context, input PreviewModelSou
 	}
 
 	target := *baseURL
-	target.Path = upstreamprovider.ResolveModelsPath(baseURL.Path)
+	target.Path = upstreamprovider.ResolveModelsPath(baseURL.Path, normalizedInput.ModelsPath)
 	target.RawPath = target.Path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
@@ -444,6 +450,7 @@ func validateSyncSource(source SyncModelSource) error {
 func normalizePreviewSourceInput(input PreviewModelSourceInput) (PreviewModelSourceInput, error) {
 	normalized := PreviewModelSourceInput{
 		BaseURL:      strings.TrimSpace(input.BaseURL),
+		ModelsPath:   normalizeModelsPath(input.ModelsPath),
 		APIKey:       strings.TrimSpace(input.APIKey),
 		ProviderType: strings.TrimSpace(input.ProviderType),
 	}
@@ -460,6 +467,7 @@ func normalizeCreateSourceInput(input CreateModelSourceInput) (CreateModelSource
 	normalized := CreateModelSourceInput{
 		Name:            strings.TrimSpace(input.Name),
 		BaseURL:         strings.TrimSpace(input.BaseURL),
+		ModelsPath:      normalizeModelsPath(input.ModelsPath),
 		APIKey:          strings.TrimSpace(input.APIKey),
 		ProviderType:    strings.TrimSpace(input.ProviderType),
 		DefaultModelID:  strings.TrimSpace(input.DefaultModelID),
@@ -476,6 +484,7 @@ func normalizeUpdateSourceInput(input UpdateModelSourceInput) (UpdateModelSource
 	normalized := UpdateModelSourceInput{
 		Name:            strings.TrimSpace(input.Name),
 		BaseURL:         strings.TrimSpace(input.BaseURL),
+		ModelsPath:      normalizeModelsPath(input.ModelsPath),
 		APIKey:          strings.TrimSpace(input.APIKey),
 		ProviderType:    strings.TrimSpace(input.ProviderType),
 		DefaultModelID:  strings.TrimSpace(input.DefaultModelID),
@@ -519,6 +528,17 @@ func authModeForSourceProviderType(providerType string) upstreamprovider.AuthMod
 	default:
 		return upstreamprovider.AuthModeBearer
 	}
+}
+
+func normalizeModelsPath(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "/") {
+		return trimmed
+	}
+	return "/" + trimmed
 }
 
 func parseSourceModelsResponse(body []byte, providerType string) ([]SourceModelInfo, error) {

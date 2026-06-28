@@ -18,6 +18,7 @@ import (
 type CreateInput struct {
 	Name               string             `json:"name"`
 	BaseURL            string             `json:"base_url"`
+	ModelsPath         string             `json:"models_path"`
 	AuthMode           AuthMode           `json:"auth_mode"`
 	ExtraHeaders       map[string]string  `json:"extra_headers"`
 	APIKey             string             `json:"api_key"`
@@ -27,6 +28,7 @@ type CreateInput struct {
 type UpdateInput struct {
 	Name               string             `json:"name"`
 	BaseURL            string             `json:"base_url"`
+	ModelsPath         string             `json:"models_path"`
 	AuthMode           AuthMode           `json:"auth_mode"`
 	ExtraHeaders       map[string]string  `json:"extra_headers"`
 	APIKey             string             `json:"api_key"`
@@ -191,8 +193,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Provider, erro
 
 	item := Provider{
 		ID:           id,
-		Name:         input.Name,
-		BaseURL:      input.BaseURL,
+		Name:         strings.TrimSpace(input.Name),
+		BaseURL:      strings.TrimSpace(input.BaseURL),
+		ModelsPath:   normalizeModelsPath(input.ModelsPath),
 		APIKeyRef:    apiKeyRef,
 		APIKey:       input.APIKey,
 		AuthMode:     input.AuthMode,
@@ -242,6 +245,7 @@ func (s *Service) Update(ctx context.Context, id string, input UpdateInput) (Pro
 
 	item.Name = strings.TrimSpace(input.Name)
 	item.BaseURL = strings.TrimSpace(input.BaseURL)
+	item.ModelsPath = normalizeModelsPath(input.ModelsPath)
 	item.AuthMode = input.AuthMode
 	item.ExtraHeaders = input.ExtraHeaders
 	item.ClaudeCodeModelMap = normalizeClaudeCodeModelMap(input.ClaudeCodeModelMap)
@@ -542,7 +546,7 @@ func (s *Service) FetchModels(ctx context.Context, id string) ([]ModelInfo, erro
 	}
 
 	target := *baseURL
-	target.Path = ResolveModelsPath(baseURL.Path)
+	target.Path = ResolveModelsPath(baseURL.Path, item.ModelsPath)
 	target.RawPath = target.Path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
@@ -794,8 +798,17 @@ func resolveProviderV1Path(basePath string, requestPath string) string {
 	}
 }
 
-func ResolveModelsPath(basePath string) string {
+func ResolveModelsPath(basePath string, modelsPath ...string) string {
 	trimmed := strings.TrimRight(basePath, "/")
+	if len(modelsPath) > 0 {
+		override := normalizeModelsPath(modelsPath[0])
+		if override != "" {
+			if trimmed != "" && (override == trimmed || strings.HasPrefix(override, trimmed+"/")) {
+				return override
+			}
+			return joinURLPath(trimmed, override)
+		}
+	}
 
 	switch {
 	case trimmed == "":
@@ -805,6 +818,17 @@ func ResolveModelsPath(basePath string) string {
 	default:
 		return trimmed + "/v1/models"
 	}
+}
+
+func normalizeModelsPath(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "/") {
+		return trimmed
+	}
+	return "/" + trimmed
 }
 
 func joinURLPath(basePath string, requestPath string) string {

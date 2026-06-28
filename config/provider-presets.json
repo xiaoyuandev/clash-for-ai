@@ -33,6 +33,15 @@
     {
       "name": "Token云桥",
       "base_url": "https://api.0029.org"
+    },
+    {
+      "name": "火山方舟 Coding Plan",
+      "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "models_path": "/models"
+    },
+    {
+      "name": "阿里百炼",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode"
     }
   ]
 }

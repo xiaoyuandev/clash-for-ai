@@ -51,6 +51,7 @@ type RuntimeModelSource struct {
 	ExternalID      string   `json:"external_id,omitempty"`
 	Name            string   `json:"name"`
 	BaseURL         string   `json:"base_url"`
+	ModelsPath      string   `json:"models_path,omitempty"`
 	ProviderType    string   `json:"provider_type"`
 	DefaultModelID  string   `json:"default_model_id"`
 	ExposedModelIDs []string `json:"exposed_model_ids"`
@@ -63,6 +64,7 @@ type RuntimeModelSourceInput struct {
 	ExternalID      string   `json:"external_id,omitempty"`
 	Name            string   `json:"name"`
 	BaseURL         string   `json:"base_url"`
+	ModelsPath      string   `json:"models_path,omitempty"`
 	APIKey          string   `json:"api_key"`
 	ProviderType    string   `json:"provider_type"`
 	DefaultModelID  string   `json:"default_model_id"`
@@ -76,6 +78,7 @@ type SyncModelSource struct {
 	ExternalID      string   `json:"external_id,omitempty"`
 	Name            string   `json:"name"`
 	BaseURL         string   `json:"base_url"`
+	ModelsPath      string   `json:"models_path,omitempty"`
 	APIKey          string   `json:"api_key"`
 	ProviderType    string   `json:"provider_type"`
 	DefaultModelID  string   `json:"default_model_id"`

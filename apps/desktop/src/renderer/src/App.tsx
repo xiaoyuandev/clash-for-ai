@@ -107,6 +107,7 @@ type ImportRequest =
       data: {
         name: string;
         baseUrl: string;
+        modelsPath: string;
         apiKey: string;
         authMode: AuthMode;
       };
@@ -118,6 +119,7 @@ type ImportRequest =
       data: {
         name: string;
         baseUrl: string;
+        modelsPath: string;
         apiKey: string;
         providerType: "openai-compatible" | "anthropic-compatible";
         modelIds: string[];
@@ -178,6 +180,7 @@ function normalizeImportRequest(event: DeepLinkImportEvent): ImportRequest {
       data: {
         name: readRequiredString(payload, ["name"]),
         baseUrl: readRequiredString(payload, ["baseUrl", "base_url", "endpoint"]),
+        modelsPath: readOptionalString(payload, ["modelsPath", "models_path"]),
         apiKey: readOptionalString(payload, ["apiKey", "api_key"]),
         authMode
       }
@@ -209,6 +212,7 @@ function normalizeImportRequest(event: DeepLinkImportEvent): ImportRequest {
     data: {
       name: readRequiredString(payload, ["name"]),
       baseUrl: readRequiredString(payload, ["baseUrl", "base_url", "endpoint"]),
+      modelsPath: readOptionalString(payload, ["modelsPath", "models_path"]),
       apiKey: readRequiredString(payload, ["apiKey", "api_key"]),
       providerType,
       modelIds: normalizedModelIds
@@ -517,6 +521,7 @@ export default function App() {
           {
             name: pendingImportRequest.data.name,
             base_url: pendingImportRequest.data.baseUrl,
+            models_path: pendingImportRequest.data.modelsPath,
             api_key: pendingImportRequest.data.apiKey,
             auth_mode: pendingImportRequest.data.authMode,
             extra_headers: {},
@@ -539,6 +544,7 @@ export default function App() {
         const payload: CreateLocalGatewayModelSourceInput = {
           name: pendingImportRequest.data.name,
           base_url: pendingImportRequest.data.baseUrl,
+          models_path: pendingImportRequest.data.modelsPath,
           api_key: pendingImportRequest.data.apiKey,
           provider_type: pendingImportRequest.data.providerType,
           default_model_id: pendingImportRequest.data.modelIds[0],
