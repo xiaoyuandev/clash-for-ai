@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../../../../web/src/shared";
 
 @theme {
   --font-sans: "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;

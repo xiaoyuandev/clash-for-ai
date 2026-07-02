@@ -12,6 +12,7 @@ import { ModelsPage } from "./pages/models-page";
 import { ProvidersPage } from "./pages/providers-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
+import { ConversationsPage } from "./pages/conversations-page";
 import { useTheme } from "./theme/theme-provider";
 import type { AuthMode, Provider } from "./types/provider";
 import type { CreateLocalGatewayModelSourceInput } from "./types/local-gateway";
@@ -225,7 +226,7 @@ export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const [desktopState, setDesktopState] = useState<DesktopState | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [view, setView] = useState<"providers" | "tools" | "models" | "logs" | "settings">(
+  const [view, setView] = useState<"providers" | "tools" | "models" | "conversations" | "logs" | "settings">(
     "providers"
   );
   const [bootError, setBootError] = useState<string | null>(null);
@@ -263,6 +264,15 @@ export default function App() {
       icon: (
         <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3 4 7v10l8 4 8-4V7zm0 2.2L17.8 8 12 10.8 6.2 8zM6 9.6l5 2.5v6.2l-5-2.5zm7 8.7v-6.2l5-2.5v6.2z" />
+        </svg>
+      )
+    },
+    {
+      id: "conversations",
+      label: t("app.nav.conversations"),
+      icon: (
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9.8L5 20.6V17a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2m0 2v9h2v1.6l2.9-2.1H19V6zm3 2h8v2H8zm0 4h6v2H8z" />
         </svg>
       )
     },
@@ -866,6 +876,30 @@ export default function App() {
                 }
 
                 await window.desktopBridge.copyText(text);
+              }}
+            />
+          ) : view === "conversations" ? (
+            <ConversationsPage
+              apiBase={desktopState?.apiBase}
+              onCopyText={async (text) => {
+                if (!window.desktopBridge) {
+                  return;
+                }
+
+                await window.desktopBridge.copyText(text);
+              }}
+              onSelectBackupDirectory={async () => {
+                if (!window.desktopBridge) {
+                  return null;
+                }
+                const result = await window.desktopBridge.selectConversationBackupDirectory();
+                return result.path;
+              }}
+              onOpenBackupDirectory={async (path) => {
+                if (!window.desktopBridge) {
+                  return;
+                }
+                await window.desktopBridge.openConversationBackupDirectory(path);
               }}
             />
           ) : view === "logs" ? (

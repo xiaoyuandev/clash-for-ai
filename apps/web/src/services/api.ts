@@ -3,6 +3,13 @@ import type { RequestLog } from "../types/request-log";
 import type { ProviderModel } from "../types/provider-model";
 import type { SelectedModel } from "../types/selected-model";
 import type {
+  ConversationBackupConfig,
+  ConversationBackupResult,
+  ConversationCatalog,
+  ConversationSession,
+  ConversationSourceID
+} from "../types/conversation";
+import type {
   CreateLocalGatewayModelSourceInput,
   LocalGatewayCapabilities,
   LocalGatewayModelSource,
@@ -190,6 +197,64 @@ export async function restoreTool(
     `${getApiBase(apiBase)}/api/tools/${id}/restore`,
     { method: "POST" },
     "Tool restore failed"
+  );
+}
+
+export async function getConversationCatalog(apiBase?: string): Promise<ConversationCatalog> {
+  return fetchJson<ConversationCatalog>(
+    `${getApiBase(apiBase)}/api/conversations/catalog`,
+    {},
+    "Conversation catalog request failed"
+  );
+}
+
+export async function getConversationSession(
+  source: ConversationSourceID,
+  sessionId: string,
+  apiBase?: string
+): Promise<ConversationSession> {
+  const params = new URLSearchParams({ source, session_id: sessionId });
+  return fetchJson<ConversationSession>(
+    `${getApiBase(apiBase)}/api/conversations/session?${params.toString()}`,
+    {},
+    "Conversation session request failed"
+  );
+}
+
+export async function getConversationBackupConfig(
+  apiBase?: string
+): Promise<ConversationBackupConfig> {
+  return fetchJson<ConversationBackupConfig>(
+    `${getApiBase(apiBase)}/api/conversations/backup-config`,
+    {},
+    "Conversation backup config request failed"
+  );
+}
+
+export async function updateConversationBackupConfig(
+  input: ConversationBackupConfig,
+  apiBase?: string
+): Promise<ConversationBackupConfig> {
+  return fetchJson<ConversationBackupConfig>(
+    `${getApiBase(apiBase)}/api/conversations/backup-config`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(input)
+    },
+    "Conversation backup config update failed"
+  );
+}
+
+export async function runConversationBackupNow(
+  apiBase?: string
+): Promise<ConversationBackupResult> {
+  return fetchJson<ConversationBackupResult>(
+    `${getApiBase(apiBase)}/api/conversations/backup-now`,
+    { method: "POST" },
+    "Conversation backup request failed"
   );
 }
 

@@ -33,6 +33,10 @@ const api = {
   }) =>
     ipcRenderer.invoke("app:update-launch-settings", settings),
   copyText: (text: string) => ipcRenderer.invoke("app:copy-text", text),
+  selectConversationBackupDirectory: () =>
+    ipcRenderer.invoke("conversations:select-backup-directory"),
+  openConversationBackupDirectory: (path: string) =>
+    ipcRenderer.invoke("conversations:open-backup-directory", path),
   openCherryStudioImport: () => ipcRenderer.invoke("tools:open-cherry-studio-import"),
   checkUpdates: () => ipcRenderer.invoke("app:check-updates"),
   downloadUpdate: () => ipcRenderer.invoke("app:download-update"),

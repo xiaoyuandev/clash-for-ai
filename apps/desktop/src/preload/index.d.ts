@@ -165,6 +165,8 @@ declare global {
         };
       }>;
       copyText: (text: string) => Promise<{ ok: boolean }>;
+      selectConversationBackupDirectory: () => Promise<{ ok: boolean; path: string | null }>;
+      openConversationBackupDirectory: (path: string) => Promise<{ ok: boolean }>;
       openCherryStudioImport: () => Promise<{ ok: boolean; url: string }>;
       checkUpdates: () => Promise<{
         currentVersion: string;

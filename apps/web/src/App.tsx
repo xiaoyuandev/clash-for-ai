@@ -7,6 +7,7 @@ import { ModelsPage } from "./pages/models-page";
 import { LogsPage } from "./pages/logs-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolsPage } from "./pages/tools-page";
+import { ConversationsPage } from "./pages/conversations-page";
 import { ToastRegion, type ToastItem } from "./components/toast-region";
 import {
   getHealth,
@@ -68,6 +69,14 @@ function WebNavIcon({ id }: { id: string }) {
     );
   }
 
+  if (id === "conversations") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9.8L5 20.6V17a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2m0 2v9h2v1.6l2.9-2.1H19V6zm3 2h8v2H8zm0 4h6v2H8z" />
+      </svg>
+    );
+  }
+
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
       <path d="m19.4 13 .1-1-.1-1 2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a8 8 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5" />
@@ -118,6 +127,7 @@ export default function App() {
       { id: "providers", path: "/providers", label: t("app.nav.providers") },
       { id: "models", path: "/models", label: t("app.nav.models") },
       { id: "tools", path: "/tools", label: t("app.nav.tools") },
+      { id: "conversations", path: "/conversations", label: t("app.nav.conversations") },
       { id: "logs", path: "/logs", label: t("app.nav.logs") },
       { id: "settings", path: "/settings", label: t("app.nav.settings") },
     ],
@@ -451,6 +461,10 @@ export default function App() {
               <Route
                 path="/tools"
                 element={<ToolsPage onCopyText={(text) => navigator.clipboard.writeText(text)} />}
+              />
+              <Route
+                path="/conversations"
+                element={<ConversationsPage onCopyText={(text) => navigator.clipboard.writeText(text)} />}
               />
             </Routes>
           </main>

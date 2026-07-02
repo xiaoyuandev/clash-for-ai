@@ -10,6 +10,7 @@ import (
 
 	"github.com/xiaoyuandev/relay-switch/core/internal/api"
 	"github.com/xiaoyuandev/relay-switch/core/internal/config"
+	"github.com/xiaoyuandev/relay-switch/core/internal/conversation"
 	"github.com/xiaoyuandev/relay-switch/core/internal/credential"
 	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
@@ -53,6 +54,7 @@ func Run() error {
 	})
 	healthService := health.NewService(providerService, credentialStore)
 	toolingService := tooling.NewService(providerService, cfg.DataDir)
+	conversationService := conversation.NewService(cfg.DataDir)
 	gatewayHandler := gateway.NewHandler(providerService, credentialStore, logService)
 
 	if _, err := providerService.EnsureManagedLocalGateway(
@@ -83,6 +85,7 @@ func Run() error {
 	}
 
 	toolingService.BootstrapCodexModelCatalog(context.Background())
+	conversationService.Start(context.Background())
 
 	handler := api.NewRouter(
 		providerService,
@@ -90,6 +93,7 @@ func Run() error {
 		logService,
 		localGatewayManager,
 		toolingService,
+		conversationService,
 		cfg.HTTPPort,
 		cfg.WebAssetsDir,
 		gatewayHandler,

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/xiaoyuandev/relay-switch/core/internal/conversation"
 	"github.com/xiaoyuandev/relay-switch/core/internal/gateway"
 	"github.com/xiaoyuandev/relay-switch/core/internal/health"
 	"github.com/xiaoyuandev/relay-switch/core/internal/localgateway"
@@ -27,6 +28,7 @@ type Router struct {
 	logs      *logging.Service
 	local     *localgateway.Manager
 	tools     *tooling.Service
+	convos    *conversation.Service
 	httpPort  int
 	webDir    string
 	gateway   http.Handler
@@ -38,6 +40,7 @@ func NewRouter(
 	loggingService *logging.Service,
 	localGatewayManager *localgateway.Manager,
 	toolingService *tooling.Service,
+	conversationService *conversation.Service,
 	httpPort int,
 	webAssetsDir string,
 	gatewayHandler *gateway.Handler,
@@ -48,6 +51,7 @@ func NewRouter(
 		logs:      loggingService,
 		local:     localGatewayManager,
 		tools:     toolingService,
+		convos:    conversationService,
 		httpPort:  httpPort,
 		webDir:    webAssetsDir,
 		gateway:   gatewayHandler,
@@ -61,6 +65,10 @@ func NewRouter(
 	mux.HandleFunc("/api/tools", router.handleTools)
 	mux.HandleFunc("/api/tools/codex-model-catalog", router.handleCodexModelCatalog)
 	mux.HandleFunc("/api/tools/", router.handleToolActions)
+	mux.HandleFunc("/api/conversations/catalog", router.handleConversationCatalog)
+	mux.HandleFunc("/api/conversations/session", router.handleConversationSession)
+	mux.HandleFunc("/api/conversations/backup-config", router.handleConversationBackupConfig)
+	mux.HandleFunc("/api/conversations/backup-now", router.handleConversationBackupNow)
 	mux.HandleFunc("/api/local-gateway/runtime", router.handleLocalGatewayRuntime)
 	mux.HandleFunc("/api/local-gateway/capabilities", router.handleLocalGatewayCapabilities)
 	mux.HandleFunc("/api/local-gateway/source-capabilities", router.handleLocalGatewaySourceCapabilities)
@@ -343,6 +351,110 @@ func (r *Router) handleToolActions(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (r *Router) handleConversationCatalog(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.convos == nil {
+		writeJSON(w, http.StatusOK, conversation.Catalog{Sources: []conversation.SourceCatalog{}})
+		return
+	}
+	catalog, err := r.convos.Catalog(req.Context())
+	if err != nil {
+		http.Error(w, "failed to list conversations", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
+}
+
+func (r *Router) handleConversationSession(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.convos == nil {
+		http.Error(w, "conversation service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	source := conversation.SourceID(req.URL.Query().Get("source"))
+	sessionID := strings.TrimSpace(req.URL.Query().Get("session_id"))
+	if source == "" || sessionID == "" {
+		http.Error(w, "source and session_id are required", http.StatusBadRequest)
+		return
+	}
+	session, err := r.convos.GetSession(req.Context(), source, sessionID)
+	if err != nil {
+		if errors.Is(err, conversation.ErrSourceNotFound) || errors.Is(err, conversation.ErrSessionNotFound) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to load conversation session", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
+func (r *Router) handleConversationBackupConfig(w http.ResponseWriter, req *http.Request) {
+	if r.convos == nil {
+		http.Error(w, "conversation service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	switch req.Method {
+	case http.MethodGet:
+		config, err := r.convos.GetConfig(req.Context())
+		if err != nil {
+			http.Error(w, "failed to load conversation backup config", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, config)
+	case http.MethodPut:
+		var input conversation.BackupConfig
+		if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		config, err := r.convos.UpdateConfig(req.Context(), input)
+		if err != nil {
+			if errors.Is(err, conversation.ErrOutputDirRequired) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "failed to update conversation backup config", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, config)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleConversationBackupNow(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.convos == nil {
+		http.Error(w, "conversation service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	result, err := r.convos.BackupNow(req.Context())
+	if err != nil {
+		if errors.Is(err, conversation.ErrOutputDirRequired) {
+			writeJSON(w, http.StatusBadRequest, result)
+			return
+		}
+		if errors.Is(err, conversation.ErrBackupAlreadyRunning) {
+			writeJSON(w, http.StatusConflict, result)
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, result)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (r *Router) handleProviderActions(w http.ResponseWriter, req *http.Request) {

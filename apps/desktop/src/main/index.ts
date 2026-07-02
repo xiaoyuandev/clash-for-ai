@@ -1,4 +1,15 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, shell, Tray } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  shell,
+  Tray,
+  type OpenDialogOptions
+} from "electron";
 import { join } from "path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { loadWorkspaceEnvLocal } from "./dev-env";
@@ -562,6 +573,28 @@ app.whenReady().then(() => {
 
   ipcMain.handle("app:copy-text", async (_, text: string) => {
     clipboard.writeText(text);
+    return { ok: true };
+  });
+
+  ipcMain.handle("conversations:select-backup-directory", async () => {
+    const options: OpenDialogOptions = {
+      properties: ["openDirectory", "createDirectory"],
+      title: "Select conversation backup directory"
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    return {
+      ok: !result.canceled,
+      path: result.filePaths[0] ?? null
+    };
+  });
+
+  ipcMain.handle("conversations:open-backup-directory", async (_, directoryPath: string) => {
+    if (!directoryPath || typeof directoryPath !== "string") {
+      throw new Error("Directory path is required.");
+    }
+    await shell.openPath(directoryPath);
     return { ok: true };
   });
 
